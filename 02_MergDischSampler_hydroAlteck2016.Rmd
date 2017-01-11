@@ -1,0 +1,185 @@
+---
+title: "Merging Discharge & Sampler Data"
+author: "PAZ"
+date: "26 octobre 2016"
+output: pdf_document
+---
+
+```{r, echo=FALSE, message=FALSE, include=FALSE}
+Sys.setlocale("LC_ALL", "English")
+```
+
+## Purpose
+
+This document merges inputed (i.e. corrected) flowmeter data and automatic sampler data. 
+
+Used files:
+
+1. **hydroAlteck2016_smooth_R.csv**
+2. **prelev_20160713.csv**
+
+Produced file:
+
+1. **hydroAlteck2016_R.csv** (Used for plotting Sample and Discharge data together).
+
+## Required R-packages:
+
+```{r, message=FALSE}
+
+# Plotting functions
+library("ggplot2")
+library("scales")
+library("tidyr")
+
+```
+
+## Working directory
+
+```{r, message=FALSE}
+
+# setwd("D:/Documents/these_pablo/Alteckendorf2016/R")
+# setwd("/Users/DayTightChunks/Documents/PhD/Routput/Alteck/R")
+# setwd("D:/Documents/these_pablo/Alteckendorf2016/00_TransparencyFolder/Discharge")
+getwd()
+
+```
+
+
+## Import inputted discharge data 
+
+```{r, message=FALSE}
+
+dischargeAlteck = read.csv2("Data/hydroAlteck2016_smooth_R.csv")
+head(dischargeAlteck)
+
+dischargeAlteck$Date = as.POSIXct(strptime(dischargeAlteck$DateCheck, 
+                                           "%d/%m/%Y %H:%M"
+                                           , tz="EST")
+                                  )
+sum(is.na(dischargeAlteck$Date))
+naDates = dischargeAlteck[is.na(dischargeAlteck$Date == TRUE),]
+
+duplicateAlteck <- dischargeAlteck[duplicated(dischargeAlteck$DateCheck),]
+duplicateAlteck
+
+```
+
+
+## Import raw sampler data (March 25th to Jul 12th)
+
+```{r, message=FALSE}
+
+samplesAlteck = read.csv2("Data/prelev_20160713.csv", header = FALSE)
+
+head(samplesAlteck)
+
+
+samplesAlteck = samplesAlteck[samplesAlteck$V2 != 0, ]
+samplesAlteck$Date = as.POSIXct(strptime(samplesAlteck$V1, 
+                                         "%d/%m/%Y %H:%M", 
+                                         tz="EST"))
+sum(is.na(samplesAlteck$V1))
+
+samplesAlteck = samplesAlteck[,c(3,1:2)]
+colnames(samplesAlteck) <- c("Date", "DateCheck", "sampleQ")
+
+sum(is.na(samplesAlteck$Date))
+
+samplesAlteck = samplesAlteck[order(samplesAlteck$Date),]
+
+head(samplesAlteck)
+
+```
+
+
+## Merge the Discharge and the Samples' dataframes
+
+To merge the two data.frames, we need to correcting minutes in the sample data, some of which took place during odd minutes. 
+
+1. Identify the odd minutes in a temporary data set to discard
+
+```{r, message=FALSE}
+
+discard = merge(dischargeAlteck, samplesAlteck, by = "Date", all = T)
+
+# How many missing Discharge values resulting from the merge?
+sum(is.na(discard$Date))
+sum(is.na(discard$Q.m3Hrs))
+naQs = discard[is.na(discard$Q.m3Hrs == TRUE),]
+
+naQs$Date = naQs$Date+60
+
+naQs = naQs[,c("Date", "DateCheck.y")]
+
+head(naQs)
+head(dischargeAlteck)
+
+
+
+
+```
+
+2. Add these odd-date markers to the flow-meter data (note that Date column remains as even minutes)
+
+```{r, message=FALSE}
+
+# Merge new dates to discharge data 
+hydroAlteck2016 = merge(dischargeAlteck, naQs, by = c("Date"), all = T)
+head(hydroAlteck2016)
+
+# Check number of odd-minute dates, should be 0:
+sum(is.na(hydroAlteck2016$Q.m3Hrs))
+
+# Fill in the rest  of the Target dates (even)
+hydroAlteck2016$DateCheck.S <- ifelse(is.na(hydroAlteck2016$DateCheck.y), 
+                                      as.character(hydroAlteck2016$DateCheck), 
+                                      as.character(hydroAlteck2016$DateCheck.y))
+hydroAlteck2016$DateCheck.y <- NULL
+
+# Create common column name in samples' target column (i.e. DateCheck.S)
+samplesAlteck <- samplesAlteck[, c("DateCheck", "sampleQ")]
+colnames(samplesAlteck) <- c("DateCheck.S", "sampleQ")
+head(samplesAlteck)
+
+```
+
+
+
+3. Merging the two tables
+
+```{r, message=FALSE}
+
+hydroAlteck2016 = merge(hydroAlteck2016, samplesAlteck, by = c("DateCheck.S"), all = T)
+
+# Checks
+sum(is.na(hydroAlteck2016$Date))
+anyDuplicated(hydroAlteck2016$Date)
+
+sum(is.na(hydroAlteck2016$Q.m3Hrs))
+head(hydroAlteck2016)
+
+class(hydroAlteck2016$Date)
+
+# Order by date
+hydroAlteck2016 = hydroAlteck2016[order(hydroAlteck2016$Date),]
+
+```
+
+### Create a "Type"" column to point to Sampling times during plotting
+
+```{r, message=FALSE}
+
+hydroAlteck2016$Type = ifelse(is.na(hydroAlteck2016$sampleQ), "Discharge", "Sample")
+
+head(hydroAlteck2016)
+
+```
+
+
+## Saving
+
+```{r}
+write.csv2(hydroAlteck2016, "Data/hydroAlteck2016_R.csv", row.names = F)
+```
+
+

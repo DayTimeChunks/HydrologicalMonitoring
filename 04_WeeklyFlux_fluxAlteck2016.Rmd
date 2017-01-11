@@ -1,0 +1,317 @@
+---
+title: "Weekly Flux Characterisitics"
+author: "PAZ"
+date: "26 octobre 2016"
+output: pdf_document
+---
+
+
+```{r, echo=FALSE, message=FALSE, include=FALSE}
+Sys.setlocale("LC_ALL", "English")
+```
+
+## Purpose
+
+This document characterizes the flux characteristics of the discharge by sub-weeks. 
+
+Input files:
+
+- **hydroAlteck2016_R.csv**
+- **WeeklyHydro_R.csv** (for reference only)
+
+Output files:
+
+- **groupAlteck2016_R** (line 256)
+- **fluxAlteck2016_R.csv** 
+- 
+
+## Required R-packages:
+
+```{r, message=FALSE}
+
+# Date-time functions
+
+library("ggplot2")
+library("chron")
+library("stringr")
+library("plyr")
+library("dplyr")
+
+
+```
+
+## Working directory
+
+```{r, message=FALSE}
+
+# setwd("D:/Documents/these_pablo/Alteckendorf2016/00_TransparencyFolder")
+getwd()
+
+```
+
+## Import data
+
+```{r, message=FALSE}
+
+grpAlteck = read.csv2("Data/hydroAlteck2016_R.csv")
+head(grpAlteck)
+
+grpAlteck$Date = as.POSIXct(strptime(grpAlteck$Date, "%Y-%m-%d %H:%M", tz="EST"))
+class(grpAlteck$Date)
+sum(is.na(grpAlteck$Date))
+
+```
+
+## Define the Weekly discharge tags
+
+```{r, tidy=TRUE}
+
+grpAlteck$SubWeeks = NA
+grpAlteck$SubWeeks[grpAlteck$Date< as.POSIXct('2016-03-25 12:04:00', tz="EST")]=as.character('W0-0x') # Not sampled
+
+grpAlteck$SubWeeks[grpAlteck$Date >= as.POSIXct('2016-03-25 12:04:00' , tz="EST") & 
+                           grpAlteck$Date < as.POSIXct('2016-03-28 22:37:00' , tz="EST")] = as.character('W0-1')
+
+#
+grpAlteck$SubWeeks[grpAlteck$Date >= as.POSIXct('2016-03-28 22:37:00' , tz="EST") & 
+                           grpAlteck$Date < as.POSIXct('2016-03-30 12:17:00' , tz="EST")] = as.character('W0-2x') # Not sampled
+
+grpAlteck$SubWeeks[grpAlteck$Date >= as.POSIXct('2016-03-30 12:17:00' , tz="EST") & 
+                           grpAlteck$Date < as.POSIXct('2016-03-31 15:35:00' , tz="EST")] = as.character('W1-1')  
+
+grpAlteck$SubWeeks[grpAlteck$Date >= as.POSIXct('2016-03-31 15:35:00' , tz="EST") & 
+                           grpAlteck$Date < as.POSIXct('2016-04-01 14:55:00' , tz="EST")] = as.character('W1-2')
+
+grpAlteck$SubWeeks[grpAlteck$Date >= as.POSIXct('2016-04-01 14:45:00' , tz="EST") & 
+                           grpAlteck$Date < as.POSIXct('2016-04-05 15:07:00' , tz="EST")] = as.character('W1-3x') # Not sampled
+
+grpAlteck$SubWeeks[grpAlteck$Date >= as.POSIXct('2016-04-05 15:07:00' , tz="EST") 
+                         & grpAlteck$Date < as.POSIXct('2016-04-06 14:51:00' , tz="EST")] = as.character('W2-1')  
+
+grpAlteck$SubWeeks[grpAlteck$Date >= as.POSIXct('2016-04-06 14:51:00' , tz="EST") 
+                         & grpAlteck$Date < as.POSIXct('2016-04-09 00:38:50')] = as.character('W2-2')
+
+grpAlteck$SubWeeks[grpAlteck$Date >= as.POSIXct('2016-04-08 00:38:00' , tz="EST") & 
+                           grpAlteck$Date < as.POSIXct('2016-04-14 13:51:00' , tz="EST")] = as.character('W2-3x') # Not sampled
+
+grpAlteck$SubWeeks[grpAlteck$Date >= as.POSIXct('2016-04-14 13:51:00' , tz="EST") & 
+                           grpAlteck$Date < as.POSIXct('2016-04-16 18:32:00' , tz="EST")] = as.character('W3-1')  
+
+grpAlteck$SubWeeks[grpAlteck$Date >= as.POSIXct('2016-04-16 18:32:00' , tz="EST") & 
+                           grpAlteck$Date < as.POSIXct('2016-04-17 09:02:00' , tz="EST")] = as.character('W3-2')
+
+grpAlteck$SubWeeks[grpAlteck$Date >= as.POSIXct('2016-04-17 09:02:00' , tz="EST") & 
+                           grpAlteck$Date < as.POSIXct('2016-04-18 20:30:00' , tz="EST")] = as.character('W3-2.1x') # Not smapled
+
+grpAlteck$SubWeeks[grpAlteck$Date >= as.POSIXct('2016-04-18 20:30:00' , tz="EST") & 
+                           grpAlteck$Date < as.POSIXct('2016-04-21 09:11:00' , tz="EST")] = as.character('W3-3')
+
+grpAlteck$SubWeeks[grpAlteck$Date >= as.POSIXct('2016-04-21 09:11:00' , tz="EST") & 
+                           grpAlteck$Date < as.POSIXct('2016-04-23 06:37:00' , tz="EST")] = as.character('W4-1')
+
+#
+grpAlteck$SubWeeks[grpAlteck$Date >= as.POSIXct('2016-04-23 06:37:00' , tz="EST") & 
+                           grpAlteck$Date < as.POSIXct('2016-04-26 11:50:00' , tz="EST")] = as.character('W4-2x') # Not sampled
+
+grpAlteck$SubWeeks[grpAlteck$Date >= as.POSIXct('2016-04-26 11:50:00' , tz="EST") & 
+                           grpAlteck$Date < as.POSIXct('2016-05-01 10:46:00' , tz="EST")] = as.character('W5-1')
+
+grpAlteck$SubWeeks[grpAlteck$Date >= as.POSIXct('2016-05-01 10:46:00' , tz="EST") & 
+                           grpAlteck$Date < as.POSIXct('2016-05-03 12:02:00' , tz="EST")] = as.character('W5-2')
+
+#
+grpAlteck$SubWeeks[grpAlteck$Date >= as.POSIXct('2016-05-03 12:02:00' , tz="EST") & 
+                           grpAlteck$Date < as.POSIXct('2016-05-03 13:09:00' , tz="EST")] = as.character('W5-3x')
+
+grpAlteck$SubWeeks[grpAlteck$Date >= as.POSIXct('2016-05-03 13:09:00' , tz="EST") & 
+                           grpAlteck$Date < as.POSIXct('2016-05-10 00:05:00' , tz="EST")] = as.character('W6-1')
+
+grpAlteck$SubWeeks[grpAlteck$Date >= as.POSIXct('2016-05-10 00:05:00' , tz="EST") & 
+                           grpAlteck$Date < as.POSIXct('2016-05-12 06:33:00' , tz="EST")] = as.character('W6-2')
+
+grpAlteck$SubWeeks[grpAlteck$Date >= as.POSIXct('2016-05-12 06:33:00' , tz="EST") & 
+                           grpAlteck$Date < as.POSIXct('2016-05-12 09:12:00' , tz="EST")] = as.character('W6-3')
+
+
+grpAlteck$SubWeeks[grpAlteck$Date >= as.POSIXct('2016-05-12 09:12:00' , tz="EST") & 
+                           grpAlteck$Date < as.POSIXct('2016-05-12 12:52:00' , tz="EST")] = as.character('W6-4')
+
+#
+grpAlteck$SubWeeks[grpAlteck$Date >= as.POSIXct('2016-05-12 12:52:00' , tz="EST") & 
+                           grpAlteck$Date < as.POSIXct('2016-05-13 12:05:00' , tz="EST")] = as.character('W6-5x') # Not sampled
+
+grpAlteck$SubWeeks[grpAlteck$Date >= as.POSIXct('2016-05-13 12:05:00' , tz="EST") & 
+                           grpAlteck$Date < as.POSIXct('2016-05-16 15:11:00' , tz="EST")] = as.character('W7-1')
+
+#
+grpAlteck$SubWeeks[grpAlteck$Date >= as.POSIXct('2016-05-16 15:11:00' , tz="EST") & 
+                           grpAlteck$Date < as.POSIXct('2016-05-17 09:16:00' , tz="EST")] = as.character('W7-2x') # Not sampled
+
+grpAlteck$SubWeeks[grpAlteck$Date >= as.POSIXct('2016-05-17 09:16:00' , tz="EST") & 
+                           grpAlteck$Date < as.POSIXct('2016-05-23 18:02:00' , tz="EST")] = as.character('W8-1')
+
+#
+grpAlteck$SubWeeks[grpAlteck$Date >= as.POSIXct('2016-05-23 18:02:00' , tz="EST") & 
+                           grpAlteck$Date < as.POSIXct('2016-05-24 12:00:00' , tz="EST")] = as.character('W8-2x') # Not sampled
+
+
+grpAlteck$SubWeeks[grpAlteck$Date >= as.POSIXct('2016-05-24 12:00:00' , tz="EST") & 
+                           grpAlteck$Date < as.POSIXct('2016-05-29 12:09:00' , tz="EST")] = as.character('W9-1')
+
+grpAlteck$SubWeeks[grpAlteck$Date >= as.POSIXct('2016-05-29 12:09:00' , tz="EST") & 
+                           grpAlteck$Date < as.POSIXct('2016-05-30 05:48:00' , tz="EST")] = as.character('W9-2')
+
+grpAlteck$SubWeeks[grpAlteck$Date >= as.POSIXct('2016-05-30 05:48:00' , tz="EST") & 
+                           grpAlteck$Date < as.POSIXct('2016-05-30 12:11:00' , tz="EST")] = as.character('W9-3')
+
+grpAlteck$SubWeeks[grpAlteck$Date >= as.POSIXct('2016-05-30 12:11:00' , tz="EST") & 
+                           grpAlteck$Date < as.POSIXct('2016-05-30 17:28:00' , tz="EST")] = as.character('W9-4')
+##
+grpAlteck$SubWeeks[grpAlteck$Date >= as.POSIXct('2016-05-30 17:28:00' , tz="EST") & 
+                           grpAlteck$Date < as.POSIXct('2016-05-31 12:00:00' , tz="EST")] = as.character('W9-5x') # Not sampled
+
+grpAlteck$SubWeeks[grpAlteck$Date >= as.POSIXct('2016-05-31 12:00:00' , tz="EST") & 
+                           grpAlteck$Date < as.POSIXct('2016-06-02 12:57:00' , tz="EST")] = as.character('W10-1')
+
+grpAlteck$SubWeeks[grpAlteck$Date >= as.POSIXct('2016-06-02 12:57:00' , tz="EST") & 
+                           grpAlteck$Date < as.POSIXct('2016-06-03 12:05:00' , tz="EST")] = as.character('W10-2')
+
+grpAlteck$SubWeeks[grpAlteck$Date >= as.POSIXct('2016-06-03 12:05:00' , tz="EST") & 
+                           grpAlteck$Date < as.POSIXct('2016-06-04 08:35:00' , tz="EST")] = as.character('W10-3')
+
+grpAlteck$SubWeeks[grpAlteck$Date >= as.POSIXct('2016-06-04 08:35:00' , tz="EST") & 
+                           grpAlteck$Date < as.POSIXct('2016-06-04 11:00:00' , tz="EST")] = as.character('W10-4')
+
+grpAlteck$SubWeeks[grpAlteck$Date >= as.POSIXct('2016-06-04 11:00:00' , tz="EST") & 
+                           grpAlteck$Date < as.POSIXct('2016-06-04 15:31:00' , tz="EST")] = as.character('W10-5')
+
+# 
+grpAlteck$SubWeeks[grpAlteck$Date >= as.POSIXct('2016-06-04 15:31:00' , tz="EST") & 
+                           grpAlteck$Date < as.POSIXct('2016-06-07 12:00:00' , tz="EST")] = as.character('W10-6x') # Not sampled
+
+grpAlteck$SubWeeks[grpAlteck$Date >= as.POSIXct('2016-06-07 12:00:00' , tz="EST") & 
+                           grpAlteck$Date < as.POSIXct('2016-06-10 05:25:00' , tz="EST")] = as.character('W11-1')
+
+grpAlteck$SubWeeks[grpAlteck$Date >= as.POSIXct('2016-06-10 05:25:00' , tz="EST") & 
+                           grpAlteck$Date < as.POSIXct('2016-06-14 12:34:00' , tz="EST")] = as.character('W11-2')
+
+grpAlteck$SubWeeks[grpAlteck$Date >= as.POSIXct('2016-06-14 12:34:00' , tz="EST") & 
+                           grpAlteck$Date < as.POSIXct('2016-06-14 13:06:00' , tz="EST")] = as.character('W11-3')
+
+grpAlteck$SubWeeks[grpAlteck$Date >= as.POSIXct('2016-06-14 13:06:00' , tz="EST") & 
+                           grpAlteck$Date < as.POSIXct('2016-06-15 08:14:00' , tz="EST")] = as.character('W12-1')
+
+grpAlteck$SubWeeks[grpAlteck$Date >= as.POSIXct('2016-06-15 08:14:00' , tz="EST") & 
+                           grpAlteck$Date < as.POSIXct('2016-06-16 08:21:00' , tz="EST")] = as.character('W12-2')
+
+grpAlteck$SubWeeks[grpAlteck$Date >= as.POSIXct('2016-06-16 08:21:00' , tz="EST") & 
+                           grpAlteck$Date < as.POSIXct('2016-06-17 00:49:00' , tz="EST")] = as.character('W12-3')
+
+grpAlteck$SubWeeks[grpAlteck$Date >= as.POSIXct('2016-06-17 00:49:00' , tz="EST") & 
+                           grpAlteck$Date < as.POSIXct('2016-06-17 11:05:00' , tz="EST")] = as.character('W12-4')
+
+#
+grpAlteck$SubWeeks[grpAlteck$Date >= as.POSIXct('2016-06-17 11:05:00' , tz="EST") & 
+                           grpAlteck$Date < as.POSIXct('2016-06-21 12:00:00' , tz="EST")] = as.character('W12-5x')# Not sampled
+
+grpAlteck$SubWeeks[grpAlteck$Date >= as.POSIXct('2016-06-21 12:00:00' , tz="EST") & 
+                           grpAlteck$Date < as.POSIXct('2016-06-24 14:51:00' , tz="EST")] = as.character('W13-1')
+
+grpAlteck$SubWeeks[grpAlteck$Date >= as.POSIXct('2016-06-24 14:51:00' , tz="EST") & 
+                           grpAlteck$Date < as.POSIXct('2016-06-25 07:49:00' , tz="EST")] = as.character('W13-2')
+
+grpAlteck$SubWeeks[grpAlteck$Date >= as.POSIXct('2016-06-25 07:49:00' , tz="EST") & 
+                           grpAlteck$Date < as.POSIXct('2016-06-28 08:55:00' , tz="EST")] = as.character('W13-3')
+
+grpAlteck$SubWeeks[grpAlteck$Date >= as.POSIXct('2016-06-28 08:55:00' , tz="EST") & 
+                           grpAlteck$Date < as.POSIXct('2016-07-04 14:41:00' , tz="EST")] = as.character('W14-1')
+
+grpAlteck$SubWeeks[grpAlteck$Date >= as.POSIXct('2016-07-04 14:41:00', tz="EST") & 
+                           grpAlteck$Date <= as.POSIXct('2016-07-12 10:20:00', tz="EST")] = as.character('W15-1')
+
+head(grpAlteck)
+sum(is.na(grpAlteck$Q.m3Hrs))
+sum(is.na(grpAlteck$SubWeeks))
+
+```
+
+## Define new sub-IDs 
+
+```{r}
+Split <- strsplit(grpAlteck$SubWeeks, "-", fixed = TRUE)
+grpAlteck$Weeks <- sapply(Split, "[", 1)
+
+Split2 <- strsplit(grpAlteck$SubWeeks, "W", fixed = TRUE)
+grpAlteck$WeekNo <- sapply(Split2, "[", 2)
+
+Split3 <- strsplit(grpAlteck$WeekNo, "-", fixed=T)
+grpAlteck$WeekNo <- sapply(Split3, "[", 1)
+grpAlteck$WeekNo = as.numeric(grpAlteck$WeekNo)
+
+```
+
+Save the file in current state, as it is needed in the App. 
+
+```{r}
+write.csv2(grpAlteck, "Data/groupAlteck2016_R.csv", row.names = F)
+```
+
+
+
+## Characterize discharge sub-weeks (i.e. sampled discharge) 
+
+The data frame produced will include, for each sub-week, the:
+
+- initial time (ti)
+- final time (tf)
+- initial discharge (iflux)
+- final discharge (fflux)
+- change in discharge between ti and tf (changeflux)
+- change in discharge to extreme (peak or valley) withing subsample (chExtreme)
+- discharge at peak (peak)
+- minimum discharge (valley)
+- elapsed time in hours (tdiff)
+
+```{r}
+
+
+dflux = grpAlteck %>% 
+  group_by(SubWeeks) %>% 
+  # filter(Type == 'Sample') %>%
+  select(Date, Q.HW1, SubWeeks) %>%
+  summarise(ti= Date[1], 
+            tf = Date[length(Date)], 
+            iflux = Q.HW1[1], 
+            fflux = Q.HW1[length(Q.HW1)], 
+            changeflux = (Q.HW1[length(Q.HW1)] - Q.HW1[1]), 
+            peak = max(Q.HW1), 
+            valley = min(Q.HW1)) 
+
+# Time elapsed within sub-week in hrs (sampled and non-sampled)
+dflux$tdiff = 
+  as.numeric(difftime(dflux$tf, dflux$ti, units = "hours"), units = "hours")
+
+# "chngeExtreme" is computed as:
+# If change in flux within subsample is: 
+# negative, peakvalley =  (min. discharge) - (initial discharge)
+# positive, peakvalley =  (max. discharge) - (initial discharge)
+dflux$chExtreme = NA
+
+dflux$chExtreme[dflux$changeflux <= 0] = 
+  dflux$valley[dflux$changeflux <= 0] - dflux$iflux[dflux$changeflux <= 0]
+
+dflux$chExtreme[dflux$changeflux > 0] = 
+  dflux$peak[dflux$changeflux > 0] - dflux$iflux[dflux$changeflux > 0]
+
+colnames(dflux)[1] <- "WeekSubWeek"
+
+head(dflux)
+```
+
+
+## Saving
+
+```{r}
+write.csv2(dflux, "Data/fluxAlteck2016_R.csv", row.names = F)
+```
+

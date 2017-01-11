@@ -1,0 +1,595 @@
+---
+title: "PNAS Figures"
+author: "PAZ"
+date: "22 novembre 2016"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, warning=FALSE, message = FALSE)
+Sys.setlocale("LC_ALL", "English")
+```
+
+## Required R-packages:
+
+```{r, message=FALSE}
+
+# Data wrangling
+library("plyr")
+library("dplyr")
+
+# Melting data sets & changin axes
+library("reshape2")
+library("ggrepel")
+
+# Plotting:
+library("ggplot2")
+library("cowplot")
+library("gridExtra")
+library("Cairo")
+library("GGally")
+library("scales")
+
+```
+
+## Working directory
+
+```{r, message=FALSE}
+
+# setwd("D:/Documents/these_pablo/Alteckendorf2016/R")
+# setwd("/Users/DayTightChunks/Documents/PhD/Routput/Alteck/R")
+# setwd("D:/Documents/these_pablo/Alteckendorf2016/00_TransparencyFolder")
+getwd()
+
+```
+
+
+## Soils
+
+```{r}
+weeklySoil = read.csv2("Data/WeeklySoils_R.csv", na.strings=c('#DIV/0', '', 'NA'), header = TRUE)
+weeklySoil$Date.ti <- as.POSIXct(strptime(weeklySoil$Date.ti, "%Y-%m-%d %H:%M", tz="EST")) # csv typos, option 1
+#weeklySoil$Date.ti <- as.POSIXct(strptime(weeklySoil$Date.ti, "%d/%m/%Y %H:%M", tz="EST"))
+sum(is.na(weeklySoil$Date.ti))
+
+#weeklySoil$Conc.ComSoil.SD <- 
+#  ifelse(weeklySoil$Conc.ComSoil.SD == as.character("#DIV/0!"), NA, as.numeric(as.character(weeklySoil$Conc.ComSoil.SD)))
+                                     
+str(weeklySoil)
+
+# weeklySoil = weeklySoil %>%
+#  group_by(Transect) %>%
+#  arrange(Transect, Wnum)
+
+weeklySoil$Transect <- factor(weeklySoil$Transect, levels = c("N", "T", "S"))
+
+
+```
+
+## Soil Concentrations
+
+```{r, fig.height=7, fig.width=7}
+# Concentrations
+
+#weeklySoil$ti[3] <- as.POSIXct("2016-04-14 08:25:00")
+#weeklySoil$ti[14] <- as.POSIXct("2016-04-14 08:25:00")
+#weeklySoil$ti[24] <- as.POSIXct("2016-04-14 08:25:00")
+lb1a2 <- paste("App.")
+limits_conc_soil <- aes(ymin=Conc.mug.g.dry.soil-Conc.ComSoil.SD, 
+                        ymax=Conc.mug.g.dry.soil+Conc.ComSoil.SD)
+#limits_conc_soil <- aes(ymin=mean-0.5, ymax=mean+0.5)
+
+co =ggplot(weeklySoil, 
+           aes(x=Date.ti, y=Conc.mug.g.dry.soil, colour=Transect, group = Transect)) + 
+  #geom_errorbar(limits_conc_soil, width=.05) +
+  geom_point() +
+  geom_line() +
+  theme_bw() +
+  #stat_smooth(method = "lm", formula = y ~ poly(x, 2)) +
+  #stat_smooth(method = "lm") +
+  facet_wrap(~Transect, nrow = 3) +
+  xlab("Date") +
+  theme(axis.text.x=element_text(angle = 45, hjust = 1)) +
+  ylab(expression(paste("Conc. S-Meto.  ", {({mu}*g / g.soil.dry)}))) +
+  
+  annotate("text", 
+           x = as.POSIXct('2016-03-25 08:04:00'), y = 4, label = lb1a2, parse = T, size = 3.0) +
+  geom_segment(aes(x = as.POSIXct('2016-03-25 08:04:00'), y = 3.5, 
+                   xend = as.POSIXct('2016-03-25 22:04:00'), yend = -0), 
+               arrow = arrow(length = unit(0.2, "cm"))) +
+  #annotate("text", 
+  #         x = as.POSIXct('2016-04-03 00:04:00'), y = 2, label = lb1a2, parse = T, size = 3.0) +
+  geom_segment(aes(x = as.POSIXct('2016-03-25 08:04:00'), y = 3.5, 
+                   xend = as.POSIXct('2016-04-05 08:04:00'), yend = 0), 
+               arrow = arrow(length = unit(0.2, "cm"))) +
+  annotate("text", 
+           x = as.POSIXct('2016-04-15 08:04:00'), y = 1, label = lb1a2, parse = T, size = 3.0) +
+  geom_segment(aes(x = as.POSIXct('2016-04-14 08:04:00'), y = 0.5, 
+                   xend = as.POSIXct('2016-04-13 08:04:00'), yend = 0), 
+               arrow = arrow(length = unit(0.2, "cm"))) +
+  annotate("text", 
+           x = as.POSIXct('2016-05-26 08:04:00'), y = 4.5, label = lb1a2, parse = T, size = 3.0) +
+  geom_segment(aes(x = as.POSIXct('2016-05-26 08:04:00'), y = 4, 
+                   xend = as.POSIXct('2016-05-25 08:04:00'), yend = 0), 
+               arrow = arrow(length = unit(0.2, "cm"))) +
+  scale_x_datetime(breaks = date_breaks("2 weeks"), labels = date_format("%b %d")) +
+  theme(legend.position = "top") +
+  geom_text_repel(aes(label=Wnum),
+                  size = 3,
+                  arrow = arrow(length = unit(0.005, 'npc'), type = "closed"),
+                  force = 0.5, 
+                  point.padding = unit(0.5, 'lines'), 
+                  max.iter = 2e3,
+                  nudge_x = .05)
+
+co
+
+# Linear model
+ggsave(co, filename = "CompositeConcLM.png", width = 7, height = 5, units = "in", scale = 1)
+
+# No linear model
+# ggsave(co, filename = "CompositeConc.png", width = 7, height = 5, units = "in", scale = 1)
+
+```
+
+# Soil isotope signatures
+
+```{r, fig.height=7, fig.width=7}
+
+weeklySoil$DD13C.comp <- (weeklySoil$comp.d13C - (-31.21))
+
+limits_dCsoil <- aes(ymin=comp.d13C-comp.d13C.SD, ymax=comp.d13C+comp.d13C.SD)
+#limits_dCsoil <- aes(ymin=comp.d13C-0.5, ymax=comp.d13C+0.5)
+lb1a <- paste("App.~S-meto.")
+lb1ab <- paste("delta^{13}~C:-31.21")
+lb1a2 <- paste("App.")
+
+isCo =ggplot(weeklySoil, aes(x=Date.ti, y=comp.d13C, colour=Transect, group = Transect)) + 
+  geom_errorbar(limits_dCsoil, width=.05) +
+  geom_point() +
+  theme_bw() +
+  #stat_smooth(method = "lm", formula = y ~ poly(x, 2)) +
+  stat_smooth(method = "lm") +
+  facet_wrap(~Transect, nrow = 3) +
+  xlab("Date") +
+  theme(axis.text.x=element_text(angle = 45, hjust = 1)) +
+  #ylab(expression(paste({delta}^"13","C", ' \211'))) +
+  ylab(expression(paste({delta}^"13","C", ' (\u2030)'))) +
+  scale_y_continuous(breaks=seq(-34,-21,2)) +
+  geom_hline(yintercept = -31.21, color = "dodgerblue4", linetype = "dotted") +
+  geom_hline(yintercept = -30.71, color = "dodgerblue3", linetype = "dotted") +
+  geom_hline(yintercept = -31.71, color = "dodgerblue3", linetype = "dotted") +
+  annotate("text", x = as.POSIXct('2016-04-05 22:04:00'), y = -22.5, label = lb1a, parse = T, size = 3.0) +
+  annotate("text", x = as.POSIXct('2016-04-05 22:04:00'), y = -23.5, label = lb1ab, parse = T, size = 3.0) +
+  
+  annotate("text", x = as.POSIXct('2016-03-25 08:04:00'), y = -29, label = lb1a2, parse = T, size = 3.0) +
+  geom_segment(aes(x = as.POSIXct('2016-03-25 08:04:00'), y = -29.8, 
+                   xend = as.POSIXct('2016-03-25 08:04:00'), yend = -31.0), 
+               arrow = arrow(length = unit(0.2, "cm"))) +
+  annotate("text", x = as.POSIXct('2016-04-03 00:04:00'), y = -29, label = lb1a2, parse = T, size = 3.0) +
+  geom_segment(aes(x = as.POSIXct('2016-04-03 00:04:00'), y = -29.8, 
+                   xend = as.POSIXct('2016-04-05 08:04:00'), yend = -31.0), 
+               arrow = arrow(length = unit(0.2, "cm"))) +
+  annotate("text", x = as.POSIXct('2016-04-13 08:04:00'), y = -25, label = lb1a2, parse = T, size = 3.0) +
+  geom_segment(aes(x = as.POSIXct('2016-04-13 08:04:00'), y = -26, 
+                   xend = as.POSIXct('2016-04-13 08:04:00'), yend = -31.0), 
+               arrow = arrow(length = unit(0.2, "cm"))) +
+  annotate("text", x = as.POSIXct('2016-05-26 08:04:00'), y = -29, label = lb1a2, parse = T, size = 3.0) +
+  geom_segment(aes(x = as.POSIXct('2016-05-26 08:04:00'), y = -29.8, 
+                   xend = as.POSIXct('2016-05-25 08:04:00'), yend = -31.0), 
+               arrow = arrow(length = unit(0.2, "cm"))) +
+  #scale_x_continuous(breaks=seq(0,11,1)) +
+  scale_x_datetime(breaks = date_breaks("2 weeks"), labels = date_format("%b %d")) +
+  
+  #annotate("text", x = as.POSIXct('2016-05-30 20:04:00'), y = -30.5, label = lb1a, parse = T, size = 2.0) +
+  theme(legend.position = "top")
+
+isCo
+
+# Linear model (LM)
+ggsave(isCo, filename = "CompositeIsotopesLM.png", width = 7, height = 5, units = "in", scale = 1)
+# No linear model
+# ggsave(isCo, filename = "CompositeIsotopes.png", width = 7, height = 5, units = "in", scale = 1)
+
+
+
+
+### Delta vs. f (Soils)
+soilf =ggplot(weeklySoil, aes(x=f.comp, y=DD13C.comp, colour=Transect, group = Transect)) + 
+  #geom_errorbar(limits_dCsoil, width=.05) +
+  geom_point() +
+  theme_bw() +
+  stat_smooth(method = "lm", formula = y ~ poly(x, 2)) +
+  #stat_smooth(method = "lm") +
+  facet_wrap(~Transect, nrow = 3) +
+  scale_x_reverse() +
+  xlab("Fraction remaining (f)") +
+  theme(axis.text.x=element_text(angle = 45, hjust = 1)) +
+  #ylab(expression(paste({delta}^"13","C", ' \211'))) +
+  ylab(expression(paste({Delta~delta}^"13","C", ' (\u2030)'))) +
+  #scale_y_continuous(breaks=seq(-34,-21,2)) +
+  theme(legend.position = "top") +
+  #geom_text_repel(aes(label=WeekNo, color = factor(Transect)), 
+                  #arrow = arrow(length = unit(0.005, 'npc'), type = "closed"),
+                  #force = 1, 
+                  #point.padding = unit(1.0, 'lines'), 
+                  #max.iter = 2e3,
+                  #nudge_x = .2) +
+  geom_point() 
+
+soilf
+```
+
+
+## Degradation
+
+```{r, fig.height=11, fig.width=11}
+
+lb1a2 <- paste("App.")
+
+lb1b <- paste("(A)~epsilon:-1.5")
+lb1b2 <- paste("(B)~epsilon:-2.0")
+
+
+Bsoil =ggplot(weeklySoil)+
+  #geom_errorbar(limits_dCsoil, width=.05) +
+  #geom_point(aes(x=Date.ti, y=B.comp, colour=Transect, group = Transect)) +
+  geom_point(aes(x=Date.ti, y=B.min.comp, colour=Transect, group = Transect)) + #, color = "dodgerblue4"
+  theme_bw() +
+  #stat_smooth(method = "lm", formula = y ~ poly(x, 2)) +
+  #stat_smooth(aes(x=Date.ti, y=B.min.comp), method = "lm", se = F, color = "dodgerblue4") +
+  #stat_smooth(aes(x=Date.ti, y=B.comp), method = "lm", se = F, color = "grey40") +
+  geom_smooth(data=subset(weeklySoil[10:27, ]), aes(x=Date.ti, y=B.min.comp), method = "lm", se = F, color = "dodgerblue4", linetype = "dashed") +
+  geom_smooth(data=subset(weeklySoil[31:45, ]), aes(x=Date.ti, y=B.min.comp), method = "lm", se = F, color = "dodgerblue4", linetype = "dashed") +
+  geom_smooth(data=subset(weeklySoil[10:27, ]), aes(x=Date.ti, y=B.comp), method = "lm", se = F, color = "grey40", linetype = "dashed") +
+  geom_smooth(data=subset(weeklySoil[31:45, ]), aes(x=Date.ti, y=B.comp), method = "lm", se = F, color = "grey40", linetype = "dashed") +
+  #geom_smooth(y=B.comp, method = "lm", formula = y ~ poly(x, 2)) +
+  facet_wrap(~Transect, nrow = 3) +
+  xlab("Date") +
+  theme(axis.text.x=element_text(angle = 45, hjust = 1)) +
+  #ylab(expression(paste({delta}^"13","C", ' \211'))) +
+  ylab("Degradation (%)") +
+  scale_y_continuous(breaks=seq(0, 100, 20)) +
+  #geom_hline(yintercept = -31.47, color = "dodgerblue4", linetype = "dotted") +
+  #geom_hline(yintercept = -30.97, color = "dodgerblue3", linetype = "dotted") +
+  #geom_hline(yintercept = -31.97, color = "dodgerblue3", linetype = "dotted") +
+  annotate("text", x = as.POSIXct('2016-04-11 20:04:00'), y = 100, label = lb1b, parse = T, size = 3.0, color = "grey40") +
+  annotate("text", x = as.POSIXct('2016-04-11 20:04:00'), y = 85, label = lb1b2, parse = T, size = 3.0, color = "dodgerblue4" ) +
+  
+  annotate("text", x = as.POSIXct('2016-03-25 08:04:00'), y = 30, label = lb1a2, parse = T, size = 3.0) +
+  geom_segment(aes(x = as.POSIXct('2016-03-25 08:04:00'), y = 25, 
+                   xend = as.POSIXct('2016-03-25 08:04:00'), yend = 20), 
+               arrow = arrow(length = unit(0.2, "cm"))) +
+  annotate("text", x = as.POSIXct('2016-04-03 00:04:00'), y = 30, label = lb1a2, parse = T, size = 3.0) +
+  geom_segment(aes(x = as.POSIXct('2016-04-03 00:04:00'), y = 25, 
+                   xend = as.POSIXct('2016-04-05 08:04:00'), yend = 20), 
+               arrow = arrow(length = unit(0.2, "cm"))) +
+  annotate("text", x = as.POSIXct('2016-04-13 08:04:00'), y = 30, label = lb1a2, parse = T, size = 3.0) +
+  geom_segment(aes(x = as.POSIXct('2016-04-13 08:04:00'), y = 25, 
+                   xend = as.POSIXct('2016-04-13 08:04:00'), yend = 20), 
+               arrow = arrow(length = unit(0.2, "cm"))) +
+  annotate("text", x = as.POSIXct('2016-05-26 08:04:00'), y = 30, label = lb1a2, parse = T, size = 3.0) +
+  geom_segment(aes(x = as.POSIXct('2016-05-26 08:04:00'), y = 25, 
+                   xend = as.POSIXct('2016-05-25 08:04:00'), yend = 20), 
+               arrow = arrow(length = unit(0.2, "cm"))) +
+  scale_x_datetime(breaks = date_breaks("2 weeks"), labels = date_format("%b %d")) +
+  #scale_x_continuous(breaks=seq(0,11,1)) +
+  theme(legend.position = "top") 
+
+Bsoil
+
+
+
+# Linear model
+ggsave(Bsoil, filename = "CompositeDegradationLM.png", width = 7, height = 5, units = "in", scale = 1)
+
+#deltaCo = plot_grid(co, isCo, ncol = 2, nrow = 1, align = "h")
+deltaCoBio = plot_grid(co, isCo, Bsoil, ncol = 3, nrow = 1, align = "h") 
+deltaCoBio
+
+
+# Linear model
+#ggsave(deltaCo, filename = "CompositeConcLM.png", width = 6, height = 7, units = "in", scale = 1)
+ggsave(deltaCoBio, filename = "SoilConcDeltBio_LM.png", width = 11.69, height = 8.27, units = "in", scale = 1)
+
+# No linear model
+#ggsave(deltaCo, filename = "CompositeConc.png", width = 6, height = 7, units = "in", scale = 1)
+
+```
+
+
+
+## Water 
+
+```{r}
+AOdf = read.csv2("Data/WeeklyHydroContam_R.csv")
+str(AOdf)
+
+# Adding a Weeks column for labelling
+AOdf$WeekSubWeek <- as.character(AOdf$WeekSubWeek)
+Split <- strsplit(AOdf$WeekSubWeek, "-", fixed = TRUE)
+AOdf$Weeks <- sapply(Split, "[", 1)
+
+AOdf$WeekSubWeek <- factor(AOdf$WeekSubWeek, levels = unique(AOdf$WeekSubWeek))
+AOdf$Weeks <- factor(AOdf$Weeks, levels = unique(AOdf$Weeks))
+AOdf$ti <- as.POSIXct(strptime(AOdf$ti, "%Y-%m-%d %H:%M", tz="EST"))
+sum(is.na(AOdf$ti))
+
+```
+
+
+
+##  Outlet - Concentrations
+
+```{r, fig.height=11, fig.width=7}
+pos <- position_dodge(0.5)
+conc_lb1 <- paste("App.1")
+
+limits_conc <- aes(ymin=Conc.mug.L-Conc.SD, ymax=Conc.mug.L+Conc.SD, color = Weeks, group = Weeks)
+conc1 <- ggplot(AOdf[1:27,], aes(x=ti, y=Conc.mug.L)) +
+  #geom_errorbar(aes(ymin=mean.d13C-SD.d13C, ymax=mean.d13C+SD.d13C), width=.1) +
+  geom_errorbar(limits_conc, width=1) +
+  #theme_gray() +
+  theme_bw() +
+  theme(axis.text.x=element_text(angle = 45, hjust = 1)) +
+  #scale_x_datetime(breaks = date_breaks("week"), labels = date_format("%m/%d")) +
+  geom_point( aes(color = Weeks, group = Weeks)) +
+  geom_smooth(data=subset(AOdf[4:27, ]), method = "lm", formula = y ~ poly(x, 2)) +
+  #stat_smooth(method = "lm", formula = y ~ poly(x, 2)) +
+  #theme(axis.text.x = element_blank()) +
+  theme(plot.margin = unit(c(0,0.5,0,0), "lines")) +
+  #geom_hline(yintercept = -31.21, color = "dodgerblue4", linetype = "dotted") +
+  #geom_hline(yintercept = -30.71, color = "dodgerblue3", linetype = "dotted") +
+  #geom_hline(yintercept = -31.71, color = "dodgerblue3", linetype = "dotted") +
+  annotate("text", x = as.POSIXct('2016-03-26 23:34:00'), y = -3, label = conc_lb1, parse = T) +
+  annotate("text", x = as.POSIXct('2016-04-06 20:04:00'), y = -3, label = "App.2", parse = T) +
+  annotate("text", x = as.POSIXct('2016-04-17 05:04:00'), y = -3, label = "App.3", parse = T) +
+  xlab("Date") +
+  ylab(expression(paste("Conc. S-Meto.  ", {({mu}*g / L)}))) +
+  theme(legend.position = "top") +
+  theme(legend.title = element_blank()) +
+  scale_y_continuous(breaks = c(20,15,10,5, 0), limits = c(-5, 20) ) +
+  geom_segment(aes(x = as.POSIXct('2016-03-25 08:04:00'), y = -4, 
+                   xend = as.POSIXct('2016-03-25 08:04:00'), yend = -5.0), 
+               arrow = arrow(length = unit(0.2, "cm"))) +
+  geom_segment(aes(x = as.POSIXct('2016-04-05 08:04:00'), y = -4, 
+                   xend = as.POSIXct('2016-04-05 08:04:00'), yend = -5.0), 
+               arrow = arrow(length = unit(0.2, "cm"))) +
+  geom_segment(aes(x = as.POSIXct('2016-04-13 08:04:00'), y = -4, 
+                   xend = as.POSIXct('2016-04-13 08:04:00'), yend = -5.0), 
+               arrow = arrow(length = unit(0.2, "cm"))) +
+  #ylab(expression(paste({delta}^"13","C", ' (\u2030)'))) +
+  geom_text_repel(aes(label=Weeks, color = factor(Weeks)),
+                  size = 3,
+                  arrow = arrow(length = unit(0.005, 'npc'), type = "closed"),
+                  force = 0.5, 
+                  point.padding = unit(0.5, 'lines'), 
+                  max.iter = 2e3,
+                  nudge_x = .05)
+  #ylab(expression(paste({delta}^"13","C", ' \211')))
+  #ylab(expression(paste({delta}^"13","C"))) 
+#conc1
+ 
+conc2 <- ggplot(AOdf[28:length(AOdf),], aes(x=ti, y=Conc.mug.L)) +
+  #geom_errorbar(aes(ymin=mean.d13C-SD.d13C, ymax=mean.d13C+SD.d13C), width=.1) +
+  geom_errorbar(limits_conc, width=1) +
+  #theme_gray() +
+  theme_bw() +
+  theme(axis.text.x=element_text(angle = 45, hjust = 1)) +
+  #scale_x_datetime(breaks = date_breaks("week"), labels = date_format("%m/%d")) +
+  geom_point( aes(color = Weeks, group = Weeks)) +
+  stat_smooth(method = "lm", formula = y ~ poly(x, 2)) +
+  theme(axis.text.y = element_blank()) +
+  theme(plot.margin = unit(c(0,3.5,0,0), "lines")) +
+  #geom_hline(yintercept = -31.21, color = "dodgerblue4", linetype = "dotted") +
+  #geom_hline(yintercept = -30.71, color = "dodgerblue3", linetype = "dotted") +
+  #geom_hline(yintercept = -31.71, color = "dodgerblue3", linetype = "dotted") +
+  #annotate("text", x = as.POSIXct('2016-06-25 00:04:00'), y = -31.2, label = lb1, parse = T) +
+  xlab("Date") +
+  ylab("") +
+  theme(legend.position = "top") +
+  theme(legend.title = element_blank()) +
+  scale_y_continuous(breaks = c(20,15,10,5,0), limits = c(-5, 20) ) +
+  annotate("text", x = as.POSIXct('2016-05-27 08:04:00'), y = -3, label = "App.4", parse = T) +
+  geom_segment(aes(x = as.POSIXct('2016-05-26 08:04:00'), y = -4, 
+                   xend = as.POSIXct('2016-05-26 08:04:00'), yend = -5.0), 
+               arrow = arrow(length = unit(0.2, "cm"))) +
+  geom_text_repel(aes(label=Weeks, color = factor(Weeks)),
+                  size = 3,
+                  arrow = arrow(length = unit(0.005, 'npc'), type = "closed"),
+                  force = 0.5, 
+                  point.padding = unit(0.5, 'lines'), 
+                  max.iter = 2e3,
+                  nudge_x = .05)
+  #ylab(expression(paste({delta}^"13","C", ' \211')))
+  #ylab(expression(paste({delta}^"13","C"))) 
+
+concs = plot_grid(conc1, conc2, ncol = 2, nrow = 1, align = "h")
+concs
+```
+
+
+## Outlet Isotopes - Continous
+
+```{r, fig.height=7, fig.width=7}
+AOdf$SD.d13C.err  <- ifelse(is.na(AOdf$SD.d13C), 0.5, AOdf$SD.d13C)
+limits_dC <- aes(ymin=diss.d13C-SD.d13C.err, ymax=diss.d13C+SD.d13C.err, color = Weeks, group = Weeks)
+
+iso <- ggplot(AOdf, aes(x=ti, y=diss.d13C)) +
+  #geom_errorbar(aes(ymin=mean.d13C-SD.d13C, ymax=mean.d13C+SD.d13C), width=.1) +
+  geom_errorbar(limits_dC, width=1) +
+  #theme_gray() +
+  theme_bw() +
+  theme(axis.text.x=element_text(angle = 45, hjust = 1)) +
+  #scale_x_datetime(breaks = date_breaks("week"), labels = date_format("%m/%d")) +
+  geom_point( aes(color = Weeks, group = Weeks)) +
+  #stat_smooth(method = "lm", formula = y ~ x) +
+  geom_smooth(data=subset(AOdf[4:length(AOdf), ]), method = "lm", formula = y ~ poly(x, 2)) +
+  #stat_smooth(method = "lm", formula = y ~ poly(x, 2)) +
+  #theme(axis.text.x = element_blank()) +
+  #theme(plot.margin = unit(c(1,1,1,1), "lines")) +
+  geom_hline(yintercept = -31.21, color = "dodgerblue4", linetype = "dotted") +
+  geom_hline(yintercept = -30.71, color = "dodgerblue3", linetype = "dotted") +
+  geom_hline(yintercept = -31.71, color = "dodgerblue3", linetype = "dotted") +
+  #annotate("text", x = as.POSIXct('2016-06-25 00:04:00'), y = -31.2, label = lb1, parse = T) +
+  xlab("Date") +
+  #theme(legend.position="top") +
+  scale_y_continuous(breaks = c(-32,-31,-30,-29, -28, -27), limits = c(-32, -26.4) ) +
+  ylab(expression(paste({delta}^"13","C", ' (\u2030)'))) +
+  geom_text_repel(aes(label=Weeks, color = factor(Weeks)),
+                  size = 3,
+                  arrow = arrow(length = unit(0.005, 'npc'), type = "closed"),
+                  force = 0.5, 
+                  point.padding = unit(0.5, 'lines'), 
+                  max.iter = 2e3,
+                  nudge_x = .05)
+  #ylab(expression(paste({delta}^"13","C", ' \211')))
+  #ylab(expression(paste({delta}^"13","C"))) 
+ 
+iso
+
+ggsave(iso, filename = "Outlet_Delta_ti_cont.png", width = 8, height = 5, units = "in", scale = 1)
+
+```
+
+## Outlet Isotopes - broken by application
+
+```{r, fig.height=11, fig.width=7}
+#limits_dC <- aes(ymin=diss.d13C-0.5, ymax=diss.d13C+0.5, color = Weeks, group = Weeks)
+#limits_dC <- aes(ymin=diss.d13C-SD.d13C, ymax=diss.d13C+SD.d13C, color = Weeks, group = Weeks)
+AOdf$SD.d13C.err  <- ifelse(is.na(AOdf$SD.d13C), 0.5, AOdf$SD.d13C)
+limits_dC <- aes(ymin=diss.d13C-SD.d13C.err, ymax=diss.d13C+SD.d13C.err, color = Weeks, group = Weeks)
+
+iso1 <- ggplot(AOdf[3:27,], aes(x=ti, y=diss.d13C)) +
+  #geom_errorbar(aes(ymin=mean.d13C-SD.d13C, ymax=mean.d13C+SD.d13C), width=.1) +
+  geom_errorbar(limits_dC, width=1) +
+  #theme_gray() +
+  theme_bw() +
+  theme(axis.text.x=element_text(angle = 45, hjust = 1)) +
+  #scale_x_datetime(breaks = date_breaks("week"), labels = date_format("%m/%d")) +
+  geom_point( aes(color = Weeks, group = Weeks)) +
+  stat_smooth(method = "lm", formula = y ~ x) +
+  #stat_smooth(method = "lm", formula = y ~ poly(x, 2)) +
+  #theme(axis.text.x = element_blank()) +
+  #theme(plot.margin = unit(c(1,1,1,1), "lines")) +
+  theme(plot.margin = unit(c(0,0.5,0,0), "lines")) +
+  geom_hline(yintercept = -31.21, color = "dodgerblue4", linetype = "dotted") +
+  geom_hline(yintercept = -30.71, color = "dodgerblue3", linetype = "dotted") +
+  geom_hline(yintercept = -31.71, color = "dodgerblue3", linetype = "dotted") +
+  #annotate("text", x = as.POSIXct('2016-06-25 00:04:00'), y = -31.2, label = lb1, parse = T) +
+  xlab("Date") +
+  theme(legend.position="top") +
+  scale_y_continuous(breaks = c(-32,-31,-30,-29, -28, -27), limits = c(-32, -26.4) ) +
+  ylab(expression(paste({delta}^"13","C", ' (\u2030)'))) +
+  geom_text_repel(aes(label=Weeks, color = factor(Weeks)),
+                  size = 3,
+                  arrow = arrow(length = unit(0.005, 'npc'), type = "closed"),
+                  force = 0.5, 
+                  point.padding = unit(0.5, 'lines'), 
+                  max.iter = 2e3,
+                  nudge_x = .05)
+  #ylab(expression(paste({delta}^"13","C", ' \211')))
+  #ylab(expression(paste({delta}^"13","C"))) 
+
+iso2 <- ggplot(AOdf[28:42,], aes(x=ti, y=diss.d13C)) +
+  #geom_errorbar(aes(ymin=mean.d13C-SD.d13C, ymax=mean.d13C+SD.d13C), width=.1) +
+  geom_errorbar(limits_dC, width=1) +
+  #theme_gray() +
+  theme_bw() +
+  theme(axis.text.x=element_text(angle = 45, hjust = 1)) +
+  #scale_x_datetime(breaks = date_breaks("week"), labels = date_format("%m/%d")) +
+  geom_point( aes(color = Weeks, group = Weeks)) +
+  stat_smooth(method = "lm", formula = y ~ poly(x, 2)) +
+  theme(axis.text.y = element_blank()) +
+  theme(plot.margin = unit(c(0,3.5,0,0), "lines")) +
+  #theme(plot.margin = unit(c(1,1,1,1), "lines")) +
+  geom_hline(yintercept = -31.21, color = "dodgerblue4", linetype = "dotted") +
+  geom_hline(yintercept = -30.71, color = "dodgerblue3", linetype = "dotted") +
+  geom_hline(yintercept = -31.71, color = "dodgerblue3", linetype = "dotted") +
+  #annotate("text", x = as.POSIXct('2016-06-25 00:04:00'), y = -31.2, label = lb1, parse = T) +
+  xlab("Date") +
+  ylab(" ") +
+  theme(legend.position="top") +
+  theme(legend.title = element_blank()) +
+  scale_y_continuous(breaks = c(-32,-31,-30,-29, -28, -27), limits = c(-32, -26.4) ) +
+  #ylab(expression(paste({delta}^"13","C", ' (\u2030)'))) +
+  geom_text_repel(aes(label=Weeks, color = factor(Weeks)),
+                  size = 3,
+                  arrow = arrow(length = unit(0.005, 'npc'), type = "closed"),
+                  force = 0.5, 
+                  point.padding = unit(0.5, 'lines'), 
+                  max.iter = 2e3,
+                  nudge_x = .05)
+  #ylab(expression(paste({delta}^"13","C", ' \211')))
+  #ylab(expression(paste({delta}^"13","C"))) 
+
+isos = plot_grid(iso1, iso2, ncol = 2, nrow = 1, align = "h")
+isos
+
+ggsave(isos, filename = "Outlet_Delta_ti.png", width = 8, height = 4.6, units = "in", scale = 1)
+
+```
+
+
+### XY-Plots
+
+```{r}
+QC <- ggplot(AOdf, aes(y=AveDischarge.m3.h, x=Conc.mug.L, group = WeekSubWeek, color = Weeks)) +
+  geom_point(size = 2) +
+  theme_bw() +
+  theme(axis.text.y = element_blank()) +
+  theme(legend.title=element_blank()) +
+  theme(plot.margin = unit(c(0,0.5,0,0), "lines")) +
+  #stat_smooth(method = "lm", formula = y ~ poly(x, 2)) +
+  theme_bw() +
+  theme(legend.position="none") +
+  #scale_y_continuous(trans=log_trans(), breaks=c(1, 5, 10, 50, 100, 200)) +
+  scale_x_continuous(trans=log_trans(), breaks=c(1, 3, 5, 10, 20)) +
+  ylab(expression(paste("Ave. Discharge ", {(m^{3} / samp.hrs. )}))) +
+  xlab(expression(paste("Conc. S-Meto.  ", {({mu}*g / L)}))) +
+  geom_text_repel(aes(label=WeekSubWeek, color = factor(Weeks)),
+                  size = 3,
+                  arrow = arrow(length = unit(0.005, 'npc'), type = "closed"),
+                  force = 0.5, 
+                  point.padding = unit(0.5, 'lines'), 
+                  max.iter = 2e3,
+                  nudge_x = .05)
+
+QC
+
+QD <- ggplot(AOdf, aes(y=AveDischarge.m3.h, x=diss.d13C, group = WeekSubWeek, color = Weeks)) +
+  geom_point(size = 2) +
+  theme_bw() +
+  theme(axis.text.y = element_blank()) +
+  theme(plot.margin = unit(c(0,0.8,0,0), "lines")) +
+  #theme(legend.title=element_blank()) +
+  #theme(legend.text = element_text(size = 10)) +
+  theme(legend.position="none") +
+  #stat_smooth(method = "lm", formula = y ~ poly(x, 2)) +
+  #scale_y_continuous(trans=log_trans(), breaks=c(1, 3, 5, 8, 10, 30, 50, 80, 100, 300)) +
+  ylab(expression(paste("Ave. Discharge ", {(m^{3} / sample)}))) +
+  ylab("") +
+  scale_x_continuous(breaks=seq(-31.5, -26.5, 1)) +
+  xlab(expression(paste({delta}^"13","C", ' (\u2030)'))) +
+  geom_text_repel(aes(label=WeekSubWeek, color = factor(Weeks)),
+                  size = 3,
+                  arrow = arrow(length = unit(0.005, 'npc'), type = "closed"),
+                  force = 0.5, 
+                  point.padding = unit(0.5, 'lines'), 
+                  max.iter = 2e3,
+                  nudge_x = .05)
+
+QD
+
+acd = plot_grid(QC, QD, ncol = 2, nrow = 1, align = "h")
+acd
+
+ggsave(acd, filename = "Disch_Conc_Delta_XYlabs.png", width = 8, height = 5, units = "in", scale = 1)
+#ggsave(acd, filename = "Disch_Conc_Delta_XY.png", width = 8, height = 5, units = "in", scale = 1)
+#ggsave(acd, filename = "Disch_Conc_Delta_W.pdf", width = 8, height = 4.6, units = "in", scale = 1)
+```
+
+
+
+
+

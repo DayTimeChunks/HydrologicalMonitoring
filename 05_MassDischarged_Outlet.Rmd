@@ -1,0 +1,345 @@
+---
+title: "Mass Discharge - Outlet Alteck. 2016"
+author: "PAZ"
+date: "27 octobre 2016"
+output: pdf_document
+---
+
+
+```{r, echo=FALSE, message=FALSE, include=FALSE}
+Sys.setlocale("LC_ALL", "English")
+```
+
+## Purpose
+
+This file computes the discharged mass observed at the outlet. To do that it imports the weekly discharge summary and lab results for isotopes ($^{13}C$) and s-metolachlor concentrations.
+
+Imports: 
+
+- **WeeklyHydro_R.csv** 
+- **fluxAlteck2016_R.csv**
+- **OutletConc_W0toW17.csv**
+- **MESAlteckWater.csv**
+- **Outlet_Isotopes_W0toW17.csv**
+- **MESAlteck_FilterIsotopes.csv**
+
+- **AO-Hydrochem.csv**
+
+Generates:
+
+- **WeeklyHydroContam_R.csv**
+
+## Required R-packages:
+
+```{r, message=FALSE}
+
+library("plyr")
+library("dplyr")
+
+```
+
+## Working directory
+
+```{r, message=FALSE}
+
+# setwd("D:/Documents/these_pablo/Alteckendorf2016/R")
+# setwd("/Users/DayTightChunks/Documents/PhD/Routput/Alteck/R")
+# setwd("D:/Documents/these_pablo/Alteckendorf2016/00_TransparencyFolder")
+getwd()
+
+```
+
+
+## Outlet Data - Alteckendorf 2016
+
+1. Hydrological data on a subweekly basis
+
+```{r, message=FALSE}
+
+weeklyhydro = read.csv2("Data/WeeklyHydro_R.csv", header = TRUE)
+colnames(weeklyhydro)[colnames(weeklyhydro) == "ID"] <- "WeekSubWeek"
+head(weeklyhydro)
+
+weeklyflux = read.csv2("Data/fluxAlteck2016_R.csv", header = TRUE)
+head(weeklyflux)
+```
+
+2. Concentration data (dissolved and suspended solids)
+
+```{r, message=FALSE}
+
+outletConc = read.csv2("Data/OutletConc_W0toW17.csv", header = T)
+outletConc <- outletConc[outletConc$ID4 != "J+7", ]
+outletConc <- outletConc[,c("WeekSubWeek", "Conc.mug.L", "Conc.SD")]
+head(outletConc)
+
+filters = read.csv2("Data/MESAlteckWater.csv")
+filters$MO.mg.L = ifelse(filters$MO.mg.L < 0, 0.0001, filters$MO.mg.L)
+head(filters)
+```
+
+3. Isotope data
+
+```{r, message=FALSE}
+
+# Outlet isotope data:
+outletIso = read.csv2("Data/Outlet_Isotopes_W0toW17.csv", header = T)
+head(outletIso)
+
+# Filter isotope data:
+filtersIso = read.csv2("Data/MESAlteck_FilterIsotopes.csv", header = T)
+filtersIso$WeekSubWeek = paste(filtersIso$Week, filtersIso$Num, sep = "-")
+filtersIso <- filtersIso[filtersIso$Levl != "J+7", ]
+head(filtersIso)
+
+
+
+```
+
+4. Hydrochemistry Data
+
+```{r, message=FALSE}
+
+hydroChem = read.csv2("Data/AO-Hydrochem.csv", header = T)
+hydroChem = hydroChem[, c("WeekSubWeek", 
+                          "NH4.mM", 
+                          "TIC.ppm.filt", 
+                          "Cl.mM", 
+                          "NO3...mM", 
+                          "PO4..mM", 
+                          "NPOC.ppm" ,
+                          "TIC.ppm.unfilt", 
+                          "TOC.ppm.unfilt" )]
+head(hydroChem)
+
+
+```
+
+
+## Summarizing IRMS data
+
+```{r, message=FALSE}
+
+isoOutSummary = ddply(outletIso, c("WeekSubWeek"), summarise,
+                         N    = length(d.13C.12C),
+                         diss.d13C = mean(d.13C.12C),
+                         SD.d13C = sd(d.13C.12C),
+                         se.d13C = SD.d13C / sqrt(N))
+
+head(isoOutSummary)
+
+
+isoFiltSummary = ddply(filtersIso, c("WeekSubWeek"), summarise,
+                         N    = length(d.13C.12C),
+                         filt.d13C = mean(d.13C.12C),
+                         filt.SD.d13C = sd(d.13C.12C),
+                         filt.se.d13C = filt.SD.d13C / sqrt(N))
+head(isoFiltSummary)
+```
+
+
+## Merging and data wrangling stepts
+
+1. Merge all data sets by the *WeekSubWeek* column ID, icluding:
+
+```{r}
+
+# Dissolved
+out.CoIs = merge(outletConc, isoOutSummary, by = "WeekSubWeek", all = T)
+
+# Filters (MES, Conc.MES)
+out.CoIs = merge(out.CoIs, filters, by = "WeekSubWeek", all = T)
+out.CoIs = merge(out.CoIs, isoFiltSummary, by= "WeekSubWeek", all = T)
+
+# Pure and cuve isotope average
+d13Co = -31.21
+
+# Lab enrichment:
+epsilon = -1.61
+
+# Remaining fraction
+out.CoIs$DD13C.diss <- (out.CoIs$diss.d13C - (d13Co))
+out.CoIs$DD13C.filt <- (out.CoIs$filt.d13C - (d13Co))
+
+out.CoIs$f.diss <- (((10**(-3)*out.CoIs$diss.d13C + 1)/(10**(-3)*d13Co + 1))**(1000/(epsilon)))
+out.CoIs$f.filt <- (((10**(-3)*out.CoIs$filt.d13C + 1)/(10**(-3)*d13Co + 1))**(1000/(epsilon)))
+
+out.CoIs$B.diss <- (1 - out.CoIs$f.diss)*100 
+out.CoIs$B.filt <- (1 - out.CoIs$f.filt)*100 
+#out.CoIs$invf <- 1/out.CoIs$f 
+
+# Discharge times
+out.CoIs = merge(weeklyhydro, out.CoIs, by = "WeekSubWeek", all = T)
+
+# Discharge summary
+out.CoIs = merge(weeklyflux, out.CoIs, by = "WeekSubWeek", all = T)
+
+# Hydrochemistrty
+out.CoIs = merge(out.CoIs, hydroChem, by= "WeekSubWeek", all = T)
+
+
+out.CoIs$tf <- as.POSIXct(out.CoIs$tf, "%Y-%m-%d %H:%M", tz = "EST")
+out.CoIs$ti <- as.POSIXct(out.CoIs$ti, "%Y-%m-%d %H:%M", tz = "EST")
+class(out.CoIs$tf)
+sum(is.na(out.CoIs$tf))
+
+# Temprarily remove Weeks 16 & 17 (need to get discharge data)
+out.CoIs <- out.CoIs[!is.na(out.CoIs$tf), ]
+
+```
+
+2. Weekly Exported Solids (Kg)
+
+```{r}
+# V[m3] * MES [mg/L] * 1000 [L/m3] * [1 Kg/10^6 mg]
+out.CoIs$ExpMES.Kg = out.CoIs$Volume.m3*out.CoIs$MES.mg.L/1000
+```
+
+3. Weekly exported S-metolachlor mass (mg)
+
+```{r}
+
+# Dissolved - [mg] S-metolachlor exported per sub-week
+# Conc. [mu.g s-meto/L H20] * Vol[m3] * [10^3 L/m^3] * [1 mg/10^3 mu.g]
+out.CoIs$DissSmeto.mg = out.CoIs$Conc.mug.L*out.CoIs$Volume.m3  
+
+# Solids - [mg] S-metolachlor in solids exported per sub-week 
+# Conc. [mu.g s-meto / g MES] * Kg MES * [10^3 g/Kg] * [1 mg/10^3 mu.g]
+out.CoIs$FiltSmeto.mg = out.CoIs$Conc.Solids.mug.gMES*out.CoIs$ExpMES.Kg 
+
+# Total
+out.CoIs$TotMassOut.mg = out.CoIs$DissSmeto.mg + out.CoIs$FiltSmeto.mg
+
+
+# Proportion in dissolved and suspended solids
+out.CoIs$FracDiss = out.CoIs$DissSmeto.mg/out.CoIs$TotMassOut.mg
+out.CoIs$FracFilt = out.CoIs$FiltSmeto.mg/out.CoIs$TotMassOut.mg
+
+```
+
+4. Add the application dates and merge the total mass to the nearest discharge event
+
+The five application dates were:
+
+- 2016-03-20 
+- 2016-04-05 
+- 2016-04-13 and 2016-04-14 
+- 2016-05-26 
+
+So the total applied mass mass is merged at the nearest sampling time marker available : 
+
+```{r}
+
+ti = c(as.POSIXct('2016-03-25 00:04:00' , tz="EST"),
+       as.POSIXct('2016-04-05 15:08:00' , tz="EST"),
+       as.POSIXct('2016-04-14 13:52:00' , tz="EST"),
+       as.POSIXct('2016-05-24 12:00:00' , tz="EST"))
+
+Appl.Mass.g = c(6369.396, 3128.475, 4744.571, 4982.038)
+
+applics = as.data.frame(ti)
+applics$Appl.Mass.g = Appl.Mass.g
+
+out.CoIs = merge(out.CoIs, applics, by = "ti", all = T)
+out.CoIs$Appl.Mass.g <- ifelse(is.na(out.CoIs$Appl.Mass.g), 0.0, out.CoIs$Appl.Mass.g)
+
+```
+
+5. This section converts the observed S-metolachlor concentrations to [g] in dissolved water and suspended solids, assuming 0 for the values where no sample was taken. An approximative model will be tested at a later stage. 
+
+```{r}
+
+# Cumulative IN
+out.CoIs$CumAppMass.g = cumsum(out.CoIs$Appl.Mass.g)
+
+# First simulate a mass out to deal with missing values
+# Option 1, just assume 0.0 
+out.CoIs$SimOutDiss.g = out.CoIs$DissSmeto.mg/10^3
+out.CoIs$SimOutFilt.g = out.CoIs$FiltSmeto.mg/10^3
+out.CoIs$SimOutDiss.g = ifelse(is.na(out.CoIs$SimOutDiss.g), 0.0, out.CoIs$SimOutDiss.g)
+out.CoIs$SimOutFilt.g = ifelse(is.na(out.CoIs$SimOutFilt.g), 0.0, out.CoIs$SimOutFilt.g)
+out.CoIs$SimOutSmeto.g = out.CoIs$SimOutDiss.g + out.CoIs$SimOutFilt.g
+
+# Cumulative OUT
+out.CoIs$CumOutDiss.g = cumsum(out.CoIs$SimOutDiss.g)
+out.CoIs$CumOutFilt.g = cumsum(out.CoIs$SimOutFilt.g)
+out.CoIs$CumOutSmeto.g = out.CoIs$CumOutDiss.g + out.CoIs$CumOutFilt.g
+
+# Balance
+out.CoIs$BalMassDisch.g = out.CoIs$CumAppMass.g - out.CoIs$CumOutSmeto.g
+
+# Mass fraction
+massOUT = tail(out.CoIs$CumOutSmeto.g, n=1)
+out.CoIs$FracMassOut = (out.CoIs$SimOutSmeto.g / massOUT)
+out.CoIs$FracDeltaOut = (out.CoIs$SimOutSmeto.g / massOUT)*out.CoIs$diss.d13C
+out.CoIs$FracDeltaOut = ifelse(is.na(out.CoIs$FracDeltaOut), 0.0, out.CoIs$FracDeltaOut)
+
+BulkDeltaOut = sum(out.CoIs$FracDeltaOut)
+
+```
+
+The total mass discharged (up to Week 15) and bulk isotope signature (up to week 11) was:
+
+```{r}
+# Cummulative S-metolachlor [g] discharged
+massOUT
+
+# Bulk isotope signature
+BulkDeltaOut
+```
+
+
+
+
+6. Testing a regression tree (ommitted for now)
+
+```{r, echo=F, message=FALSE}
+
+# Regression Tree Example 1
+
+library("party")
+
+#outCoIs.model <- out.CoIs[, c("chExtreme", "changeflux", "AveDischarge.m3.h", "Volume.m3", "TotMassOut.mg")]
+
+#fit <- ctree(TotMassOut.mg ~ chExtreme + changeflux + AveDischarge.m3.h + Volume.m3, data=na.omit(outCoIs.model))
+#plot(fit)
+
+# The model does not improve with more variables. 
+
+# Regression Tree Example 2
+
+library("rpart")
+
+# grow tree 
+#fit <- rpart(TotMassOut.mg ~ AveDischarge.m3.h + Volume.m3 + chExtreme + changeflux,  method="anova", data=outCoIs.model)
+
+#printcp(fit) # display the results 
+#plotcp(fit) # visualize cross-validation results 
+#summary(fit) # detailed summary of splits
+
+# create additional plots 
+#par(mfrow=c(1,2)) # two plots on one page 
+#rsq.rpart(fit) # visualize cross-validation results  	
+
+## plot tree 
+#plot(fit, uniform=TRUE, main="Regression Tree Total Mass Discharged ")
+#text(fit, use.n=TRUE, all=TRUE, cex=.8)
+
+```
+
+
+
+## Save files
+
+```{r, message=FALSE}
+
+head(out.CoIs)
+
+write.csv2(out.CoIs, 
+           'Data/WeeklyHydroContam_R.csv', row.names = F)
+
+# out.CoIs = read.csv2("Data/WeeklyHydroContam_R.csv")
+# out.CoIs$ti = as.POSIXct(out.CoIs$ti, "%Y-%m-%d %H:%M", tz = "EST")
+
+```
+

@@ -1,0 +1,283 @@
+---
+title: "Statistical Modelling of Missing Discharge Data"
+author: "PAZ"
+date: "25 octobre 2016"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(message = FALSE)
+
+Sys.setlocale("LC_ALL", "English")
+```
+
+
+## Purpose
+
+This document compares three methods to:
+
+Input missing data in cleaned discharge data:
+
+- Simple interpolation (inputting data)
+
+Smooth-out the time series.
+- Exponential Weighted Moving Averages (EWMA) - i.e. parameter alpha is adjusted manually
+- Double Exponential Smoothing - i.e. R finds optimal parameters automatically
+
+The input file is: 
+
+- **hydroAlteck2016_NAs_R.csv**
+
+The file stems from *CleanDischargeDat_hydroAlteck2016_NAs.Rmd*, which removed aberrant values from the flow meter data.
+
+The generated output file is:  
+
+- **hydroAlteck2016_smooth_R.csv**. 
+
+
+## Required packages
+
+```{r, message=FALSE}
+
+# Plotting functions
+library("ggplot2")
+library("scales")
+library("tidyr")
+
+# Interpolation packages
+library("zoo")
+library("forecast")
+
+```
+
+## Import "clean" discharge data
+
+```{r}
+hydroAlteck2016_na = read.csv2("Data/hydroAlteck2016_NAs_R.csv")
+hydroAlteck2016_na$Date = as.POSIXct(strptime(hydroAlteck2016_na$Date, "%Y-%m-%d %H:%M", tz="CET"))
+
+head(hydroAlteck2016_na)
+
+altp <- ggplot(hydroAlteck2016_na, aes(x=Date, y=Qna))
+altp <- altp + geom_line(colour = "blue") +
+  theme_bw() +
+  scale_x_datetime(breaks = date_breaks("weeks"), labels = date_format("%d/%m")) +
+  theme(axis.text.x=element_text(angle = 45, hjust = 0.75)) +
+  xlab("") +
+  ylab(expression(paste("Q ",({m}^"3"/h)))) +
+  scale_y_continuous(trans=log_trans(), breaks=c(1,10,100,1000))
+
+altp
+
+# + coord_cartesian(xlim = c(as.POSIXct("2016-05-08 23:00:00 CET"), 
+#                           as.POSIXct("2016-07-12 23:00:00 CET"))
+#                  , ylim = c(0, 100)
+#                  ) # no.1
+  #scale_x_datetime(breaks = date_breaks("weeks"), labels = date_format("%d/%m"))
+
+```
+
+
+## 1st Discharge Set - Approximating Missing Data via the **Zoo** package
+
+The **Zoo** package is one of the few packages (i.e. also **forecast**) where inputing data to univariate time series is possible [@Moritz2015]. Functions include:
+
+- na.aggregate()
+- na.StructTS()
+- na.locf()
+- na.approx()
+- na.spline()
+
+## na.approx() function
+
+Missing values (NAs) are replaced by linear interpolation using the na.approx function.
+
+```{r}
+
+hydroAlteck2016_na$Qapprox = na.approx(hydroAlteck2016_na$Qna)
+head(hydroAlteck2016_na)
+
+interpol <- ggplot(hydroAlteck2016_na, aes(Date)) + 
+  theme_bw() +
+  scale_x_datetime(breaks = date_breaks("weeks"), labels = date_format("%d/%m")) +
+  theme(axis.text.x=element_text(angle = 45, hjust = 0.75)) +
+  xlab("") +
+  ylab(expression(paste("Q ",({m}^"3"/h)))) +
+  scale_y_continuous(trans=log_trans(), breaks=c(1,10,100,1000)) +
+  geom_line(aes(y = hydroAlteck2016_na$Qapprox), color="red") +
+  geom_line(aes(y = hydroAlteck2016_na$Qna), color="blue") # + 
+  # coord_cartesian(xlim = c(as.POSIXct("2016-03-29 23:00:00 CET"), as.POSIXct("2016-04-05 00:00:00 CET"))
+  #                  , ylim = c(0, 100)
+  #                  )  
+interpol
+
+                
+```
+
+## na.StructTS() function (not working, can't convert to ts object with freq.)
+
+```{r}
+
+# Code for na.StructTS
+                
+```
+
+## na.interp() function 
+
+This function shows no improvement over the na.approx() method.
+
+```{r}
+
+
+hydroAlteck2016_na$Qinterp = na.interp(hydroAlteck2016_na$Qna)
+head(hydroAlteck2016_na)
+
+interpol <- ggplot(hydroAlteck2016_na, aes(Date)) + 
+  theme_bw() +
+  scale_x_datetime(breaks = date_breaks("weeks"), labels = date_format("%d/%m")) +
+  theme(axis.text.x=element_text(angle = 45, hjust = 0.75)) +
+  xlab("") +
+  ylab(expression(paste("Q ",({m}^"3"/h)))) +
+  scale_y_continuous(trans=log_trans(), breaks=c(1,10,100,1000)) +
+  geom_line(aes(y = hydroAlteck2016_na$Qapprox), color="red") +
+  geom_line(aes(y = hydroAlteck2016_na$Qinterp), color="forestgreen") +
+  geom_line(aes(y = hydroAlteck2016_na$Qna), color="blue") #  + 
+  # coord_cartesian(xlim = c(as.POSIXct("2016-03-29 23:00:00 CET"), as.POSIXct("2016-04-05 00:00:00 CET"))
+  #                  , ylim = c(0, 100)
+  #                  )  
+interpol
+
+                
+```
+
+
+## Smoothing Data 
+
+### Holt Winters 1 - Exponential Weighted Moving Averages (EWMA)
+
+This approach manually adjusts the value of alpha.
+
+```{r}
+
+# plot.ts(hydroAlteck2016_na$Qinter)
+Q.HW1mean <- HoltWinters(hydroAlteck2016_na$Qinter, 
+                       alpha = 0.2, # If larger, less damping (i.e. more reactive).
+                       beta = FALSE, # Controls how the trend adapts
+                       gamma = FALSE # Controls adaptation of seasonal values
+                       ) 
+
+# Note:
+# beta=False and gamma=FALSE gives Exponential Weighted Moving Averages (EWMA)
+
+Q.HW1mean
+
+# Removing the first entry of the original data to merge model
+hydroAlteck2016 = hydroAlteck2016_na[2:nrow(hydroAlteck2016_na),]
+hydroAlteck2016$Q.HW1 = Q.HW1mean$fitted[,1]
+
+head(hydroAlteck2016)
+
+```
+
+
+### Holt Winters 2 - Double Exponential Smoothing
+
+This approach manually adjusts the value of alpha.
+
+```{r}
+
+Q.HW2mean <- HoltWinters(hydroAlteck2016_na$Qinter, 
+                        gamma = FALSE) 
+
+Q.HW2mean
+# Note:
+# gamma=FALSE gives Double Exponential Smoothing
+
+# Shorten the data set by one more observation
+hydroAlteck2016 = hydroAlteck2016[2:nrow(hydroAlteck2016),]
+hydroAlteck2016$Q.HW2 = Q.HW2mean$fitted[,1]
+
+head(hydroAlteck2016)
+
+```
+
+
+### Plotting the two smoothing methods
+
+```{r}
+Qsmooth <- ggplot(hydroAlteck2016, aes(Date)) + 
+  theme_bw() +
+  scale_x_datetime(breaks = date_breaks("weeks"), labels = date_format("%d/%m")) +
+  theme(axis.text.x=element_text(angle = 45, hjust = 0.75)) +
+  xlab("") +
+  ylab(expression(paste("Q ",({m}^"3"/h)))) +
+  scale_y_continuous(trans=log_trans(), breaks=c(1,10, 50, 100, 500,1000)) +
+  geom_line(aes(y = hydroAlteck2016$Qinter), color="black") +
+  geom_line(aes(y = hydroAlteck2016$Q.HW2), color="forestgreen") +
+  geom_line(aes(y = hydroAlteck2016$Q.HW1), color="blue")  + 
+   coord_cartesian(xlim = c(as.POSIXct("2016-04-10 23:00:00 CET"), as.POSIXct("2016-04-15 00:00:00 CET"))
+  #                  , ylim = c(0, 100)
+                    )  
+Qsmooth
+```
+
+
+## Approximating missing values via subset prediction (trends)
+
+This section needs to subset the missing data and treated separetely.
+
+```{r}
+
+Q1.predict <- predict(Q.HW1mean, 
+                      n.ahead = 10,
+                      prediction.interval = TRUE)
+
+Q1.predict
+# Q1.mean$fitted
+plot.ts(log(hydroAlteck2016_na$Qinter))
+lines(log(Q.HW2mean$fitted[,1]), col="green")
+lines(log(Q.HW1mean$fitted[,1]), col="blue")
+```
+
+
+
+## Approximating Missing Data - Local Level Model
+
+The local level model assumes that we observe a time series, $y_t$, and that time series is the sum of another time series, $\mu_t$, and random,
+corrupting noise, $e_t$. We would prefer to directly observe $\mu_t$, a latent variable, but cannot due to the noise.
+
+### Establish the model
+
+```{r}
+struct1 <- StructTS(hydroAlteck2016_na$Qinter, type="level")
+if (struct1$code != 0) stop("optimizer did not converge")
+print(struct1$coef)
+
+cat("Transitional variance:", struct1$coef["level"],
+    "\n", "Observational variance:", struct1$coef["epsilon"],
+    "\n", "Initial level:", struct1$model0$a, "\n")
+```
+
+### Filter the with the StrucTS Model created
+
+```{r}
+filt <- KalmanRun(hydroAlteck2016_na$Qinter, struct1$model)
+#plot(unlist(filt))
+```
+
+Stuck trying to filter the data base donthe model...
+
+
+
+## Saving
+
+```{r}
+
+write.csv2(hydroAlteck2016, "Data/hydroAlteck2016_smooth_R.csv", row.names = FALSE)
+
+```
+
+
+
+
+

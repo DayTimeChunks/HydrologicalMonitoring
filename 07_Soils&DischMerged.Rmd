@@ -1,0 +1,132 @@
+---
+title: "Soils & Discharge Merged"
+author: "PAZ"
+date: "17 novembre 2016"
+output: pdf_document
+---
+
+```{r, echo=FALSE, message=FALSE, include=FALSE}
+Sys.setlocale("LC_ALL", "English")
+```
+
+## Purpose
+
+This file merges outlet data with soil data to plot cumulative exported and remaining S-metolachlor mass. The nearest soil sample date for each transect is used to match the initial time ("ti") of the sampling discharge period. This is most adequate merging location given that samples took place shortly before relaunching the automatic sampler. 
+
+Note that week numbers for water and soils are offset by one. I.e. Week 1 soils influence/regulate Week 2's water sample results. 
+
+Imports: 
+
+- **WeeklyHydroContam_R.csv** 
+- **WeeklySoils_R.csv**
+
+Generates:
+
+- **WeekSoilHydroCont_R.csv**
+
+## Required R-packages:
+
+```{r, message=FALSE}
+
+library("plyr")
+library("dplyr")
+
+```
+
+## Working directory
+
+```{r, message=FALSE}
+
+# setwd("D:/Documents/these_pablo/Alteckendorf2016/R")
+# setwd("/Users/DayTightChunks/Documents/PhD/Routput/Alteck/R")
+# setwd("D:/Documents/these_pablo/Alteckendorf2016/00_TransparencyFolder")
+getwd()
+
+```
+
+## Import files
+
+```{r}
+outlet = read.csv2("Data/WeeklyHydroContam_R.csv", header = T)
+outlet$ti <- as.POSIXct(outlet$ti, "%Y-%m-%d %H:%M", tz = "EST")
+sum(is.na(outlet$ti))
+head(outlet)
+
+soils = read.csv2("Data/WeeklySoils_R.csv", header =T)
+soils$Date.ti <- as.POSIXct(soils$Date.ti, "%Y-%m-%d %H:%M", tz = "EST")
+#soils$Date.ti <- as.POSIXct(soils$Date.ti, "%d/%m/%Y %H:%M", tz = "EST")
+sum(is.na(soils$Date.ti))
+head(soils)
+```
+
+
+# Select variables for new dataframe
+
+```{r}
+outlet <- outlet[, c("ti", "WeekSubWeek", "B.diss", "B.filt", "CumOutDiss.g", "CumOutFilt.g", "CumAppMass.g")]
+
+soils.N <- subset(soils, soils$Transect == "N")
+soils.N <- soils.N[, c("Date.ti", "B.comp", "MassSoil.g", "ID")]
+colnames(soils.N) <- c("ti",  "B.comp.North", "MassSoil.g.North", "ID.N")
+
+soils.T <- subset(soils, soils$Transect == "T")
+soils.T <- soils.T[, c("Date.ti", "B.comp", "MassSoil.g", "ID")]
+colnames(soils.T) <- c("ti",  "B.comp.Talweg", "MassSoil.g.Talweg", "ID.T")
+
+soils.S <- subset(soils, soils$Transect == "S")
+soils.S <- soils.S[, c("Date.ti", "B.comp", "MassSoil.g", "ID")]
+colnames(soils.S) <- c("ti",  "B.comp.South", "MassSoil.g.South", "ID.S")
+
+```
+
+# Merge 4 data frames
+
+```{r}
+
+library(zoo)
+class(outlet$ti)
+class(soils.T$ti)
+
+soilsOut <- merge(outlet, soils.N, by = "ti", all = T)
+soilsOut <- merge(soilsOut, soils.T, by = "ti", all = T)
+soilsOut <- merge(soilsOut, soils.S, by = "ti", all = T)
+
+soilsOut$CatchMassSoil.g <- soilsOut$MassSoil.g.North + soilsOut$MassSoil.g.Talweg + soilsOut$MassSoil.g.South
+
+#soilsOut$CatchMassSoil.g[1] <-100
+soilsOut$MassSoilApprox.g <- na.locf(soilsOut$CatchMassSoil.g)
+
+```
+
+
+# Plot
+
+```{r}
+library("ggplot2")
+library("scales")
+library("reshape2")
+
+
+
+ggplot(soilsOut, aes(ti)) +
+  geom_line(aes(y = CumAppMass.g), color = "red") +
+  geom_line(aes(y = CumOutDiss.g), color = "blue") +
+  geom_line(aes(y = CumOutFilt.g), color = "steelblue") +
+  geom_line(aes(y = MassSoilApprox.g), color = "brown") +
+  scale_y_continuous(trans=log_trans(), breaks=c(1,5,10, 50,100 , 500,1000, 5000)) +
+  theme_bw() +
+  xlab("Date") +
+  ylab("Catchment-wide S-metolachlor mass [g]") 
+  #scale_x_datetime(breaks = date_breaks("week"), labels = date_format("%d/%m"))
+  
+```
+
+
+```{r}
+
+#moltendSO <- melt(soilsOut, id = "ti")
+
+#ggplot(moltendSO, aes(x=ti, y=value))
+
+```
+

@@ -1,0 +1,238 @@
+---
+title: "Mass Balance - Alteckendrof 2016"
+output: pdf_document
+fig_caption: true
+---
+
+
+## Mass Balance
+
+A simplified mass balance is given by:
+
+$$
+\sum_{n=1}^n M_{(n)_{res}} +
+\sum_{t=1}^t \sum_{n=1}^n M_{(t,n)_{app}} + 
+\sum_{t=1}^t \sum_{n=1}^n M_{(t,n)_{atm}} - 
+\sum_{t=1}^t M_{(t)_{out}} -
+\sum_{t=1}^t \sum_{n=1}^n M_{(t,n)_{sinks}} =
+M_{(t)_{soil}}
+\stepcounter{equation}\tag{\theequation}\label{massBal1} 
+$$
+
+where $M$ is the S-metolachlor mass [g] found in the different environmental components, including background mass across the catchment ($res$) (i.e. previous applications); total applied pesticide mass in current year ($app$);  atmospheric deposits ($atm$); mass discharged at the outlet ($out$), mass remaining in the first 1.0 cm of soil, whether bioavailable or not ($soil$) and the mass dissipated by other sinks ($sinks$), including degradation, plant uptake, leaching and volatilization. 
+
+Given that atmospheric deposition was not measured, this can be grouped with all other non-measured sink processes and represented as an error term such that equation \eqref{massBal1} becomes:
+
+$$
+\sum_{n=1}^n M_{(n)_{res}} +
+\sum_{t=1}^t \sum_{n=1}^n M_{(t,n)_{app}} - 
+\sum_{t=1}^t M_{(t)_{out}} - 
+M_{(t)_{err}} =
+M_{(t)_{soil}}
+\stepcounter{equation}\tag{\theequation}\label{massBal2}  
+$$
+
+
+### Residual fractions
+
+Each of the following components can be obtained from field chracterization results. From left to right, the sum of the residual fraction across the catchment is obtained from detailed soil samples carried out before applications took place such that:
+
+$$
+M_{res} =  \sum_n^N M_{(n)_{res}}
+\stepcounter{equation}\tag{\theequation}\label{massResid}
+$$
+
+The residual S-metolachlor for each plot ($n$) is approximated \emph{via} the experimental concentration before application ($t=0$) per dry weight soil basis $C_{dry soil}$, the average soil density ($\varphi$), the 1.0 cm depth of the sample ($D$) and the area of the given plot ($A_n$) such that:
+
+$$
+M_{(n)_{res}} = C_{(n)_{dry soil(t=0)}} \cdot \varphi \cdot D \cdot A_n
+\stepcounter{equation}\tag{\theequation}
+$$
+
+To determine background levels, a detailed soil sampling campaign was conducted on 29.03.2016. Unfortunately, one farmer had applied 9 days in advance to the communicated schedule. In addition, soil analysis showed significantly higher concentrations to the catchment average in two plots located in a westerly direction of the early application area to the north. Furthermore, analysis of a southern plot confirmed a second early application containing S-metolachor from a farmer unwilling to share information on application dates or product used. To compute the total background mass, the median concentration from the nearest transect was assumed for plots either located outside the sampling areas or in contaminated plots. 
+
+| Transect   Median | Backgr. Conc [$\mu$   g/g dry soil] |
+|-------------------|------------------------------------:|
+| North             |                              0,0183 |
+| Talweg            |                              0,0205 |
+| South             |                              0,0285 |
+
+Table: Median Background S-metolachlor by Transect, 2016 
+
+Using equation \eqref{massResid} to obtain the the residual S-metolachlor bulk isotope signature can be obtained:
+
+$$
+\delta_{res} =  \sum_n^N \frac{ M_{(n)_{res}} }{ M_{res} } \delta_{(n)_{res}}
+\stepcounter{equation}\tag{\theequation}\label{deltaResid}
+$$
+
+Given the low background soil concentrations quantification of isotope signatures for each soil sample was not possible with high accuracy, resulting in large uncertainty in the analytical results. Therefore, a residual isotope signature for each plot was assumed to be equivalent to the theoretical maximum of -25.65 $\text{\textperthousand}$ calculated from streitwieser semiclassical limits and assuming a maximum degraded fraction of 0.95 [@Elsneretal2005]. The background S-metolachlor estimated for the entire catchment is shown in the table below.   
+
+
+| Farmer  | Plot ID | Backgr. Conc [$\mu$ g/g dry soil] | Area [$m^2$] | Backgr. Mass [g] |
+|---------|---------|----------------------------------:|-------------:|-----------------:|
+| Speich  | N-1     |                            0.0239 |     17140.80 |            9.023 |
+| Friess  | N-2     |                            0.0162 |     43903.30 |           15.631 |
+| Dutt    | N-3     |                             0.003 |     29073.10 |            2.237 |
+| Kopp    | N-4     |                            0.0083 |      9452.50 |            1.723 |
+| Dutt    | N-5     |                             0.053 |      8369.20 |            9.813 |
+| Kopp    | N-7     |                            0.0084 |     13776.50 |            2.558 |
+| Kopp    | N-8     |                            0.0065 |     17448.60 |            2.506 |
+| Mahler  | N-19    |                            0.0183 |     10682.20 |            4.299 |
+| Kopp    | T-4     |                            0.0083 |      2965.98 |            0.541 |
+| Dutt    | T-5     |                             0.049 |      3360.51 |            3.601 |
+| Kopp    | T-7     |                            0.0156 |      5336.08 |            1.826 |
+| Kopp    | T-8     |                            0.0180 |      7356.83 |            2.919 |
+| Friess  | T-9     |                            0.0162 |     14204.80 |            5.066 |
+| Schmitt | T-10    |                            0.0162 |      9383.64 |            3.347 |
+| Burger  | T-17    |                            0.0205 |      1165.43 |            0.526 |
+| Friess  | T-43    |                            0.0205 |     21751.50 |            9.810 |
+| Friess  | S-11    |                            0.0394 |     15022.60 |           13.021 |
+| Mathis  | S12     |                            0.0206 |     54313.80 |           24.633 |
+| Burger  | S-13    |                            0.0255 |     24869.10 |           13.975 |
+| Friess  | S-15    |                            0.0285 |     15697.60 |            9.849 |
+| Speich  | S-70    |                            0.0285 |      6040.22 |            3.790 |
+|         |         |                                   |              |                  |
+|         |         |                                   |    Total  |      140.69  |
+|         |         |                                   |    $\delta_{bulk_{res}}$ [\textperthousand ]|      -25.65  |
+
+Table: Background S-metolachlor in soils, 2016 
+
+\newpage{}
+
+### Applications
+
+
+The total S-metolachlor mass applied $\sum M_{tot_{app}}$ across all plots $n$ during 2016 is given by:
+
+$$
+M_{tot_{app}} = 
+\sum_{t=1}^t \Big(  \sum_{n=1}^n C_{(t, n)_{prod}} \cdot A_n \cdot Ds \Big)
+\stepcounter{equation}\tag{\theequation}\label{massApp} 
+$$
+
+where $C_{(t, n)_{prod}}$ is the concentration of S-metolachlor in the respective product applied at time $t$, the plot area $A_n$ and  the legal dose $Ds$ confirmed by the farmer. Individual farmer applications are listed in the table below, maiking up a total of 19.22 $Kg$ of S-metolachlor applied during 2016. This amount may have been overestimated by 1.95 $Kg$ (%10), due to lack of confirmation by three farmers. The error was estimated by computing higher dosages associated to Dual Gold. Detailed soil samples found significant concentrations above background levels in unconfirmed plots indicating the use of S-metolachlor during the 2016 growing season. 
+
+
+The bulk isotope signature for applications can be obtained by multiplying the associated isotope signature to the mass fraction of each component such that:
+
+$$
+\delta_{tot_{app}} =  \sum_n^N \frac{ M_{(n)_{app}} }{M_{tot_{app}} } \delta_{(n)_{app}}
+\stepcounter{equation}\tag{\theequation}\label{deltaResid}
+$$
+
+| Farmer  | Crop | Plot ID | Area [m2] | Date     | Prod.   | Prod. Conc.[g/L] | Area [Ha] | Dose [L/Ha] | App. Mass.[g] | $\delta$ [\textperthousand ]|
+|---------|------|---------|-----------:|:----------:|---------|-----------------:|----------:|-------------:|--------------:|----------:|
+| Speich  | Corn | N-1     | 17140.8   | 26/5     | DG*     | 960.0           | 1.714    | 1.2         | 1974.620     | -31.30   |
+| Friess  | Beet | N-2     | 43903.3   | 20/3     | MG      | 960.0           | 4.390    | 0.6         | 2528.830     | -31.30   |
+| Dutt    | Corn | N-3     | 29073.1   | NA       | NA      | 0               | 2.907    | 0           | 0            | NA       |
+| Kopp    | Beet | N-4     | 9452.5    | 13/4     | MG      | 960.0           | 0.945    | 0.6         | 544.465      | -31.01   |
+| Dutt    | Corn | N-5     | 8369.2    | NA       | NA      | 0               | 0.837    | 0           | 0            | NA       |
+| Kopp    | Beet | N-7     | 13776.5   | 13/4     | MG      | 960.0           | 1.378    | 0.6         | 793.526      | -31.01   |
+| Kopp    | Beet | N-8     | 17448.6   | 13/4     | MG      | 960.0           | 1.745    | 0.6         | 1005.039     | -31.01   |
+| Mahler  | Corn | N-19    | 10682.2   | 26/5     | DG*     | 960.0           | 1.068    | 1.2         | 1230.589     | -31.30   |
+| Kopp    | Beet | T-4     | 2966.0    | 13/4     | MG      | 960.0           | 0.297    | 0.6         | 170.840      | -31.01   |
+| Dutt    | Corn | T-5     | 3360.5    | NA       | NA      | 0               | 0.336    | 0           | 0            | NA       |
+| Kopp    | Beet | T-7     | 5336.1    | 13/4     | MG      | 960.0           | 0.534    | 0.6         | 307.358      | -31.01   |
+| Kopp    | Beet | T-8     | 7356.8    | 13/4     | MG      | 960.0           | 0.736    | 0.6         | 423.753      | -31.01   |
+| Friess  | Beet | T-9     | 14204.8   | 20/3     | MG      | 960.0           | 1.420    | 0.6         | 818.196      | -31.30   |
+| Schmitt | Corn | T-10    | 9383.6    | 26/5     | DG      | 960.0           | 0.938    | 1.2         | 1080.995     | -31.30   |
+| Burger  | Beet | T-17    | 1165.4    | 14/4     | MG      | 960.0           | 0.117    | 0.6         | 67.129       | -31.59   |
+| Friess  | Beet | T-43    | 21751.5   | 20/3     | MG      | 960.0           | 2.175    | 0.6         | 1252.886     | -31.30   |
+| Friess  | Beet | S-11    | 15022.6   | 20/3     | MG      | 960.0           | 1.502    | 0.6         | 865.302      | -31.30   |
+| Mathis  | Beet | S12     | 54313.8   | 5/4      | MG*     | 960.0           | 5.431    | 0.6         | 3128.475     | -31.30   |
+| Burger  | Beet | S-13    | 24869.1   | 14/4     | MG      | 960.0           | 2.487    | 0.6         | 1432.460     | -31.59   |
+| Friess  | Corn | S-15    | 15697.6   | 20/3     | MG      | 960.0           | 1.570    | 0.6         | 904.182      | -31.30   |
+| Speich  | Corn | S-70    | 6040.2    | 26/5     | DG*     | 960.0           | 0.604    | 1.2         | 695.833      | -31.30   |
+|\*\small{Assumed}         |      |         |           |          |         |                 |          |             |              |          |
+| | |         |           |          |         |                 |          |  Total | 19224.48  |          |
+|         |      |         |           |          |         |                 |          |  $\delta_{bulk_{app}}$   |   | -31.27  |            
+
+
+
+Table: Farmer applications, 2016 
+
+### Discharge
+
+To compute the discharged mass at the outlet the concentrations of each measured subsample is considered such that:
+
+$$ \sum_{t=1}^t M_{(t)_{out}} = \sum_{t=1}^t \big( Cw_{t} \cdot V_{t}  + Cs_{t} \cdot M_{SSM_t} \big)
+\stepcounter{equation}\tag{\theequation}\label{massDisch}
+$$
+
+where $M_{(t)_{out}}$ [$g$] is the discharged S-metolachlor mass at the outlet at a given sample time interval $t$. $Cw$ [$g L^{-1}$] is concentration of S-metolachlor in the dissolved fraction, $V_{t}$ [$L$] is the cumulative volume discharged over $t$, $Cs$ [ $\mu$g/g $SSM_t$] is the concentration of S-metolachlor in suspended solid matter (SSM) and $M_{SSM}$ the exported matter over the period $t$ in which the subsample was taken. 
+
+A measured isotope signature at the outlet is the bulk of a proportional mixture of discharge components arising from areas of the the catchment with distinct isotope signatures that depend on application product, but primarily the age or time that the product has been exposed to degradation processes. The isotopic mass balance model can be given by adapting equation \eqref{massDisch}:
+
+$$ \delta_{out} = \sum_{t=1}^t \sum_{i=1}^{I=3} \frac{M_{i_t} \delta_{i_t} }{M_{out}}  
+\stepcounter{equation}\tag{\theequation}\label{isoDisch}
+$$
+
+where $M_i$ is the respective mass from each transect area $i$.  
+
+To track the isotope signature during sampling events the above is simplified to:
+
+$$ \delta_{out_t} = \sum_{i=1}^{I=3} \frac{M_{i_t} \delta_{i_t} }{M_{out_t}}  
+\stepcounter{equation}\tag{\theequation}\label{isoDischTemp}
+$$
+
+Determining the mass mobilized from each component may be a task requiring detailed physical modelling to capture complex sorption and sediment mobilization processes. Alternatively Wexler et al. [-@Wexler2011] implemented discharge and concentrations to estmiate bulk isotope signatures from individual components. Given that flows and concentrations where not measured for each component their model cannot be strictly applied. Nevertheless, an approximate solution can be considered if both the proportional flow from each component is modelled with the aid of a physical model and assuming that concentration at the outlet if affected not only by flow but also by the proportional contaminant concentrations across each transect or component. An approximation of the isotopic mass balance can then be obtained by:
+
+$$ \delta_{out_t} = \sum_{i=1}^{I=3} \frac{Q_{i_t} C_{i_t}  \delta_{i_t} }{ C_{Catch_t} Q_{out_t}}  
+\stepcounter{equation}\tag{\theequation}\label{isoDischConc}
+$$
+
+where $C_i$ and $Q_i$ are the respective concentration and flux from each transect area $i$ and $C_Catch$ the remaining concentration across the catchment. 
+
+Due to low concentrations observed in the discharge, isotope signatures were only obtained with high accuracy for filters during a major event on Week 6 (W6-3) and shortly after a fresh S-metolachlor application on week 9 (W9-1,4). To calculate the bulk isotope signatures in discharged waters, only dissolved concentrations up to and including Week 11 were considered.
+
+**Insert here the possible delta values stemming from each transect**
+**This step is not important for now, more important is getting the signature of the soil's catchment itself**
+
+
+```{r}
+out.CoIs <- read.csv2('Data/WeeklyHydroContam_R.csv')
+out.CoIs$ti <- as.POSIXct(out.CoIs$ti, "%Y-%m-%d %H:%M", tz="EST")
+
+# Cummulative Input [g]:
+massIN = tail(out.CoIs$CumAppMass.g, n=1)
+massIN
+
+# Cummulative Output [g]
+massOUT = tail(out.CoIs$CumOutSmeto.g, n=1)
+massOUT
+
+# Bulk isotope output (Week 11) 
+BulkDeltaOut = sum(out.CoIs$FracDeltaOut)
+BulkDeltaOut
+
+# Of which in suspended solids [g]:
+massOUT.Filt =  tail(out.CoIs$CumOutFilt.g, n=1)
+massOUT.Filt
+
+
+# Of which in solution [g]:
+massOUT.Diss = tail(out.CoIs$CumOutDiss.g, n=1)
+massOUT.Diss
+
+```
+
+
+```{r, echo=FALSE}
+library("ggplot2")
+df <- data.frame(
+  variable = c("Applied", "Exp. Diss.", "Exp. SSM"),
+  value = c(massIN/1000, massOUT.Diss/1000, massOUT.Filt/1000)
+)
+pie <- ggplot(df, aes(x = "", y = value, fill = variable)) +
+  geom_bar(width = 1, stat = "identity") +
+  scale_fill_manual(values = c("red", "blue", "forestgreen")) +
+  coord_polar("y", start = pi / 3) +
+  labs(title = "Mass Balance [Kg]") +
+  ylab("") +
+  xlab("") +
+  theme(legend.title=element_blank())
+  
+
+```
+

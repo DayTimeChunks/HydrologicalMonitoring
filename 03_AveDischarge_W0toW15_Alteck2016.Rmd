@@ -1,0 +1,462 @@
+---
+title: "Sub-weekly Discharge - Alteck 2016, Part I"
+author: "PAZ"
+date: "25 octobre 2016"
+output: pdf_document
+---
+
+```{r, echo=FALSE, message=FALSE, include=FALSE}
+Sys.setlocale("LC_ALL", "English")
+```
+
+## Purpose
+
+This file computes average discharge and total volume discharged per sub-week (sampled and non-sampled).
+
+Imports:
+
+- **Alteck2016Debit_smooth_R.csv** 
+
+Generates: 
+
+- **WeeklyHydro_R.csv** 
+
+which is a file with discharge data summarized by sub-week. 
+
+Columns in **WeeklyHydro_R.csv** include:
+
+1. Week-SubWeek ID
+2. Average Discharge
+3. Volumne discharged
+4. Elapsed hours per subweek
+5. Marker indicating whether the subweek was sampled or not.
+
+To see the variables in this file see the end of this document. 
+
+## Required R-packages:
+
+```{r, message=FALSE}
+
+# Date-time functions
+library(chron)
+```
+
+## Working directory
+
+```{r, message=FALSE}
+
+# setwd("D:/Documents/these_pablo/Alteckendorf2016/R")
+# setwd("/Users/DayTightChunks/Documents/PhD/Routput/Alteck/R")
+getwd()
+
+```
+
+## Import smooth (and sampler merged) discharge data
+
+```{r, message=FALSE}
+
+debitAlt = read.csv2("Data/hydroAlteck2016_R.csv", header = TRUE)
+head(debitAlt)
+tail(debitAlt)
+
+```
+
+## Convert Date column to a readable Date-time object
+
+```{r, message=FALSE}
+
+class(debitAlt$Date)
+debitAlt$Date = as.POSIXct(strptime(debitAlt$Date, "%Y-%m-%d %H:%M", tz="EST"))
+sum(is.na(debitAlt$Date))
+
+```
+
+## Choose the discharge variable to calculate sub-weekly averages
+
+```{r, message=FALSE}
+
+# Remove all unecessary columns
+debitAlt = debitAlt[,c("Date", "Q.HW1")]
+head(debitAlt)
+```
+
+
+## Define the sub-week sample dates
+
+During the 2016 campaign some periods where not sampled because the automatic sampler either experienced malfunction or the capacity was reached before intervention. Interventioned took place on a weekly basis. 
+
+1. Extract subsets where sampling was conducted.
+2. Extract subsets where sampling was not conducted.
+
+```{r, message=FALSE}
+
+# Define the Weekly discharge subsets
+W00 <- subset(debitAlt, 
+              Date < as.POSIXct('2016-03-25 12:04:00' , tz="EST") ) # Not sampled
+
+W01 <- subset(debitAlt, 
+              Date >= as.POSIXct('2016-03-25 12:04:00' , tz="EST") & 
+                Date < as.POSIXct('2016-03-28 22:37:00' , tz="EST"))
+
+W02 <- subset(debitAlt, 
+              Date >= as.POSIXct('2016-03-28 22:37:00' , tz="EST") & 
+                Date <= as.POSIXct('2016-03-30 12:17:00' , tz="EST")) # Not sampled
+
+W11 <- subset(debitAlt, 
+              Date >= as.POSIXct('2016-03-30 12:17:00' , tz="EST") & 
+                Date <= as.POSIXct('2016-03-31 15:35:00' , tz="EST"))
+W12 <- subset(debitAlt, 
+              Date >= as.POSIXct('2016-03-31 15:35:00' , tz="EST") & 
+                Date <= as.POSIXct('2016-04-01 14:45:00' , tz="EST"))
+# W13
+W13 <- subset(debitAlt, 
+              Date >= as.POSIXct('2016-04-01 14:45:00' , tz="EST") & 
+                Date <= as.POSIXct('2016-04-05 15:07:00' , tz="EST")) # Not sampled
+
+W21 <- subset(debitAlt, 
+              Date >= as.POSIXct('2016-04-05 15:07:00' , tz="EST") & 
+                Date <= as.POSIXct('2016-04-06 14:51:00' , tz="EST"))
+W22 <- subset(debitAlt, 
+              Date >= as.POSIXct('2016-04-06 14:51:00' , tz="EST") & 
+                Date < as.POSIXct('2016-04-08 00:38:00' , tz="EST"))
+
+# W23 not sampled
+W23 <- subset(debitAlt, 
+              Date >= as.POSIXct('2016-04-08 00:38:00' , tz="EST") & 
+                Date < as.POSIXct('2016-04-14 13:51:00' , tz="EST"))
+
+W31 <- subset(debitAlt, 
+              Date >= as.POSIXct('2016-04-14 13:51:00' , tz="EST") & 
+                Date < as.POSIXct('2016-04-16 18:32:00' , tz="EST"))
+
+W32 <- subset(debitAlt, 
+              Date >= as.POSIXct('2016-04-16 18:32:00' , tz="EST") & 
+                Date < as.POSIXct('2016-04-17 09:02:00' , tz="EST"))
+###
+W32.1 <- subset(debitAlt, 
+                Date >= as.POSIXct('2016-04-17 09:02:00' , tz="EST") & 
+                  Date < as.POSIXct('2016-04-18 20:30:00' , tz="EST")) #  Not sampled
+
+W33 <- subset(debitAlt, 
+              Date >= as.POSIXct('2016-04-18 20:30:00' , tz="EST") & 
+                Date < as.POSIXct('2016-04-21 09:11:00' , tz="EST"))
+
+W41 <- subset(debitAlt, 
+              Date >= as.POSIXct('2016-04-21 09:11:00' , tz="EST") & 
+                Date < as.POSIXct('2016-04-23 06:37:00' , tz="EST"))
+
+W42 <- subset(debitAlt, 
+              Date >= as.POSIXct('2016-04-23 06:37:00' , tz="EST") & 
+                Date < as.POSIXct('2016-04-26 11:50:00' , tz="EST")) # Not sampled
+
+W51 <- subset(debitAlt, 
+              Date >= as.POSIXct('2016-04-26 11:50:00' , tz="EST") & 
+                Date < as.POSIXct('2016-05-01 10:46:00' , tz="EST"))
+
+W52 <- subset(debitAlt, 
+              Date >= as.POSIXct('2016-05-01 10:46:00' , tz="EST") & 
+                Date < as.POSIXct('2016-05-03 12:02:00' , tz="EST"))
+
+##
+W53 <- subset(debitAlt, 
+              Date >= as.POSIXct('2016-05-03 12:02:00' , tz="EST") & 
+                Date < as.POSIXct('2016-05-03 13:09:00' , tz="EST")) # Not sampled
+
+W61 <- subset(debitAlt, 
+              Date >= as.POSIXct('2016-05-03 13:09:00' , tz="EST") & 
+                Date < as.POSIXct('2016-05-10 00:05:00' , tz="EST"))
+
+W62 <- subset(debitAlt, 
+              Date >= as.POSIXct('2016-05-10 00:05:00' , tz="EST") & 
+                Date < as.POSIXct('2016-05-12 06:33:00' , tz="EST"))
+W63 <- subset(debitAlt, 
+              Date >= as.POSIXct('2016-05-12 06:33:00' , tz="EST") & 
+                Date < as.POSIXct('2016-05-12 09:12:00' , tz="EST"))
+W64 <- subset(debitAlt, 
+              Date >= as.POSIXct('2016-05-12 09:12:00' , tz="EST") & 
+                Date < as.POSIXct('2016-05-12 12:52:00' , tz="EST"))
+
+##
+W65 <- subset(debitAlt, 
+              Date >= as.POSIXct('2016-05-12 12:52:00' , tz="EST") & 
+                Date < as.POSIXct('2016-05-13 12:05:00' , tz="EST")) # Not sampled
+
+W71 <- subset(debitAlt, 
+              Date >= as.POSIXct('2016-05-13 12:05:00' , tz="EST") & 
+                Date < as.POSIXct('2016-05-16 15:11:00' , tz="EST"))
+##
+W72 <- subset(debitAlt, 
+              Date >= as.POSIXct('2016-05-16 15:11:00' , tz="EST") & 
+                Date <= as.POSIXct('2016-05-17 09:16:00' , tz="EST")) # Not sampled
+
+W81 <- subset(debitAlt, 
+              Date >= as.POSIXct('2016-05-17 09:16:00' , tz="EST") & 
+                Date <= as.POSIXct('2016-05-23 18:02:00' , tz="EST"))
+##
+W82 <- subset(debitAlt, 
+              Date >= as.POSIXct('2016-05-23 18:02:00' , tz="EST") & 
+                Date <= as.POSIXct('2016-05-24 12:00:00' , tz="EST")) # Not sampled
+
+W91 <- subset(debitAlt, 
+              Date >= as.POSIXct('2016-05-24 12:00:00' , tz="EST") & 
+                Date <= as.POSIXct('2016-05-29 12:09:00' , tz="EST"))
+W92 <- subset(debitAlt, 
+              Date >= as.POSIXct('2016-05-29 12:09:00' , tz="EST") & 
+                Date < as.POSIXct('2016-05-30 05:48:00' , tz="EST"))
+W93 <- subset(debitAlt, 
+              Date >= as.POSIXct('2016-05-30 05:48:00' , tz="EST") & 
+                Date < as.POSIXct('2016-05-30 12:11:00' , tz="EST"))
+W94 <- subset(debitAlt, 
+              Date >= as.POSIXct('2016-05-30 12:11:00' , tz="EST") & 
+                Date < as.POSIXct('2016-05-30 17:28:00' , tz="EST"))
+##
+W95 <- subset(debitAlt, 
+              Date >= as.POSIXct('2016-05-30 17:28:00' , tz="EST") & 
+                Date < as.POSIXct('2016-05-31 12:00:00' , tz="EST")) # Not sampled
+
+W101 <- subset(debitAlt, 
+               Date >= as.POSIXct('2016-05-31 12:00:00' , tz="EST") & 
+                 Date < as.POSIXct('2016-06-02 12:57:00' , tz="EST"))
+W102 <- subset(debitAlt, 
+               Date >= as.POSIXct('2016-06-02 12:57:00' , tz="EST") & 
+                 Date < as.POSIXct('2016-06-03 12:05:00' , tz="EST"))
+W103 <- subset(debitAlt, 
+               Date >= as.POSIXct('2016-06-03 12:05:00' , tz="EST") & 
+                 Date < as.POSIXct('2016-06-04 08:35:00' , tz="EST"))
+W104 <- subset(debitAlt, 
+               Date >= as.POSIXct('2016-06-04 08:35:00' , tz="EST") & 
+                 Date < as.POSIXct('2016-06-04 11:00:00' , tz="EST"))
+W105 <- subset(debitAlt, 
+               Date >= as.POSIXct('2016-06-04 11:00:00' , tz="EST") & 
+                 Date < as.POSIXct('2016-06-04 15:31:00' , tz="EST"))
+#
+W106 <- subset(debitAlt, 
+               Date >= as.POSIXct('2016-06-04 15:31:00' , tz="EST") & 
+                 Date <= as.POSIXct('2016-06-07 12:00:00' , tz="EST")) # Not sampled
+
+W111 <- subset(debitAlt, 
+               Date >= as.POSIXct('2016-06-07 12:00:00' , tz="EST") & 
+                 Date <= as.POSIXct('2016-06-10 05:25:00' , tz="EST"))
+W112 <- subset(debitAlt, 
+               Date > as.POSIXct('2016-06-10 05:25:00' , tz="EST") & 
+                 Date < as.POSIXct('2016-06-14 12:34:00' , tz="EST"))
+W113 <- subset(debitAlt, 
+               Date >= as.POSIXct('2016-06-14 12:34:00' , tz="EST") & 
+                 Date < as.POSIXct('2016-06-14 13:06:00' , tz="EST")) 
+W121 <- subset(debitAlt, 
+               Date > as.POSIXct('2016-06-14 13:06:00' , tz="EST") & 
+                 Date < as.POSIXct('2016-06-15 08:14:00' , tz="EST")) 
+W122 <- subset(debitAlt, 
+               Date > as.POSIXct('2016-06-15 08:14:00' , tz="EST") & 
+                 Date < as.POSIXct('2016-06-16 08:21:00' , tz="EST"))
+W123 <- subset(debitAlt, 
+               Date > as.POSIXct('2016-06-16 08:21:00' , tz="EST") & 
+                 Date < as.POSIXct('2016-06-17 00:49:00' , tz="EST"))
+
+W124 <- subset(debitAlt, 
+               Date > as.POSIXct('2016-06-17 00:49:00' , tz="EST") & 
+                 Date <= as.POSIXct('2016-06-17 11:05:00' , tz="EST"))
+#
+W125 <- subset(debitAlt, 
+               Date > as.POSIXct('2016-06-17 00:49:00' , tz="EST") & 
+                 Date < as.POSIXct('2016-06-21 12:00:00' , tz="EST")) # Not sampled
+
+W131 <- subset(debitAlt, 
+               Date >= as.POSIXct('2016-06-21 12:00:00' , tz="EST") & 
+                 Date < as.POSIXct('2016-06-24 14:51:00' , tz="EST"))
+W132 <- subset(debitAlt, 
+               Date > as.POSIXct('2016-06-24 14:51:00' , tz="EST") & 
+                 Date < as.POSIXct('2016-06-25 07:49:00' , tz="EST"))
+W133 <- subset(debitAlt, 
+               Date > as.POSIXct('2016-06-25 07:49:00' , tz="EST") & 
+                 Date < as.POSIXct('2016-06-28 08:55:00' , tz="EST"))
+W141 <- subset(debitAlt, 
+               Date > as.POSIXct('2016-06-28 08:55:00' , tz="EST") & 
+                 Date <= as.POSIXct('2016-07-04 14:41:00' , tz="EST"))
+
+W151 <- subset(debitAlt, 
+               Date > as.POSIXct('2016-07-04 14:41:00' , tz="EST") & 
+                 Date <= as.POSIXct('2016-07-12 10:20:00' , tz="EST"))
+
+```
+
+## Calculate sampled & non-sampled hrs.
+
+1. Create a list made up of each subset data.frame
+
+```{r, message=FALSE}
+
+# Create a list of matrices
+
+weeks = list(W01, 
+             W11, 
+             W12, 
+             W21, W22, 
+             W31, W32, W33, 
+             W41, 
+             W51, W52, 
+             W61, W62, W63, W64, 
+             W71, 
+             W81, 
+             W91, W92, W93, W94,
+             W101, W102, W103, W104, W105,
+             W111, W112, W113,
+             W121, W122, W123, W124,
+             W131, W132, W133,
+             W141,
+             W151)
+
+weeksNS = list(W00, W02, W13, W21, W32.1, W42, W53, W65, W72, W82, W95, W106, W125)
+
+```
+
+
+2. Create a function to calculate the time difference between the last and first date-entry of each subset.
+
+```{r, message=FALSE}
+
+hoursInWeek = function(x){
+  as.numeric(difftime(x[nrow(x),1], x[1,1], units = "hours"), units = "hours")
+} 
+
+```
+
+Here "x" is a matrix (i.e. data.frame object) with number of rows = nrow. The *difftime* function uses the last index-value (t2) - first index-value (t1)
+
+The *difftime* syntax: 
+matrix[last_row, first_column], matrix[first_row, first_column] -> t2 - t1 
+
+3. Get total hours for each subset (data.frame) with the *sapply* function 
+
+```{r, message=FALSE}
+sampledHrsList = sapply(weeks, hoursInWeek)
+nonSampledHrsList = sapply(weeksNS, hoursInWeek)
+
+nonSampledHrsList
+
+```
+
+Here, the function *sapply* returns a list of outputs based on the created function we pass to it. The syntax: sapply(object, function to apply on each object).
+
+4. Get volume discharged. 
+
+Same as above, we create first a function and then use *sapply*. Note that the discharge data in [$m^3 h^{-1}$] has an interval of 2 minutes. So we multiply each entry of the discharge column by 2 and convert to hrs. 
+ 
+```{r, message=FALSE}
+
+# m^3/h * 2 min * 1h/60min = m3
+volMinute = function(x) {
+  (x[,2] * 2/60)
+}
+
+volMinuteList = sapply(weeks, volMinute)
+volMinuteListNS = sapply(weeksNS, volMinute)
+
+```
+
+
+5. Check results
+
+```{r, message=FALSE}
+
+# first matrix in the weeks list (note: matix has two rows)
+# weeks[[1]] 
+
+# access the first matrix in the list, the second element in THAT list.
+volMinuteList[[1]][[2]] 
+
+```
+
+
+6. Get total volume for each subset (i.e. each subweek)
+
+```{r, message=FALSE}
+
+totalDischarge = function(x){
+  sum(x)
+}
+
+volumesList = sapply(volMinuteList, totalDischarge)
+volumesListNS = sapply(volMinuteListNS, totalDischarge)
+
+# Check volumnes for the non-sample list:
+volumesListNS
+
+```
+
+7. Create an average discharge list for each entry result above
+
+```{r, message=FALSE}
+
+AveDischarge = volumesList/sampledHrsList
+AveDischargeNS = volumesListNS/nonSampledHrsList
+
+```
+
+8. Put all data together into a new data.frame structure.
+
+```{r, message=FALSE}
+
+# Sampled data frame
+
+ID = c("W0-1", "W1-1", "W1-2", 
+       "W2-1", "W2-2", 
+       "W3-1", "W3-2", "W3-3", "W4-1", 
+       "W5-1", "W5-2", 
+       "W6-1", "W6-2", "W6-3", "W6-4", 
+       "W7-1", 
+       "W8-1", 
+       "W9-1", "W9-2", "W9-3", "W9-4",
+       "W10-1", "W10-2", "W10-3", "W10-4", "W10-5",
+       "W11-1", "W11-2", "W11-3",
+       "W12-1", "W12-2", "W12-3", "W12-4",
+       "W13-1", "W13-2", "W13-3",
+       "W14-1",
+       "W15-1")
+
+Sampled = rep("Sampled", length(ID))
+
+
+WeeklyDischarge = as.data.frame(ID)
+WeeklyDischarge$AveDischarge.m3.h = AveDischarge
+WeeklyDischarge$Volume.m3 = volumesList
+WeeklyDischarge$Sampled.Hrs = sampledHrsList
+WeeklyDischarge$Sampled = Sampled
+
+
+# Not sampled data frame
+
+IDns = c("W0-0x", "W0-2x", "W1-3x", "W2-3x", "W3-2.1x", "W4-2x", 
+         "W5-3x", "W6-5x", "W7-2x", "W8-2x", 
+         "W9-5x", "W10-6x", "W12-5x")
+
+SampledNS = rep("Not Sampled", length(IDns))
+
+WeeklyDischargeNS = as.data.frame(IDns)
+WeeklyDischargeNS$AveDischarge.m3.h = AveDischargeNS
+WeeklyDischargeNS$Volume.m3 = volumesListNS
+WeeklyDischargeNS$Sampled.Hrs = nonSampledHrsList
+WeeklyDischargeNS$Sampled = SampledNS
+colnames(WeeklyDischargeNS)[1] <- "ID"
+
+# Bind both data frames
+
+WeeklyHydro = rbind(WeeklyDischarge, WeeklyDischargeNS)
+WeeklyHydro$ID = as.character(WeeklyHydro$ID)
+WeeklyHydro = with(WeeklyHydro, WeeklyHydro[order(ID),])
+
+head(WeeklyHydro)
+
+```
+
+
+## Save files
+
+```{r, message=FALSE}
+
+write.csv2(WeeklyHydro, 
+           'D:/Documents/these_pablo/Alteckendorf2016/R/WeeklyHydro_R.csv', row.names = F)
+write.csv2(WeeklyHydro, 
+           'Data/WeeklyHydro_R.csv', row.names = F)
+```
+
