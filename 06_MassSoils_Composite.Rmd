@@ -14,7 +14,7 @@ Sys.setlocale("LC_ALL", "English")
 
 ## Purpose
 
-This file computes the merges weekly composite concentrations and isotope data. 
+This file merges weekly composite concentrations and isotope data. 
 
 Imports: 
 
@@ -48,6 +48,12 @@ getwd()
 
 ## Composite Concentrations & Isotope Data - Alteckendorf 2016
 
+Isotopes selected where cleaned according to the following rules:
+
+a) The isotope shift was not largely beyond (2x) Streitwieser theoretical limits (i.e. > 10)
+b) Isotope shift was non-negative
+c) Nanograms of carbon > 2.0.
+
 1. Import CSV files 
 
 ```{r, message=FALSE}
@@ -55,7 +61,7 @@ getwd()
 weeklySoilConc = read.csv2("Data/SoilCompConc_W1toW15.csv", header = TRUE)
 weeklySoilConc$Date.ti <- as.POSIXct(strptime(weeklySoilConc$Date.Soil, "%d/%m/%Y %H:%M", tz="EST"))
 sum(is.na(weeklySoilConc$Date.ti))
-
+# View(weeklySoilConc)
 weeklySoilConc <- weeklySoilConc[,c("Filename",
                                     "Transect",
                                     "Wnum",
@@ -65,13 +71,23 @@ weeklySoilConc <- weeklySoilConc[,c("Filename",
                                     "Conc.ComSoil.SD")]
 
 colnames(weeklySoilConc)[colnames(weeklySoilConc) == "Filename"] <- "ID"
-head(weeklySoilConc)
+print("Soil Composites- Concentrations")
+str(weeklySoilConc)
 
-weeklySoilIso = read.csv2("Data/SoilCompIsotopes_W1toW15.csv", header = TRUE)
-weeklySoilIso <- weeklySoilIso[, c("Filename",
-                                   "Repl",
-                                   "d.13C.12C")]
+# weeklySoilIso = read.csv2("Data/SoilCompIsotopes_W1toW15.csv", header = TRUE) # JESIUM data (before nangoram revision)
+weeklySoilIso  = read.csv2("Data/SoilCompIsotopes_W1toW15ng.csv", header = TRUE)
+
+colnames(weeklySoilIso)[colnames(weeklySoilIso) == "DD13...31.21."] <- "DD13"
+colnames(weeklySoilIso)[colnames(weeklySoilIso) == "ng..C."] <- "ngC"
 colnames(weeklySoilIso)[colnames(weeklySoilIso) == "Filename"] <- "ID"
+
+weeklySoilIso <- weeklySoilIso[, c("ID",
+                                   "Repl",
+                                   "d.13C.12C",
+                                   "DD13", 
+                                   "ngC")]
+
+weeklySoilIso <- subset(weeklySoilIso, DD13 > 0 & DD13 < 10 & ngC >= 2)
 
 
 isoCompSummary = ddply(weeklySoilIso, c("ID"), summarise,
@@ -80,26 +96,43 @@ isoCompSummary = ddply(weeklySoilIso, c("ID"), summarise,
                          comp.d13C.SD = sd(d.13C.12C),
                          comp.d13C.SE = comp.d13C.SD / sqrt(N_compsoil))
 
-head(weeklySoilIso)
-head(isoCompSummary)
+print("Soil Composites - Isotopes All")
+str(weeklySoilIso)
+
+print("Soil Composites - Isotopes Ave and St.Dev.")
+str(isoCompSummary)
 ```
 
-2. Merge data
+2. Merge lab concentrations and isotopes
 
 ```{r}
-
 comp.CoIs = merge(weeklySoilConc, isoCompSummary, by = "ID", all = T)
 comp.CoIs$Wnum = as.numeric(comp.CoIs$Wnum)
 comp.CoIs <- comp.CoIs[order(comp.CoIs$Wnum),]
-head(comp.CoIs)  
+print("Merged Soil Concentrations and Isotopes")
+str(comp.CoIs)  
+```
+
+
+3. Compute Degradation Extent and Delta-delta 
+
+```{r}
 
 # Pure and cuve isotope average
 d13Co = -31.2144
 
 # Lab enrichment:
+# Alteck
+epsilon_max = -1.5 # +/- 0.3 (@ 20C, 20% vwc)
+epsilon_min = -2.0 # +/- 0.2 (@ 20C, 40% vwc)
 
-epsilon_max = -1.5
-epsilon_min = -2.0
+epsilon_mean = -1.75
+
+# Vine
+# (@ 20C, 20% vwc) -0.8 +/- 0.1
+# (@ 30C, 20% vwc) -1.4 +/- 0.2 
+# (@ 20C, 40% vwc) -1.7 +/- 0.2
+# Average
 
 # Remaining fraction
 comp.CoIs$DD13C.comp <- (comp.CoIs$comp.d13C - (d13Co))
@@ -116,29 +149,40 @@ comp.CoIs$f.min.comp <-
   ((10^(-3)*comp.CoIs$comp.d13C + 1)/(10^(-3)*d13Co + 1))^(1000/(epsilon_min))
 
 comp.CoIs$B.min.comp <-
-  (1 - comp.CoIs$f.min.comp)*100 
+  (1 - comp.CoIs$f.min.comp)*100
 
+# Mean epsilon (# Alteck)
+comp.CoIs$f.mean.comp <- 
+  ((10^(-3)*comp.CoIs$comp.d13C + 1)/(10^(-3)*d13Co + 1))^(1000/(epsilon_mean))
+
+comp.CoIs$B.mean.com <-
+  (1 - comp.CoIs$f.mean.comp)*100
 
 
 
 ```
 
-3. Compute Spatial Soil S-metolachlor Mass at time $t$  
+3. Compute Soil S-metolachlor Mass at time $t$ across space  
 
-This method assigns non-measured plots the soil concentration and isotope of its neareast transect. The total area for each transect is calculated such that:
+For non-measured plots, the soil concentration and isotope measured at the neareast transect is assumed. The total area for each transect is calculated and shown below. 
+
+![Transect Areas $[Ha]$ (North: 14.995; Talweg: 8.774; South: 12.668)](Images/TransectAreas.png)
+
+The total pesticide mass for each transect at time $t$ is then given by:
 
 $$
 M(t)_{Ta} = C(t)_{T} \cdot \rho \cdot A_T \cdot D \cdot   
 $$
 
-![Transect Areas $[Ha]$ (North: 14.995; Talweg: 8.774; South: 12.668)](Images/TransectAreas.png)
 
-```{r, echo=F}
+
+```{r, echo=T}
 
 # S-metolachlor Mass [g]
 # Conc. [ug/g dry soil] * [g/10^6 ug] * density [g/m3] * depth [m]* A [m2] 
-rho = 2200*10^3 # [g/m3]
-depth = 0.0045 # [m]
+# Soil bulk density: 2200 or 0.99? -> Leaching experiments: 0.99 [g/cm3]
+rho = 0.99*10^6 # soil density [g/m3]
+depth = 0.005 # [m]
 
 # Transect Areas pre-corn applications
 Area_Na = 13.92663*10^4 # [m2] 
@@ -150,18 +194,29 @@ Area_Nb = 14.9949*10^4 # [m2]
 Area_Tb = 6.55813*10^4  # [m2] 
 Area_Sb = 11.65202*10^4 # [m2]
 
+# Assign new column for S-metolachlor mass in grams
 comp.CoIs$MassSoil.g <- NA
-comp.CoIs$MassSoil.g <- 
-  ifelse((comp.CoIs$Transect == "N" & comp.CoIs$Wnum < 9), comp.CoIs$Conc.mug.g.dry.soil*10^-6*rho*depth*Area_Na,
-  ifelse((comp.CoIs$Transect == "T" & comp.CoIs$Wnum < 9), comp.CoIs$Conc.mug.g.dry.soil*10^-6*rho*depth*Area_Ta, 
-  ifelse((comp.CoIs$Transect == "S" & comp.CoIs$Wnum < 9), comp.CoIs$Conc.mug.g.dry.soil*10^-6*rho*depth*Area_Sa,
-    comp.CoIs$MassSoil.g)))
 
+# Areas with S-metolachlor before week 9
 comp.CoIs$MassSoil.g <- 
-  ifelse((comp.CoIs$Transect == "N" & comp.CoIs$Wnum >= 9), comp.CoIs$Conc.mug.g.dry.soil*10^-6*rho*depth*Area_Nb,
-  ifelse((comp.CoIs$Transect == "T" & comp.CoIs$Wnum >= 9), comp.CoIs$Conc.mug.g.dry.soil*10^-6*rho*depth*Area_Tb, 
-  ifelse((comp.CoIs$Transect == "S" & comp.CoIs$Wnum >= 9), comp.CoIs$Conc.mug.g.dry.soil*10^-6*rho*depth*Area_Sb,
-    comp.CoIs$MassSoil.g)))
+  ifelse((comp.CoIs$Transect == "N" & comp.CoIs$Wnum < 9), 
+         comp.CoIs$Conc.mug.g.dry.soil*10^-6*rho*depth*Area_Na,
+  ifelse((comp.CoIs$Transect == "T" & comp.CoIs$Wnum < 9), 
+         comp.CoIs$Conc.mug.g.dry.soil*10^-6*rho*depth*Area_Ta, 
+  ifelse((comp.CoIs$Transect == "S" & comp.CoIs$Wnum < 9), 
+         comp.CoIs$Conc.mug.g.dry.soil*10^-6*rho*depth*Area_Sa, comp.CoIs$MassSoil.g)))
+
+# Areas with S-metolachlor after week 9
+comp.CoIs$MassSoil.g <- 
+  ifelse((comp.CoIs$Transect == "N" & comp.CoIs$Wnum >= 9), 
+         comp.CoIs$Conc.mug.g.dry.soil*10^-6*rho*depth*Area_Nb,
+  ifelse((comp.CoIs$Transect == "T" & comp.CoIs$Wnum >= 9), 
+         comp.CoIs$Conc.mug.g.dry.soil*10^-6*rho*depth*Area_Tb, 
+  ifelse((comp.CoIs$Transect == "S" & comp.CoIs$Wnum >= 9), 
+         comp.CoIs$Conc.mug.g.dry.soil*10^-6*rho*depth*Area_Sb, comp.CoIs$MassSoil.g)))
+
+print("S-meto mass per transect at time-t")
+str(comp.CoIs)
 
 ```
 
@@ -170,8 +225,9 @@ comp.CoIs$MassSoil.g <-
 
 ```{r, message=FALSE}
 
-head(comp.CoIs)
+
+
 
 write.csv2(comp.CoIs, 
-           'Data/WeeklySoils_R.csv', row.names = F)
+           'Data/WeeklySoils_Rng.csv', row.names = F)
 

@@ -155,14 +155,20 @@ out.CoIs = merge(out.CoIs, isoFiltSummary, by= "WeekSubWeek", all = T)
 d13Co = -31.21
 
 # Lab enrichment:
-epsilon = -1.61
+# epsilon = -1.61
+
+# Lab enrichment:
+# Alteck
+epsilon_max = -1.5 # +/- 0.3 (@ 20C, 20% vwc)
+epsilon_min = -2.0 # +/- 0.2 (@ 20C, 40% vwc)
+epsilon_mean = -1.75
 
 # Remaining fraction
 out.CoIs$DD13C.diss <- (out.CoIs$diss.d13C - (d13Co))
 out.CoIs$DD13C.filt <- (out.CoIs$filt.d13C - (d13Co))
 
-out.CoIs$f.diss <- (((10**(-3)*out.CoIs$diss.d13C + 1)/(10**(-3)*d13Co + 1))**(1000/(epsilon)))
-out.CoIs$f.filt <- (((10**(-3)*out.CoIs$filt.d13C + 1)/(10**(-3)*d13Co + 1))**(1000/(epsilon)))
+out.CoIs$f.diss <- (((10**(-3)*out.CoIs$diss.d13C + 1)/(10**(-3)*d13Co + 1))**(1000/(epsilon_mean)))
+out.CoIs$f.filt <- (((10**(-3)*out.CoIs$filt.d13C + 1)/(10**(-3)*d13Co + 1))**(1000/(epsilon_mean)))
 
 out.CoIs$B.diss <- (1 - out.CoIs$f.diss)*100 
 out.CoIs$B.filt <- (1 - out.CoIs$f.filt)*100 

@@ -50,36 +50,54 @@ getwd()
 outlet = read.csv2("Data/WeeklyHydroContam_R.csv", header = T)
 outlet$ti <- as.POSIXct(outlet$ti, "%Y-%m-%d %H:%M", tz = "EST")
 sum(is.na(outlet$ti))
-head(outlet)
 
-soils = read.csv2("Data/WeeklySoils_R.csv", header =T)
+# Select variables from Water dataset
+outlet <- outlet[, c("ti", "WeekSubWeek", "B.diss", "B.filt", "CumOutDiss.g", "CumOutFilt.g", "CumAppMass.g")]
+print("Water")
+str(outlet)
+
+soils = read.csv2("Data/WeeklySoils_Rng.csv", header =T) # Corrected with only ngC > 2.0 
 soils$Date.ti <- as.POSIXct(soils$Date.ti, "%Y-%m-%d %H:%M", tz = "EST")
 #soils$Date.ti <- as.POSIXct(soils$Date.ti, "%d/%m/%Y %H:%M", tz = "EST")
 sum(is.na(soils$Date.ti))
-head(soils)
+
+print("Soils")
+str(soils)
 ```
 
 
-# Select variables for new dataframe
+# Get soil concentrations for each transect for merging horizontally
 
 ```{r}
-outlet <- outlet[, c("ti", "WeekSubWeek", "B.diss", "B.filt", "CumOutDiss.g", "CumOutFilt.g", "CumAppMass.g")]
 
+# North
 soils.N <- subset(soils, soils$Transect == "N")
-soils.N <- soils.N[, c("Date.ti", "B.comp", "MassSoil.g", "ID")]
-colnames(soils.N) <- c("ti",  "B.comp.North", "MassSoil.g.North", "ID.N")
+soils.N <- soils.N[, c("Date.ti", "B.comp", "MassSoil.g", "comp.d13C", "comp.d13C.SD", "comp.d13C.SE", "ID")]
+colnames(soils.N) <- c("ti",  "B.comp.North", "MassSoil.g.North", "comp.d13C.North", "comp.d13C.SD.North", "comp.d13C.SE.North",  "ID.N")
 
+# Talweg
 soils.T <- subset(soils, soils$Transect == "T")
-soils.T <- soils.T[, c("Date.ti", "B.comp", "MassSoil.g", "ID")]
-colnames(soils.T) <- c("ti",  "B.comp.Talweg", "MassSoil.g.Talweg", "ID.T")
+soils.T <- soils.T[, c("Date.ti", "B.comp", "MassSoil.g", "comp.d13C", "comp.d13C.SD", "comp.d13C.SE", "ID")]
+colnames(soils.T) <- c("ti",  "B.comp.Talweg", "MassSoil.g.Talweg", "comp.d13C.Talweg", "comp.d13C.SD.Talweg", "comp.d13C.SE.Talweg", "ID.T")
 
+# South
 soils.S <- subset(soils, soils$Transect == "S")
-soils.S <- soils.S[, c("Date.ti", "B.comp", "MassSoil.g", "ID")]
-colnames(soils.S) <- c("ti",  "B.comp.South", "MassSoil.g.South", "ID.S")
+soils.S <- soils.S[, c("Date.ti", "B.comp", "MassSoil.g", "comp.d13C", "comp.d13C.SD", "comp.d13C.SE", "ID")]
+colnames(soils.S) <- c("ti",  "B.comp.South", "MassSoil.g.South", "comp.d13C.South", "comp.d13C.SD.South", "comp.d13C.SE.South","ID.S")
 
 ```
 
-# Merge 4 data frames
+# Total Catchment Mass and Bulk Isotopes
+
+Bulk isotopes are calculated based on the following:
+
+$$
+\delta_{bulk} =  \frac{ M_{North} }{ M_{tot} } \delta_{North} 
+  + \frac{ M_{Talweg} }{ M_{tot} } \delta_{Talweg}
+  + \frac{ M_{South} }{ M_{tot} } \delta_{South}
+$$
+
+
 
 ```{r}
 
@@ -91,10 +109,20 @@ soilsOut <- merge(outlet, soils.N, by = "ti", all = T)
 soilsOut <- merge(soilsOut, soils.T, by = "ti", all = T)
 soilsOut <- merge(soilsOut, soils.S, by = "ti", all = T)
 
+# Total mass in catchment
 soilsOut$CatchMassSoil.g <- soilsOut$MassSoil.g.North + soilsOut$MassSoil.g.Talweg + soilsOut$MassSoil.g.South
 
-#soilsOut$CatchMassSoil.g[1] <-100
-soilsOut$MassSoilApprox.g <- na.locf(soilsOut$CatchMassSoil.g)
+# Bulk catchment isotopes
+soilsOut$BulkCatch.d13 <- 
+  (soilsOut$MassSoil.g.North/soilsOut$CatchMassSoil.g)*soilsOut$comp.d13C.North + 
+  (soilsOut$MassSoil.g.Talweg/soilsOut$CatchMassSoil.g)*soilsOut$comp.d13C.Talweg + 
+  (soilsOut$MassSoil.g.South/soilsOut$CatchMassSoil.g)*soilsOut$comp.d13C.South
+
+print("Merged Soils and Outlet by ti")
+str(soilsOut)
+
+write.csv2(soilsOut, 
+           'Data/MassBalance_R.csv', row.names = F)
 
 ```
 
@@ -105,28 +133,75 @@ soilsOut$MassSoilApprox.g <- na.locf(soilsOut$CatchMassSoil.g)
 library("ggplot2")
 library("scales")
 library("reshape2")
+library("cowplot")
 
+# Melt data set
+##Subset the necessary columns
+soilsRemainMass <- soilsOut[, c("ti" ,"CumAppMass.g", "CumOutDiss.g", "CumOutFilt.g", "CatchMassSoil.g")]
 
+# Replace each NA with the most recent non-NA prior to it.
+# Purpose: To match continuous outlet time array    
+soilsRemainMass$CatchMassSoil.g <- na.locf(soilsRemainMass$CatchMassSoil.g)
 
-ggplot(soilsOut, aes(ti)) +
-  geom_line(aes(y = CumAppMass.g), color = "red") +
-  geom_line(aes(y = CumOutDiss.g), color = "blue") +
-  geom_line(aes(y = CumOutFilt.g), color = "steelblue") +
-  geom_line(aes(y = MassSoilApprox.g), color = "brown") +
-  scale_y_continuous(trans=log_trans(), breaks=c(1,5,10, 50,100 , 500,1000, 5000)) +
+##Then rearrange your data frame
+remainMassMolten = melt(soilsRemainMass, id=c("ti"))
+# View(remainMassMolten)
+
+pg <- remainMassMolten
+# Change variable names:
+levels(pg$variable)[levels(pg$variable)=="CumAppMass.g"] <- "Applied Cum. (Survey)"
+levels(pg$variable)[levels(pg$variable)=="CumOutDiss.g"] <- "Dissolved Cum. (Outlet)"
+levels(pg$variable)[levels(pg$variable)=="CumOutFilt.g"] <- "Sediment Cum. (Outlet)"
+levels(pg$variable)[levels(pg$variable)=="CatchMassSoil.g"] <- "Catchment Mass (1cm Soil)"
+
+# Change the order:
+levels(pg$variable)
+pg$variable <- factor(pg$variable, levels = c("Applied Cum. (Survey)", "Catchment Mass (1cm Soil)", "Dissolved Cum. (Outlet)", "Sediment Cum. (Outlet)" ))
+# names(pg)[names(pg)=="variable"]  <- "Estimated Mass"
+
+massBalTop <- ggplot(pg) + 
+  geom_line(aes(x=ti, y=value, group = variable, color=variable)) +
+  
+  # Themes and axes
   theme_bw() +
+  theme(# axis.text.x=element_text(angle = 45, hjust = 1), 
+        axis.text.x=element_blank(),
+        axis.title.x=element_blank(),
+        legend.position="top"
+        
+        )+
+  labs(color = "Estimated Mass") +
+  guides(col = guide_legend(ncol = 2)) +  # Sets legend parameters
+  
+  # xlab("Date") +
+  scale_x_datetime(breaks = date_breaks("2 weeks"), labels = date_format("%b %d")) +
+  ylab(expression(paste("Mass. S-Meto.  ", {(g)}))) # +
+  # scale_y_continuous(breaks = c(100, 5000, 10000, 20000), limits = c(100, 20000) ) 
+  # scale_y_continuous(trans=log_trans(), breaks=c(1,5,10,50,100,500,1000,2000,3000,4000,5000))
+
+
+massBalBottom <- ggplot(pg) + 
+  geom_line(aes(x=ti, y=value, color=variable)) +
+  
+  # Themes and axes
+  theme_bw() +
+  theme(axis.text.x=element_text(angle = 45, hjust = 1), 
+        #axis.text.x=element_blank(),
+        #axis.title.x=element_blank(),
+        legend.position="none"
+        )+
+  # guides(col = guide_legend(nrows = 2)) +  # Sets legend parameters
   xlab("Date") +
-  ylab("Catchment-wide S-metolachlor mass [g]") 
-  #scale_x_datetime(breaks = date_breaks("week"), labels = date_format("%d/%m"))
+  scale_x_datetime(breaks = date_breaks("2 weeks"), labels = date_format("%b %d")) +
+  ylab(expression(paste("Mass. S-Meto.  ", {(g)}))) +
+  scale_y_continuous(breaks = c(1, 25, 50, 100), limits = c(0, 100) )
+
+
+massBal = plot_grid(massBalTop, massBalBottom, ncol = 1, nrow = 2, align = "v")
+massBal
   
 ```
 
 
-```{r}
 
-#moltendSO <- melt(soilsOut, id = "ti")
-
-#ggplot(moltendSO, aes(x=ti, y=value))
-
-```
 
