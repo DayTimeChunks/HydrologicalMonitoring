@@ -164,7 +164,7 @@ comp.CoIs$B.mean.com <-
 
 3. Compute Soil S-metolachlor Mass at time $t$ across space  
 
-For non-measured plots, the soil concentration and isotope measured at the neareast transect is assumed. The total area for each transect is calculated and shown below. 
+For non-measured plots, the soil concentration and isotope measured at the neareast transect is assumed. The total area for each transect at the end of the season is shown below. Corn fields in the catchment were known to have received S-metolachlor applications only during the last week of May, 2017. Given that two of these plots were not included within the transects, their area were not accounted for but until after the known application dates for corn plots. 
 
 ![Transect Areas $[Ha]$ (North: 14.995; Talweg: 8.774; South: 12.668)](Images/TransectAreas.png)
 
@@ -185,14 +185,25 @@ rho = 0.99*10^6 # soil density [g/m3]
 depth = 0.005 # [m]
 
 # Transect Areas pre-corn applications
-Area_Na = 13.92663*10^4 # [m2] 
-Area_Ta = 6.55813*10^4  # [m2] 
-Area_Sa = 11.05376*10^4 # [m2]
+Area_Na = 13.92663*10^4 # [m2]
 
-# Transect Areas post Corn applications 
+# Corrections (old values):
+#Area_Ta = 6.55813*10^4  # [m2] # South Burger's as Talweg
+#Area_Sa = 11.05376*10^4 # [m2] # South Burger's as Talweg
+Area_Ta = 4.37134*10^4  # [m2]
+Area_Sa = 13.3175*10^4 # [m2] # South Burger's as South
+
+# Transect Areas post Corn applications (not on transect)
 Area_Nb = 14.9949*10^4 # [m2] 
-Area_Tb = 6.55813*10^4  # [m2] 
-Area_Sb = 11.65202*10^4 # [m2]
+
+# Corrections (old values): 
+#Area_Tb = 6.55813*10^4  # [m2] # South Burger's as Talweg
+#Area_Sb = 11.65202*10^4 # [m2] # South Burger's as Talweg
+Area_Tb = 4.37134*10^4  # [m2]
+Area_Sb = 13.91767*10^4 # [m2] # South Burger's as South
+
+
+
 
 # Assign new column for S-metolachlor mass in grams
 comp.CoIs$MassSoil.g <- NA
@@ -215,9 +226,20 @@ comp.CoIs$MassSoil.g <-
   ifelse((comp.CoIs$Transect == "S" & comp.CoIs$Wnum >= 9), 
          comp.CoIs$Conc.mug.g.dry.soil*10^-6*rho*depth*Area_Sb, comp.CoIs$MassSoil.g)))
 
+# Areas as variables (for later computation of bulk catchment mass)
+comp.CoIs$Area.N <-
+  ifelse((comp.CoIs$Wnum < 9), Area_Na, Area_Nb)
+         
+comp.CoIs$Area.T <-
+  ifelse((comp.CoIs$Wnum < 9), Area_Ta, Area_Tb)
+
+comp.CoIs$Area.S <-
+  ifelse((comp.CoIs$Wnum < 9), Area_Sa, Area_Sb)
+  
+
 print("S-meto mass per transect at time-t")
 str(comp.CoIs)
-
+tail(comp.CoIs)
 ```
 
 

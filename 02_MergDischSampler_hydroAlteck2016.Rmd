@@ -11,7 +11,7 @@ Sys.setlocale("LC_ALL", "English")
 
 ## Purpose
 
-This document merges inputed (i.e. corrected) flowmeter data and automatic sampler data. 
+This document merges corrected flowmeter data and automatic sampler data. 
 
 Used files:
 
@@ -60,7 +60,7 @@ sum(is.na(dischargeAlteck$Date))
 naDates = dischargeAlteck[is.na(dischargeAlteck$Date == TRUE),]
 
 duplicateAlteck <- dischargeAlteck[duplicated(dischargeAlteck$DateCheck),]
-duplicateAlteck
+head(duplicateAlteck)
 
 ```
 

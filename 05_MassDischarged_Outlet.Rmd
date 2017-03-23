@@ -16,12 +16,17 @@ This file computes the discharged mass observed at the outlet. To do that it imp
 
 Imports: 
 
-- **WeeklyHydro_R.csv** 
-- **fluxAlteck2016_R.csv**
+- **WeeklyHydro_R.csv** (R generated)
+- **fluxAlteck2016_R.csv** (R generated)
+
+
 - **OutletConc_W0toW17.csv**
-- **MESAlteckWater.csv**
+- **MESAlteckWater.csv**     (Concentration in filters)
+
 - **Outlet_Isotopes_W0toW17.csv**
-- **MESAlteck_FilterIsotopes.csv**
+- **MESAlteck_FilterIsotopes.csv** (Isotopes in filters)
+
+- **Outlet_ESAOXA_W0toW17.csv**
 
 - **AO-Hydrochem.csv**
 
@@ -33,6 +38,7 @@ Generates:
 
 ```{r, message=FALSE}
 
+library("stringr")
 library("plyr")
 library("dplyr")
 
@@ -64,11 +70,12 @@ weeklyflux = read.csv2("Data/fluxAlteck2016_R.csv", header = TRUE)
 head(weeklyflux)
 ```
 
-2. Concentration data (dissolved and suspended solids)
+2. Concentration data (dissolved and suspended solids) on a subweekly basis
 
 ```{r, message=FALSE}
 
 outletConc = read.csv2("Data/OutletConc_W0toW17.csv", header = T)
+outletConc$ID4 <- as.character(outletConc$ID4)
 outletConc <- outletConc[outletConc$ID4 != "J+7", ]
 outletConc <- outletConc[,c("WeekSubWeek", "Conc.mug.L", "Conc.SD")]
 head(outletConc)
@@ -76,15 +83,53 @@ head(outletConc)
 filters = read.csv2("Data/MESAlteckWater.csv")
 filters$MO.mg.L = ifelse(filters$MO.mg.L < 0, 0.0001, filters$MO.mg.L)
 head(filters)
+
+# MESA/MOXA data cleaning
+outletESAOXA = read.csv2("Data/Outlet_ESAOXA_W0toW17.csv", header = T)
+outletESAOXA$ID <- as.character(outletESAOXA$ID)
+split <- strsplit(outletESAOXA$ID, "-", fixed = TRUE)
+outletESAOXA$ESAOXA_SD <- sapply(split, "[", 4)
+split_vor <- strsplit(outletESAOXA$ID, "-SD", fixed = TRUE)
+outletESAOXA$ESAOXA_Mean <- sapply(split_vor, "[", 1)
+
+means_temp <- subset(outletESAOXA, is.na(outletESAOXA$ESAOXA_SD))
+sd_temp <- subset(outletESAOXA, !is.na(outletESAOXA$ESAOXA_SD))
+means_temp$ID <- NULL
+sd_temp$ID <- NULL
+
+head(sd_temp)
+head(means_temp)
+outletESAOXA <- merge(means_temp, sd_temp, by = "ESAOXA_Mean", all = T)
+outletESAOXA$ESAOXA_SD.x <- NULL
+outletESAOXA$ESAOXA_SD.y <- NULL
+split_ID <- strsplit(outletESAOXA$ESAOXA_Mean, "A0-", fixed = T)
+outletESAOXA$ID <- sapply(split_ID, "[", 2)
+outletESAOXA$ESAOXA_Mean <- NULL
+outletESAOXA <- outletESAOXA[ , c("ID", "MOXA.ugL.x", "MOXA.ugL.y", "MESA.ugL.x", "MESA.ugL.y")]
+colnames(outletESAOXA) <- c("WeekSubWeek", "OXA_mean", "OXA_SD", "ESA_mean",  "ESA_SD")
+outletESAOXA$WeekSubWeek <- as.factor(outletESAOXA$WeekSubWeek)
+
+head(outletESAOXA)
 ```
 
 3. Isotope data
+
+
+Isotopes selected where cleaned according to the following rules:
+
+a) The isotope shift was not largely beyond (2x) Streitwieser theoretical limits (i.e. > 10)
+b) Isotope shift was non-negative
+c) Nanograms of carbon > 2.0.
 
 ```{r, message=FALSE}
 
 # Outlet isotope data:
 outletIso = read.csv2("Data/Outlet_Isotopes_W0toW17.csv", header = T)
 head(outletIso)
+
+colnames(outletIso)[colnames(outletIso) == "DD13...31.21."] <- "DD13"
+colnames(outletIso)[colnames(outletIso) == "ng..C."] <- "ngC"
+outletIso <- subset(outletIso, DD13 > 0 & DD13 < 10 & ngC >= 2)
 
 # Filter isotope data:
 filtersIso = read.csv2("Data/MESAlteck_FilterIsotopes.csv", header = T)
@@ -145,7 +190,8 @@ head(isoFiltSummary)
 ```{r}
 
 # Dissolved
-out.CoIs = merge(outletConc, isoOutSummary, by = "WeekSubWeek", all = T)
+out.CoIs = merge(outletConc,  outletESAOXA, by = "WeekSubWeek", all = T)
+out.CoIs = merge(out.CoIs, isoOutSummary, by = "WeekSubWeek", all = T)
 
 # Filters (MES, Conc.MES)
 out.CoIs = merge(out.CoIs, filters, by = "WeekSubWeek", all = T)
@@ -190,6 +236,7 @@ class(out.CoIs$tf)
 sum(is.na(out.CoIs$tf))
 
 # Temprarily remove Weeks 16 & 17 (need to get discharge data)
+# No discharge data yet avaialble to multiply against...
 out.CoIs <- out.CoIs[!is.na(out.CoIs$tf), ]
 
 ```
@@ -239,7 +286,7 @@ So the total applied mass mass is merged at the nearest sampling time marker ava
 ti = c(as.POSIXct('2016-03-25 00:04:00' , tz="EST"),
        as.POSIXct('2016-04-05 15:08:00' , tz="EST"),
        as.POSIXct('2016-04-14 13:52:00' , tz="EST"),
-       as.POSIXct('2016-05-24 12:00:00' , tz="EST"))
+       as.POSIXct('2016-05-31 12:00:00' , tz="EST"))
 
 Appl.Mass.g = c(6369.396, 3128.475, 4744.571, 4982.038)
 
@@ -249,14 +296,17 @@ applics$Appl.Mass.g = Appl.Mass.g
 out.CoIs = merge(out.CoIs, applics, by = "ti", all = T)
 out.CoIs$Appl.Mass.g <- ifelse(is.na(out.CoIs$Appl.Mass.g), 0.0, out.CoIs$Appl.Mass.g)
 
+# Cumulative (Continous)
+out.CoIs$CumAppMass.g = cumsum(out.CoIs$Appl.Mass.g)
+
 ```
+
+
+## Section to UPDATE!!!
 
 5. This section converts the observed S-metolachlor concentrations to [g] in dissolved water and suspended solids, assuming 0 for the values where no sample was taken. An approximative model will be tested at a later stage. 
 
 ```{r}
-
-# Cumulative IN
-out.CoIs$CumAppMass.g = cumsum(out.CoIs$Appl.Mass.g)
 
 # First simulate a mass out to deal with missing values
 # Option 1, just assume 0.0 

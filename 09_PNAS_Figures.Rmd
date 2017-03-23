@@ -877,11 +877,52 @@ bulkB
 
 ```{r, fig.height=7.5, fig.width=7}
 
+# Merge Bulk Degradation into weekly soil dataframe (only one (e.g. South) transect as root)
+bulkDegDF <-  soilsOut[, c("ti", "WeekSubWeek", "ID.S" ,"BulkCatch.d13", "B.mean.bulk", "B.bulk", "B.min.bulk")]
+bulkDegDF <- na.omit(bulkDegDF)
+bulkDegDF$Transect <- "Bulk" 
+names(bulkDegDF)[names(bulkDegDF) == "B.mean.bulk"] <- "B.mean.com"
+names(bulkDegDF)[names(bulkDegDF) == "ti"] <- "Date.ti" 
+
+#Splitting the identifier name into Type, Week No., tc..
+bulkDegDF$ID.S <- as.character(bulkDegDF$ID.S)
+split <- strsplit(bulkDegDF$ID.S, "AW-S-", fixed = T)
+bulkDegDF$Wnum <- sapply(split, "[", 2) # Creates new column without "Split0"
+
+bulkDegDF$Week = paste("W", bulkDegDF$Wnum, sep = "")
+
+bulkDegDF <- bulkDegDF[, c("Date.ti", "Transect", "B.mean.com", "Week")]
+
+wSoil <- weeklySoil[, c("Date.ti", "Transect", "B.mean.com")]
+wSoil$Week <- NA
+wSoilBulkDeg <- rbind(wSoil, bulkDegDF)
+
+
+
+#names(bulkDegDF)[names(bulkDegDF) == "ID.S"] <- "ID"
+#wSoilBulkDeg <- merge(weeklySoil, bulkDegDF, by="ID", all = T)
+#wSoilBulkDeg$BulkLabel[!is.na(wSoilBulkDeg$WeekSubWeek)] <- "Bulk"
+
+levels(wSoilBulkDeg$Transect)[levels(wSoilBulkDeg$Transect)=="N"] <- "North"
+levels(wSoilBulkDeg$Transect)[levels(wSoilBulkDeg$Transect)=="T"] <- "Talweg"
+levels(wSoilBulkDeg$Transect)[levels(wSoilBulkDeg$Transect)=="S"] <- "South"
+levels(wSoilBulkDeg$Transect)[levels(wSoilBulkDeg$Transect)=="Bulk"] <- "Bulk Fraction"
+
+levels(wSoilBulkDeg$Transect)
+wSoilBulkDeg$Transect <- factor(wSoilBulkDeg$Transect, levels = c("North", "Talweg", "South", "Bulk Fraction"))
+
+
 # View(weeklySoil)
-Bsoil2 = ggplot(weeklySoil, aes(x=Date.ti, y=B.min.comp, colour=Transect, group = Transect)) +
+Bsoil2 = ggplot(wSoilBulkDeg, aes(x=Date.ti, y=B.mean.com, colour=Transect, group = Transect)) +
+  # Bsoil2 = ggplot(wSoilBulkDeg, aes(x=Date.ti)) +
+  # 
+  # stat_smooth(aes(y=B.mean.bulk), method = "lm", formula = y ~ poly(x, 2), se=T) +
+  # geom_point(aes(y=B.mean.com, colour=Transect, group = Transect)) +
+  # geom_point(aes(y=B.mean.bulk, group=BulkLabel, colour="Bulk Isotopes")) +
   geom_point() +
+  scale_colour_manual(values=c("#F8766D", "#7CAE00", "#619CFF", "black")) +
+  stat_smooth(data=subset(wSoilBulkDeg, Transect == "Bulk Fraction"), method = "lm", formula = y ~ poly(x, 2), se=T) +
   # geom_point(aes(x=Date.ti, y=B.comp, colour=Transect, group = Transect)) +
-  
   # Theme and axes
   theme_bw() +
   ylab("Degr. %") +
@@ -892,22 +933,31 @@ Bsoil2 = ggplot(weeklySoil, aes(x=Date.ti, y=B.min.comp, colour=Transect, group 
         #axis.text.x=element_text(angle = 45, hjust = 1)
         ) +
   # xlab("Date") +
-  # scale_x_datetime(breaks = date_breaks("2 weeks"), labels = date_format("%b %d")) +
+  scale_x_datetime(breaks = date_breaks("2 weeks"), labels = date_format("%b %d")) +
   # ylab(expression(paste("Degradation %"))) +
   
   # scale_y_continuous(breaks = c(25, 50, 75, 100), limits = c(0, 100) ) +
-  # stat_smooth(method = "lm", formula = y ~ poly(x, 2), se=FALSE) 
+  
   # geom_smooth(data=subset(weeklySoil[14:28, ]), method = "lm", formula = y ~ poly(x, 2), se = F) +
-  geom_smooth(aes(group = 1), method = "lm", formula = y ~ poly(x, 2)) +
+  # geom_smooth(aes(group = 1), method = "lm", formula = y ~ poly(x, 2)) +
   # stat_smooth(data=subset(weeklySoil[4:39, ]), method = "lm", formula = y ~ poly(x, 2), se = F) 
   # stat_smooth(method = "lm", formula = y ~ x, se=FALSE)
-  geom_text_repel(aes(label=Wnum, color = factor(Transect)),
+  geom_text_repel(aes(y=B.mean.com, label=Week),
                   size = 3,
                   arrow = arrow(length = unit(0.005, 'npc'), type = "closed"),
-                  force = 0.5, 
-                  point.padding = unit(0.5, 'lines'), 
+                  force = 0.9, 
+                  point.padding = unit(0.9, 'lines'), 
                   max.iter = 2e3,
                   nudge_x = .05)
+
+
+  #geom_text_repel(aes(y=B.mean.bulk, label=Wnum, color = factor(Transect)),
+   #               size = 3,
+    #              arrow = arrow(length = unit(0.005, 'npc'), type = "closed"),
+     #             force = 0.5, 
+      #            point.padding = unit(0.5, 'lines'), 
+       #           max.iter = 2e3,
+        #          nudge_x = .05)
 
 Bsoil2
 
@@ -917,7 +967,7 @@ Bsoil2
 BsoilNoL <- Bsoil2 + theme(legend.position='none')
 
 legend_mass = get_legend(massBalLegend + guides(colour = guide_legend(title = "Mass Distribution",  title.position = "top", nrow = 4, byrow = T)))
-legend_deg = get_legend(Bsoil2 + guides(colour = guide_legend(title.position = "top", nrow = 3, byrow = T)))
+legend_deg = get_legend(Bsoil2 + guides(colour = guide_legend(title.position = "top", nrow = 4, byrow = T)))
 
 
 gridPartB <- plot_grid(BsoilNoL, massBalTop, massBalBottom,
@@ -927,12 +977,12 @@ gridPartB
 
 fig2 <- ggdraw() +
   draw_plot(gridPartB, x=0, y=0, width =  0.75, height = 1) + 
-  draw_plot(legend_deg, x=0.5, y =0.7, width = 0.6, height = 0.3) +
+  draw_plot(legend_deg, x=0.5, y =0.7, width = 0.65, height = 0.25) +
   draw_plot(legend_mass, x=0.5, y=0.2, width = 0.75, height = 0.3)
 
 fig2
 
-ggsave(fig2, filename = "BvsMassBal.tiff", height = 10, width = 17.8, units = 'cm')
+ggsave(fig2, filename = "BvsMassBal.tiff", height = 12, width = 17.8, units = 'cm')
 
 ```
 

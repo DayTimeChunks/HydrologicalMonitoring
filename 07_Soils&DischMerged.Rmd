@@ -72,22 +72,36 @@ str(soils)
 
 # North
 soils.N <- subset(soils, soils$Transect == "N")
-soils.N <- soils.N[, c("Date.ti", "B.comp", "MassSoil.g", "comp.d13C", "comp.d13C.SD", "comp.d13C.SE", "ID")]
-colnames(soils.N) <- c("ti",  "B.comp.North", "MassSoil.g.North", "comp.d13C.North", "comp.d13C.SD.North", "comp.d13C.SE.North",  "ID.N")
+soils.N <- soils.N[, c("Date.ti", "B.comp", "MassSoil.g", 
+                       "comp.d13C", "comp.d13C.SD", "comp.d13C.SE", 
+                       "ID", "Area.N", "Area.T", "Area.S" )]
+
+colnames(soils.N) <- c("ti",  "B.comp.North", "MassSoil.g.North", 
+                       "comp.d13C.North", "comp.d13C.SD.North", "comp.d13C.SE.North",  
+                       "ID.N", "Area.N", "Area.T", "Area.S" )
 
 # Talweg
 soils.T <- subset(soils, soils$Transect == "T")
-soils.T <- soils.T[, c("Date.ti", "B.comp", "MassSoil.g", "comp.d13C", "comp.d13C.SD", "comp.d13C.SE", "ID")]
-colnames(soils.T) <- c("ti",  "B.comp.Talweg", "MassSoil.g.Talweg", "comp.d13C.Talweg", "comp.d13C.SD.Talweg", "comp.d13C.SE.Talweg", "ID.T")
+soils.T <- soils.T[, c("Date.ti", "B.comp", "MassSoil.g", 
+                       "comp.d13C", "comp.d13C.SD", "comp.d13C.SE", 
+                       "ID")]
+
+colnames(soils.T) <- c("ti",  "B.comp.Talweg", "MassSoil.g.Talweg", 
+                       "comp.d13C.Talweg", "comp.d13C.SD.Talweg", "comp.d13C.SE.Talweg", 
+                       "ID.T" )
 
 # South
 soils.S <- subset(soils, soils$Transect == "S")
-soils.S <- soils.S[, c("Date.ti", "B.comp", "MassSoil.g", "comp.d13C", "comp.d13C.SD", "comp.d13C.SE", "ID")]
-colnames(soils.S) <- c("ti",  "B.comp.South", "MassSoil.g.South", "comp.d13C.South", "comp.d13C.SD.South", "comp.d13C.SE.South","ID.S")
+soils.S <- soils.S[, c("Date.ti", "B.comp", "MassSoil.g", 
+                       "comp.d13C", "comp.d13C.SD", "comp.d13C.SE", 
+                       "ID" )]
+colnames(soils.S) <- c("ti",  "B.comp.South", "MassSoil.g.South", 
+                       "comp.d13C.South", "comp.d13C.SD.South", "comp.d13C.SE.South",
+                       "ID.S" )
 
 ```
 
-# Total Catchment Mass and Bulk Isotopes
+# Total Catchment Mass, Bulk Mass and Bulk Isotopes
 
 Bulk isotopes are calculated based on the following:
 
@@ -95,6 +109,14 @@ $$
 \delta_{bulk} =  \frac{ M_{North} }{ M_{tot} } \delta_{North} 
   + \frac{ M_{Talweg} }{ M_{tot} } \delta_{Talweg}
   + \frac{ M_{South} }{ M_{tot} } \delta_{South}
+$$
+
+Bulk mass is a proxy for the potential mass that can be discharged at a give time. It is calculated base don the pondered mass from each transect area and the proportion of that area in relation to the entire catchment such that:
+
+$$
+M_{bulk} =  \frac{ A_{North} }{ A_{tot} } M_{North} 
+  + \frac{ A_{Talweg} }{ A_{tot} } M_{Talweg}
+  + \frac{ A_{South} }{ A_{tot} } M_{South}
 $$
 
 
@@ -110,7 +132,15 @@ soilsOut <- merge(soilsOut, soils.T, by = "ti", all = T)
 soilsOut <- merge(soilsOut, soils.S, by = "ti", all = T)
 
 # Total mass in catchment
-soilsOut$CatchMassSoil.g <- soilsOut$MassSoil.g.North + soilsOut$MassSoil.g.Talweg + soilsOut$MassSoil.g.South
+soilsOut$CatchMassSoil.g <- 
+  soilsOut$MassSoil.g.North + 
+  soilsOut$MassSoil.g.Talweg + 
+  soilsOut$MassSoil.g.South
+
+soilsOut$BulkMass.g <- 
+  soilsOut$MassSoil.g.North*(soilsOut$Area.N/(soilsOut$Area.N+soilsOut$Area.T+soilsOut$Area.S)) +
+  soilsOut$MassSoil.g.Talweg*(soilsOut$Area.T/(soilsOut$Area.N+soilsOut$Area.T+soilsOut$Area.S)) +
+  soilsOut$MassSoil.g.South*(soilsOut$Area.S/(soilsOut$Area.N+soilsOut$Area.T+soilsOut$Area.S))
 
 # Bulk catchment isotopes
 soilsOut$BulkCatch.d13 <- 
