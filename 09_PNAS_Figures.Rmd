@@ -163,6 +163,11 @@ ggsave(co, filename = "CompositeConcLM.tiff", height = 10, width = 8.7, units = 
 
 initialDelta = -31.21
 weeklySoil$DD13C.comp <- (weeklySoil$comp.d13C - (initialDelta))
+weeklySoil$ngC.Label <- ifelse(weeklySoil$ngC.mean<5, "< 5 ng", 
+                               ifelse(weeklySoil$ngC.mean<10, "< 10 ng", 
+                               ifelse((weeklySoil$ngC.mean >= 10 & weeklySoil$ngC.mean < 15), "< 15 ng", 
+                               ifelse((weeklySoil$ngC.mean >= 15 & weeklySoil$ngC.mean < 20), "< 20 ng",
+                               ifelse(weeklySoil$ngC.mean >= 20 & weeklySoil$ngC.mean < 30, "< 30 ng C", "> 30 ng")))))
 
 limits_dCsoil <- aes(ymin=comp.d13C-comp.d13C.SD, ymax=comp.d13C+comp.d13C.SD)
 #limits_dCsoil <- aes(ymin=comp.d13C-0.5, ymax=comp.d13C+0.5)
@@ -173,7 +178,7 @@ lb1a2 <- paste("App. ")
 lbW012 <- paste("App.W0/1/2")
 lbW9 <- paste("App.W9")
 
-isCo =ggplot(weeklySoil, aes(x=Date.ti, y=comp.d13C, colour=Transect, group = Transect)) + 
+isCo = ggplot(weeklySoil, aes(x=Date.ti, y=comp.d13C, colour=Transect, group = Transect)) + 
   geom_errorbar(limits_dCsoil, width=.05) +
   geom_point() +
   theme_bw() +
@@ -257,21 +262,25 @@ soilf = ggplot(weeklySoil, aes(x=f.comp, y=DD13C.comp, colour=Transect, group = 
 # View(weeklySoil)
 # limits_DdCsoil <- aes(ymin=comp.d13C-comp.d13C.SD-initialDelta, ymax=comp.d13C+comp.d13C.SD-initialDelta)
 limits_DdCsoil <- aes(ymin=comp.d13C-comp.d13C.SE-initialDelta, ymax=comp.d13C+comp.d13C.SE-initialDelta)
+
 # pd <- position_dodge(0.5)
 # AOdf[1:27,]
-deltaTime = ggplot(weeklySoil[1:48, ], aes(x=Date.ti, y=DD13C.comp, colour=Transect, group = Transect)) +
-  geom_errorbar(limits_DdCsoil, width=.5) +
-  geom_point() +
+deltaTime = ggplot(na.omit(weeklySoil), aes(Date.ti, DD13C.comp)) +
+  geom_errorbar(limits_DdCsoil) +
+  geom_point(aes(shape = Transect, colour = ngC.Label)) +
+  labs(shape="Transect", colour = "Mass Carbon") +
+  
+  # geom_point(weeklySoil[1:48, ], aes(x=Date.ti, y=DD13C.comp, colour=Transect, group = Transect)) +
   
   # Themes and axes
   theme_bw() +
-  theme(legend.position="none",
+  theme(# legend.position="none",
         # axis.title.x = element_blank(),
         axis.text.x=element_text(angle = 45, hjust = 1)
         ) +
   xlab("Date") +
   scale_x_datetime(breaks = date_breaks("2 weeks"), labels = date_format("%b %d")) +
-  
+
   
   ylab(expression(paste({Delta~delta}^"13","C", ' (\u2030)'))) +
   scale_y_continuous(breaks=seq(0, 8, 1)) +
@@ -280,7 +289,7 @@ deltaTime = ggplot(weeklySoil[1:48, ], aes(x=Date.ti, y=DD13C.comp, colour=Trans
   # facet_wrap(~Transect, nrow = 3) +
   
   # Smooth linear models
-  stat_smooth(method = "lm", se=FALSE) +
+  stat_smooth(data = weeklySoil, aes(group = Transect), method = "lm", se=FALSE) +
   # stat_smooth(method = "lm", formula = y ~ poly(x, 2)) +
   # stat_smooth(data=subset(weeklySoil[4:27, ]), method = "lm", formula = y~x, se=F) +
   # stat_smooth(data=subset(weeklySoil[18:36, ]), method = "lm", formula = y~x, se=F) +
@@ -311,15 +320,14 @@ deltaTime = ggplot(weeklySoil[1:48, ], aes(x=Date.ti, y=DD13C.comp, colour=Trans
            x = as.POSIXct('2016-06-10 08:04:00'), y = 1.8, label = lbW9, parse = T, size = 3.0) +
   geom_segment(aes(x = as.POSIXct('2016-06-10 08:04:00'), y = 1.5, 
                    xend = as.POSIXct('2016-05-25 18:04:00'), yend = 0), color = "black",
-               arrow = arrow(length = unit(0.2, "cm"))) # +
+               arrow = arrow(length = unit(0.2, "cm"))) +
   
-  #geom_text_repel(aes(label=Wnum, color = factor(Transect)), 
-   #               arrow = arrow(length = unit(0.005, 'npc'), type = "closed"),
-    #              force = 1, 
-     #             point.padding = unit(1.0, 'lines'), 
-      #            max.iter = 2e3,
-       #           nudge_x = .2)
-
+  geom_text_repel(aes(label=Wnum), 
+                 arrow = arrow(length = unit(0.005, 'npc'), type = "closed"),
+                 force = 1, 
+                 point.padding = unit(1.0, 'lines'), 
+                 max.iter = 2e3,
+                 nudge_x = .2)
 
 deltaTime
 
@@ -328,6 +336,93 @@ deltaTime
   
 ```
 
+## Delta time final
+
+```{r, fig.height=6, fig.width=6}
+
+limits_DdCsoil <- aes(ymin=comp.d13C-comp.d13C.SE-initialDelta, ymax=comp.d13C+comp.d13C.SE-initialDelta, colour = Transect)
+
+weeklySoil$ngC.Label <- ifelse(weeklySoil$ngC.mean <10, "< 10 ng", 
+                               ifelse( weeklySoil$ngC.mean >= 10 & weeklySoil$ngC.mean < 15, "< 15 ng", "> 15 ng"))
+wk <- weeklySoil
+# wk <- na.omit(weeklySoil)
+wk$Application <- ifelse(wk$Date.ti == as.POSIXct('2016-05-17 09:16:00', tz = "EST") & wk$Transect == "T", 0, 
+                         ifelse(wk$Date.ti == as.POSIXct('2016-03-25 00:04:00', tz = "EST") & wk$Transect == "T", 0, 
+                                ifelse(wk$Date.ti == as.POSIXct('2016-04-05 15:08:00', tz = "EST") & wk$Transect == "T", 0,
+                                       ifelse(wk$Date.ti == as.POSIXct('2016-04-14 13:52:00', tz = "EST") & wk$Transect == "T", 0, NA))))
+
+
+                
+
+deltaTime = ggplot(wk, aes(Date.ti, DD13C.comp)) +
+  geom_errorbar(limits_DdCsoil, width = 0.5) +
+  geom_point(aes(colour = Transect, shape = ngC.Label, shape = "Application"), size = 2) +
+  labs(colour="Transect", shape = "Mass Carbon") +
+  geom_point(aes(Date.ti, Application, shape = "Application"), data = wk,  legend.title = element_blank()) +
+  # geom_point(weeklySoil[1:48, ], aes(x=Date.ti, y=DD13C.comp, colour=Transect, group = Transect)) +
+  
+  # Themes and axes
+  theme_bw() +
+  theme(# legend.position="none",
+        # axis.title.x = element_blank(),
+        axis.text.x=element_text(angle = 45, hjust = 1)
+        ) +
+  xlab("Date") +
+  scale_x_datetime(breaks = date_breaks("2 weeks"), labels = date_format("%b %d")) +
+
+  ylab(expression(paste({Delta~delta}^"13","C", ' (\u2030)'))) +
+  scale_y_continuous(breaks=seq(0, 8, 1)) +
+  # ylab(expression(paste({delta}^"13","C", ' \211'))) +
+  # ylab(expression(paste({delta}^"13","C", ' (\u2030)'))) +
+  # facet_wrap(~Transect, nrow = 3) +
+  
+  # Smooth linear models
+  #stat_smooth(data = weeklySoil, aes(group = Transect, colour = Transect), method = "lm", se=FALSE) +
+  stat_smooth(data = weeklySoil, method = "lm", se=T) +
+  # stat_smooth(data = subset(weeklySoil[1:34, ]), method = "lm", formula = y ~ poly(x, 2), se=FALSE) +
+  # stat_smooth(method = "lm", formula = y ~ poly(x, 2)) +
+  # stat_smooth(data=subset(weeklySoil[1:34, ]), method = "lm", formula = y~x, se=F) +
+  # stat_smooth(data=subset(weeklySoil[1:34, ]), aes(group = Transect, colour = Transect), method = "lm", formula = y~x, se=F) +
+  # stat_smooth(data=subset(weeklySoil[18:36, ]), method = "lm", formula = y~x, se=F) +
+  
+  # Text
+  # Application W0
+  #annotate("text", 
+  #         x = as.POSIXct('2016-04-04 01:04:00'), y = 6, label = lbW012, parse = T, size = 3.0) +
+  #geom_segment(aes(x = as.POSIXct('2016-04-03 08:04:00'), y = 5.5, 
+  #                 xend = as.POSIXct('2016-03-25 22:04:00'), yend = -0), color = "black",
+  #             arrow = arrow(length = unit(0.2, "cm"))) +
+  #annotate("text", 
+  #         x = as.POSIXct('2016-04-03 00:04:00'), y = 2, label = lb1a2, parse = T, size = 3.0) +
+  
+  # Application W1
+  #geom_segment(aes(x = as.POSIXct('2016-04-03 08:04:00'), y = 5.5, 
+  #                 xend = as.POSIXct('2016-04-05 08:04:00'), yend = 0), color = "black",
+  #             arrow = arrow(length = unit(0.2, "cm"))) +
+  # annotate("text", x = as.POSIXct('2016-04-15 08:04:00'), y = 1, label = lb1a2, parse = T, size = 3.0) +
+  
+  # Application W2
+  #geom_segment(aes(x = as.POSIXct('2016-04-03 08:04:00'), y = 5.5, 
+  #                 xend = as.POSIXct('2016-04-13 08:04:00'), yend = 0), color = "black",
+  #             arrow = arrow(length = unit(0.2, "cm"))) +
+  
+  # Application W9
+  #annotate("text", 
+  #         x = as.POSIXct('2016-06-10 08:04:00'), y = 1.8, label = lbW9, parse = T, size = 3.0) +
+  #geom_segment(aes(x = as.POSIXct('2016-06-10 08:04:00'), y = 1.5, 
+  #                 xend = as.POSIXct('2016-05-25 18:04:00'), yend = 0), color = "black",
+  #             arrow = arrow(length = unit(0.2, "cm"))) +
+  
+  geom_text_repel(data = subset(weeklySoil, Wnum < 10 & Wnum > 6), aes(label=Wnum, colour = Transect), 
+                 arrow = arrow(length = unit(0.01, 'npc'), type = "closed"),
+                 force = 1, 
+                 point.padding = unit(0.5, 'lines'), 
+                 max.iter = 2e3,
+                 nudge_x = .5, show.legend = F)
+
+deltaTime
+
+```
 
 
 ## Degradation
@@ -564,6 +659,7 @@ iso <- ggplot(AOdf, aes(x=ti, y=diss.d13C)) +
   theme_bw() +
   theme(axis.text.x=element_text(angle = 45, hjust = 1)) +
   #scale_x_datetime(breaks = date_breaks("week"), labels = date_format("%m/%d")) +
+  scale_x_datetime(breaks = date_breaks("2 weeks"), labels = date_format("%b %d")) +
   geom_point( aes(color = Weeks, group = Weeks)) +
   #stat_smooth(method = "lm", formula = y ~ x) +
   geom_smooth(data=subset(AOdf[4:length(AOdf), ]), method = "lm", formula = y ~ poly(x, 2)) +
@@ -648,9 +744,6 @@ iso2 <- ggplot(AOdf, aes(x=ti, y=DD13C.diss)) +
  
 iso2
 
-
-concIsoWater = plot_grid(conc1, iso2, ncol = 1, nrow = 2, align = "v")
-concIsoWater
 # plot_grid(co, deltaTime, ncol = 1, nrow = 2, align = "v")
 
 ```
@@ -699,51 +792,64 @@ str(soilsOut)
 
 
 # Melt data set
-
 ##Subset the necessary columns
-soilsRemainMass <- soilsOut[, c("ti" ,"CumAppMass.g", "CumOutDiss.g", "CumOutFilt.g", "CatchMassSoil.g")]
+soilsRemainMass <- soilsOut[, c("ti" ,"CumAppMass.g", "CumOutDiss.g", "CumOutFilt.g", "CumOutMELsm.g" , "CatchMassSoil.g")]
 
-# Replace each NA with the most recent non-NA prior to it.
+# Replace Catchment Mass's NA with the most recent non-NA prior to it (assumes no degradation).
 # Purpose: To match continuous outlet time array    
-soilsRemainMass$CatchMassSoil.g <- na.locf(soilsRemainMass$CatchMassSoil.g)
-# View(soilsRemainMass)
+# soilsRemainMass$CatchMassSoil.g <- na.locf(soilsRemainMass$CatchMassSoil.g)
+
 
 ##Then rearrange your data frame
-remainMassMolten = melt(soilsRemainMass, id=c("ti"))
+remainMassMolten <- soilsRemainMass[, c("ti" ,"CumAppMass.g", "CumOutDiss.g", "CumOutFilt.g", "CumOutMELsm.g" , "CatchMassSoil.g")]
+remainMassMolten <- melt(remainMassMolten, id=c("ti"))
+
 # View(remainMassMolten)
 
 pg <- remainMassMolten
+pg <- na.omit(pg)
+
 # Change variable names:
-levels(pg$variable)[levels(pg$variable)=="CumAppMass.g"] <- "Applied Cum. (Survey)"
-levels(pg$variable)[levels(pg$variable)=="CumOutDiss.g"] <- "Dissolved Cum. (Outlet)"
-levels(pg$variable)[levels(pg$variable)=="CumOutFilt.g"] <- "Sediment Cum. (Outlet)"
-levels(pg$variable)[levels(pg$variable)=="CatchMassSoil.g"] <- "Catch. Mass (0.5cm Soil)"
+levels(pg$variable)[levels(pg$variable)=="CumAppMass.g"] <- "Applied SM Cum. (Survey)"
+levels(pg$variable)[levels(pg$variable)=="CumOutMELsm.g"] <- "MEL-SM Cum. (Outlet)"
+levels(pg$variable)[levels(pg$variable)=="CatchMassSoil.g"] <- "Persistent SM (Top soil 1cm)"
+
+levels(pg$variable)[levels(pg$variable)=="CumOutDiss.g"] <- "Dissolved SM Cum. (Outlet)"
+levels(pg$variable)[levels(pg$variable)=="CumOutFilt.g"] <- "Sediment SM Cum. (Outlet)"
+
 
 # Change the order:
 levels(pg$variable)
-pg$variable <- factor(pg$variable, levels = c("Applied Cum. (Survey)", "Catch. Mass (0.5cm Soil)", "Dissolved Cum. (Outlet)", "Sediment Cum. (Outlet)" ))
+pg$variable <- factor(pg$variable, levels = c("Applied SM Cum. (Survey)",  "Persistent SM (Top soil 1cm)", "MEL-SM Cum. (Outlet)", "Dissolved SM Cum. (Outlet)", "Sediment SM Cum. (Outlet)" ))
+
+pgSimple <- pg[which(pg$variable != ("Dissolved SM Cum. (Outlet)") & pg$variable != ("Sediment SM Cum. (Outlet)")), ]
 # names(pg)[names(pg)=="variable"]  <- "Estimated Mass"
 
 massBalTop <- ggplot(pg) + 
-  geom_line(aes(x=ti, y=value, group = variable, color=variable)) +
-  
+   geom_line(aes(x=ti, y=value, group = variable, color=variable)) +
+  geom_point(aes(x=ti, y=value, group = variable, shape=variable, color=variable)) +
+
   # Themes and axes
   theme_bw() +
-  theme(# axis.text.x=element_text(angle = 45, hjust = 1), 
-        axis.text.x=element_blank(),
-        axis.title.x=element_blank(),
-        axis.title.y = element_text(hjust = 0.0),
-        legend.position="none"
-        
+  theme(axis.text.x=element_text(angle = 45, hjust = 1), 
+        # axis.text.x=element_blank(),
+        # axis.title.x=element_blank(),
+        legend.position="top"
         )+
-  labs(color = "Estimated Mass") +
-  guides(col = guide_legend(ncol = 2)) +  # Sets legend parameters
+  # labs(group = "Estimated Mass") +
+  guides(col = guide_legend(ncol = 1)) +  # Sets legend parameters
+  scale_colour_manual(values=c("black" , "dodgerblue4", "violet", "chartreuse4" , "sandybrown")) +
+  scale_shape_manual(values = c(8, 17, 25, 18, 7)) + 
   
-  # xlab("Date") +
+  #scale_colour_manual(values=c("black" , "chartreuse4",  "orangered2",  "#F8766D", "dodgerblue4", "#619CFF", "#7CAE00")) +
+  #scale_shape_manual(values = c(15, 18, 16,  23, 17, 13, 6)) + 
+  
+  xlab("Date") +
   scale_x_datetime(breaks = date_breaks("2 weeks"), labels = date_format("%b %d")) +
-  ylab(expression(paste("S-Meto.  ", {(g)}))) +
-  scale_y_continuous(breaks = c(100, 5000, 10000, 20000), limits = c(100, 20000) ) 
-  # scale_y_continuous(trans=log_trans(), breaks=c(1,5,10,50,100,500,1000,2000,3000,4000,5000))
+  ylab(expression(paste("S-metolachlor Mass ", {(g)}))) +
+  # scale_y_continuous(breaks = c(100, 5000, 10000, 20000), limits = c(100, 20000) ) 
+  scale_y_continuous(trans=log_trans(), breaks=c(1,5,10,50,100,500,1000,5000, 10000))
+massBalTop
 
 
 massBalBottom <- ggplot(pg) + 
@@ -754,38 +860,40 @@ massBalBottom <- ggplot(pg) +
   theme(axis.text.x=element_text(angle = 45, hjust = 1), 
         #axis.text.x=element_blank(),
         #axis.title.x=element_blank(),
-        axis.title.y = element_blank(),
         legend.position="none"
         )+
   # guides(col = guide_legend(nrows = 2)) +  # Sets legend parameters
   xlab("Date") +
   scale_x_datetime(breaks = date_breaks("2 weeks"), labels = date_format("%b %d")) +
   ylab(expression(paste("Mass. S-Meto.  ", {(g)}))) +
-  
   scale_y_continuous(breaks = c(1, 25, 50, 100), limits = c(0, 100) )
 
 
-massBalLegend <- ggplot(pg) + 
-  geom_line(aes(x=ti, y=value, color=variable)) +
+# massBal = plot_grid(massBalTop, massBalBottom, ncol = 1, nrow = 2, align = "v")
+
+
+
+massBal_MEL <- ggplot(pgSimple) + 
+  geom_line(aes(x=ti, y=value, group = variable, color=variable)) +
   
   # Themes and axes
   theme_bw() +
-  theme(axis.text.x=element_text(angle = 45, hjust = 1), 
-        #axis.text.x=element_blank(),
-        #axis.title.x=element_blank(),
+  theme(# axis.text.x=element_text(angle = 45, hjust = 1), 
+        axis.text.x=element_blank(),
+        axis.title.x=element_blank(),
         legend.position="top"
+        
         )+
-  guides(color = guide_legend(title = "Mass Distribution",  title.position = "top"))+
-  # guides(col = guide_legend(nrows = 2)) +  # Sets legend parameters
-  xlab("Date") +
+  labs(color = "Estimated Mass") +
+  guides(col = guide_legend(ncol = 3)) +  # Sets legend parameters
+  
+  # xlab("Date") +
   scale_x_datetime(breaks = date_breaks("2 weeks"), labels = date_format("%b %d")) +
-  ylab(expression(paste("Mass. S-Meto.  ", {(g)}))) +
-  scale_y_continuous(breaks = c(1, 25, 50, 100), limits = c(0, 100) )
+  ylab(expression(paste("S-metolachlor ", {(g)})))
 
+# massBal_MEL
 
-
-massBal = plot_grid(massBalTop, massBalBottom, ncol = 1, nrow = 2, align = "v")
-massBal
+massBalLegend <- get_legend(massBalTop)
 
 ```
 
@@ -799,8 +907,9 @@ d13Co = -31.2144
 
 # Lab enrichment:
 # Alteck
-epsilon_max = -1.5 # +/- 0.3 (@ 20C, 20% vwc)
-epsilon_min = -2.0 # +/- 0.2 (@ 20C, 40% vwc)
+# More degr. under saturation because anaerobic is best according to Fatima
+epsilon_max = -1.5 # +/- 0.3 (@ 20C, 20% vwc) 
+epsilon_min = -2.0 # +/- 0.2 (@ 20C, 40% vwc) 
 
 epsilon_mean = -1.75
 
@@ -816,11 +925,11 @@ epsilon_mean = -1.75
 soilsOut$DD13C.bulk <- (soilsOut$BulkCatch.d13 - (d13Co))
 
 # Max epsilon (30C, 20%) 
-soilsOut$f.bulk <-
+soilsOut$f.max.bulk <-
   ((10^(-3)*soilsOut$BulkCatch.d13 + 1)/(10^(-3)*d13Co + 1))^(1000/(epsilon_max))
 
-soilsOut$B.bulk <-
-  (1 - soilsOut$f.bulk)*100 
+soilsOut$B.max.bulk <-
+  (1 - soilsOut$f.max.bulk)*100 
 
 # Min epsilon (20C, 40%) 
 soilsOut$f.min.bulk <-
@@ -868,7 +977,7 @@ bulkB <- ggplot(soilsOut, aes(x=ti, y=B.mean.bulk)) +
        #           max.iter = 2e3,
         #          nudge_x = .05)
 
-bulkB
+# bulkB
 
 ```
 
@@ -878,10 +987,27 @@ bulkB
 ```{r, fig.height=7.5, fig.width=7}
 
 # Merge Bulk Degradation into weekly soil dataframe (only one (e.g. South) transect as root)
-bulkDegDF <-  soilsOut[, c("ti", "WeekSubWeek", "ID.S" ,"BulkCatch.d13", "B.mean.bulk", "B.bulk", "B.min.bulk")]
-bulkDegDF <- na.omit(bulkDegDF)
-bulkDegDF$Transect <- "Bulk" 
-names(bulkDegDF)[names(bulkDegDF) == "B.mean.bulk"] <- "B.mean.com"
+soilsOut$PersistPrct <- (soilsOut$CatchMassSoil.g/soilsOut$CumAppMass.g)*100
+soilsOut$DischPrct <- ((soilsOut$CumOutDiss.g+soilsOut$CumOutFilt.g)/soilsOut$CumAppMass.g)*100
+bulkDegDF <-  soilsOut[, c("ti", "WeekSubWeek", "ID.S" ,"BulkCatch.d13", "B.mean.bulk", "B.max.bulk", "B.min.bulk", "PersistPrct", "DischPrct")]
+
+bulkDegDF$TotBL <- bulkDegDF$B.min.bulk + bulkDegDF$PersistPrct + bulkDegDF$DischPrct
+bulkDegDF$LeachPrct <- 100-bulkDegDF$TotBL
+bulkDegDF$LeachPrctCorr <- ifelse(bulkDegDF$LeachPrct > 0, bulkDegDF$LeachPrct, NA)
+
+
+
+# Delerte rows from specified Columns
+completeFun <- function(data, desiredCols) {
+  completeVec <- complete.cases(data[, desiredCols])
+  return(data[completeVec, ])
+}
+
+bulkDegDF <- completeFun(bulkDegDF, "TotBL")
+
+bulkDegDF$Transect <- "Degraded (Bulk)" 
+
+# names(bulkDegDF)[names(bulkDegDF) == "B.mean.bulk"] <- "B.mean.com"
 names(bulkDegDF)[names(bulkDegDF) == "ti"] <- "Date.ti" 
 
 #Splitting the identifier name into Type, Week No., tc..
@@ -891,42 +1017,78 @@ bulkDegDF$Wnum <- sapply(split, "[", 2) # Creates new column without "Split0"
 
 bulkDegDF$Week = paste("W", bulkDegDF$Wnum, sep = "")
 
-bulkDegDF <- bulkDegDF[, c("Date.ti", "Transect", "B.mean.com", "Week")]
+bulkDegDF <- bulkDegDF[, c("Date.ti", "Transect", 
+                           "B.mean.bulk",  "B.max.bulk",  "B.min.bulk", 
+                           "PersistPrct", "DischPrct", "TotBL", "LeachPrct", "LeachPrctCorr",  
+                           "Week")]
+bulkDegDF$RemainLabel <- "Persistent frac. (Top Soil 1cm)"
+bulkDegDF$DischLabel <- "Discharge (Outlet)"
+bulkDegDF$LeachLabel <- "Leached (Inferred)"
 
-wSoil <- weeklySoil[, c("Date.ti", "Transect", "B.mean.com")]
-wSoil$Week <- NA
-wSoilBulkDeg <- rbind(wSoil, bulkDegDF)
+
+levels(bulkDegDF$Transect)[levels(bulkDegDF$Transect)=="Bulk"] <- "Degraded (Bulk)"
 
 
+wSoil <- weeklySoil[, c("Date.ti", "Transect", "B.mean.comp", "B.max.comp", "B.min.comp")]
+levels(wSoil$Transect)[levels(wSoil$Transect)=="N"] <- "North"
+levels(wSoil$Transect)[levels(wSoil$Transect)=="T"] <- "Talweg"
+levels(wSoil$Transect)[levels(wSoil$Transect)=="S"] <- "South"
+
+# colnames(wSoil) <- c("Date.ti", "Transect", "B.mean.bulk",  "B.max.bulk",  "B.min.bulk")
+
+# wSoil$Week <- NA
+# wSoilBulkDeg <- rbind(wSoil, bulkDegDF)
 
 #names(bulkDegDF)[names(bulkDegDF) == "ID.S"] <- "ID"
 #wSoilBulkDeg <- merge(weeklySoil, bulkDegDF, by="ID", all = T)
 #wSoilBulkDeg$BulkLabel[!is.na(wSoilBulkDeg$WeekSubWeek)] <- "Bulk"
 
-levels(wSoilBulkDeg$Transect)[levels(wSoilBulkDeg$Transect)=="N"] <- "North"
-levels(wSoilBulkDeg$Transect)[levels(wSoilBulkDeg$Transect)=="T"] <- "Talweg"
-levels(wSoilBulkDeg$Transect)[levels(wSoilBulkDeg$Transect)=="S"] <- "South"
-levels(wSoilBulkDeg$Transect)[levels(wSoilBulkDeg$Transect)=="Bulk"] <- "Bulk Fraction"
 
-levels(wSoilBulkDeg$Transect)
-wSoilBulkDeg$Transect <- factor(wSoilBulkDeg$Transect, levels = c("North", "Talweg", "South", "Bulk Fraction"))
+levels(wSoil$Transect)
+#wSoil$Transect <- factor(wSoil$Transect, levels = c("Bulk Fraction", "North", "Talweg", "South" ))
+wSoil$Transect <- factor(wSoil$Transect, levels = c("North", "Talweg", "South" ))
 
+#wSoilBulkDeg$B.max.bulk[wSoilBulkDeg$Transect == "North"] <- NA
+#wSoilBulkDeg$B.max.bulk[wSoilBulkDeg$Transect == "Talweg"] <- NA
+#wSoilBulkDeg$B.max.bulk[wSoilBulkDeg$Transect == "South"] <- NA
 
-# View(weeklySoil)
-Bsoil2 = ggplot(wSoilBulkDeg, aes(x=Date.ti, y=B.mean.com, colour=Transect, group = Transect)) +
-  # Bsoil2 = ggplot(wSoilBulkDeg, aes(x=Date.ti)) +
-  # 
-  # stat_smooth(aes(y=B.mean.bulk), method = "lm", formula = y ~ poly(x, 2), se=T) +
-  # geom_point(aes(y=B.mean.com, colour=Transect, group = Transect)) +
-  # geom_point(aes(y=B.mean.bulk, group=BulkLabel, colour="Bulk Isotopes")) +
-  geom_point() +
-  scale_colour_manual(values=c("#F8766D", "#7CAE00", "#619CFF", "black")) +
-  stat_smooth(data=subset(wSoilBulkDeg, Transect == "Bulk Fraction"), method = "lm", formula = y ~ poly(x, 2), se=T) +
-  # geom_point(aes(x=Date.ti, y=B.comp, colour=Transect, group = Transect)) +
-  # Theme and axes
+#wSoilBulkDeg$B.min.bulk[wSoilBulkDeg$Transect == "North"] <- NA
+#wSoilBulkDeg$B.min.bulk[wSoilBulkDeg$Transect == "Talweg"] <- NA
+#wSoilBulkDeg$B.min.bulk[wSoilBulkDeg$Transect == "South"] <- NA
+
+limits_bulkdeg <- aes(ymin=B.min.bulk, ymax=B.max.bulk, x = Date.ti, colour = Transect, group = Transect)
+
+Bsoil1 <- 
+  ggplot() +
+  # geom_point(size = 2) +
+  # ggplot(data = wSoilBulkDeg, aes(Date.ti, B.mean.bulk, colour = Transect, shape=Transect, group = Transect)) +
+  geom_point(data = wSoil, 
+             aes(Date.ti, B.mean.comp, colour = Transect, shape=Transect, group = Transect), size = 2) +
+  geom_point(data = bulkDegDF, 
+             aes(Date.ti, B.mean.bulk, colour = Transect, shape=Transect, group = Transect), size = 2) +
+  geom_point(data = bulkDegDF, 
+             aes(Date.ti, PersistPrct, colour = RemainLabel, shape=RemainLabel, group = RemainLabel), size = 2) +
+  geom_point(data = bulkDegDF, 
+             aes(Date.ti, DischPrct, colour = DischLabel, shape=DischLabel, group = DischLabel), size = 2) +
+  geom_point(data = bulkDegDF, 
+             aes(Date.ti, LeachPrctCorr, colour = LeachLabel, shape=LeachLabel, group = LeachLabel), size = 2) +
+  
+  geom_errorbar(data = bulkDegDF, limits_bulkdeg) + # With 2 data frames
+  stat_smooth(data=subset(bulkDegDF, Transect == "Degraded (Bulk)"), 
+              mapping = aes(y = B.mean.bulk, x = Date.ti), # With 2 data frames
+              colour = " black",
+              method = "lm", formula = y ~ poly(x, 2), se=F) +
+  
+  stat_smooth(data=subset(bulkDegDF, RemainLabel == "Persistent frac. (Top Soil 1cm)"), 
+              mapping = aes(y = PersistPrct, x = Date.ti), # With 2 data frames
+              colour = "darkblue",
+              method = "lm", formula = y ~ poly(x, 2), se=F) +
+  scale_colour_manual(values=c("black" , "chartreuse4",  "orangered2",  "#F8766D", "dodgerblue4", "#619CFF", "#7CAE00")) +
+  scale_shape_manual(values = c(15, 18, 16,  23, 17, 13, 6)) + 
   theme_bw() +
-  ylab("Degr. %") +
+  ylab("S-metolachlor Sinks (%)") +
   theme(legend.position = "top",
+        legend.title = element_blank(),
         #axis.title = element_blank(),
         axis.title.x = element_blank(),
         axis.text.x = element_blank()
@@ -942,13 +1104,176 @@ Bsoil2 = ggplot(wSoilBulkDeg, aes(x=Date.ti, y=B.mean.com, colour=Transect, grou
   # geom_smooth(aes(group = 1), method = "lm", formula = y ~ poly(x, 2)) +
   # stat_smooth(data=subset(weeklySoil[4:39, ]), method = "lm", formula = y ~ poly(x, 2), se = F) 
   # stat_smooth(method = "lm", formula = y ~ x, se=FALSE)
-  geom_text_repel(aes(y=B.mean.com, label=Week),
+  geom_text_repel(data=subset(bulkDegDF, Transect == "Degraded (Bulk)"),
+                  mapping = aes(y=B.mean.bulk, x= Date.ti, label=Week),
                   size = 3,
                   arrow = arrow(length = unit(0.005, 'npc'), type = "closed"),
                   force = 0.9, 
                   point.padding = unit(0.9, 'lines'), 
                   max.iter = 2e3,
-                  nudge_x = .05)
+                  nudge_x = .05, show.legend = F)
+
+Bsoil1
+
+colnames(bulkDegDF)[which(names(bulkDegDF) == "Transect")] <- "Catchment"
+limits_bulkdegCAT <- aes(ymin=B.min.bulk, ymax=B.max.bulk, x = Date.ti, colour = Catchment, group = Catchment)
+solidpts <- ggplot() +
+  # geom_point(size = 2) +
+  # ggplot(data = wSoilBulkDeg, aes(Date.ti, B.mean.bulk, colour = Transect, shape=Transect, group = Transect)) +
+  geom_point(data = bulkDegDF, 
+             aes(Date.ti, B.mean.bulk, colour = Catchment, shape=Catchment, group = Catchment), size = 2) +
+  geom_point(data = bulkDegDF, 
+             aes(Date.ti, PersistPrct, colour = RemainLabel, shape=RemainLabel, group = RemainLabel), size = 2) +
+  geom_point(data = bulkDegDF, 
+             aes(Date.ti, DischPrct, colour = DischLabel, shape=DischLabel, group = DischLabel), size = 2) +
+  geom_point(data = bulkDegDF, 
+             aes(Date.ti, LeachPrctCorr, colour = LeachLabel, shape=LeachLabel, group = LeachLabel), size = 2) +
+  
+  geom_errorbar(data = bulkDegDF, limits_bulkdegCAT) + # With 2 data frames
+  stat_smooth(data=subset(bulkDegDF, Catchment == "Degraded (Bulk)"), 
+              mapping = aes(y = B.mean.bulk, x = Date.ti), # With 2 data frames
+              colour = " black",
+              method = "lm", formula = y ~ poly(x, 2), se=F) +
+  
+  stat_smooth(data=subset(bulkDegDF, RemainLabel == "Persistent frac. (Top Soil 1cm)"), 
+              mapping = aes(y = PersistPrct, x = Date.ti), # With 2 data frames
+              colour = "darkblue",
+              method = "lm", formula = y ~ poly(x, 2), se=F) +
+  #scale_colour_manual(values=c(" black" ,"#F8766D", "#7CAE00", "#619CFF")) +
+  scale_colour_manual(values=c("black" , "chartreuse4",  "orangered2",  "dodgerblue4")) +
+  scale_shape_manual(values = c(15, 18,  16, 17)) + 
+  theme_bw() +
+  theme(legend.position = "top",
+        legend.title = element_blank(),
+        #axis.title = element_blank(),
+        axis.title.x = element_blank(),
+        axis.text.x = element_blank()
+        #axis.text.x=element_text(angle = 45, hjust = 1)
+        ) +
+  # xlab("Date") +
+  scale_x_datetime(breaks = date_breaks("2 weeks"), labels = date_format("%b %d")) +
+  geom_text_repel(data=subset(bulkDegDF, Catchment == "Degraded (Bulk)"),
+                  mapping = aes(y=B.mean.bulk, x= Date.ti, label=Week),
+                  size = 3,
+                  arrow = arrow(length = unit(0.005, 'npc'), type = "closed"),
+                  force = 0.9, 
+                  point.padding = unit(0.9, 'lines'), 
+                  max.iter = 2e3,
+                  nudge_x = .05, show.legend = F)
+
+solidpts
+
+#colnames(wSoil)[which(names(wSoil) == "Transect")] <- "Transect-Deg."
+emptypts <- 
+  ggplot() +
+  # geom_point(size = 2) +
+  # ggplot(data = wSoilBulkDeg, aes(Date.ti, B.mean.bulk, colour = Transect, shape=Transect, group = Transect)) +
+  geom_point(data = wSoil, 
+             aes(Date.ti, B.mean.comp, colour = Transect , shape=Transect , group = Transect ), size = 2) +
+
+  #scale_colour_manual(values=c(" black" ,"#F8766D", "#7CAE00", "#619CFF")) +
+  
+  scale_colour_manual(values=c("#F8766D","#7CAE00",  "#619CFF")) +
+  scale_shape_manual(values = c(23,  6,  13)) +
+  # guides(guide_legend(title = waiver()))+
+  # labs(color = "Number of gears") +
+  #scale_colour_manual(values=c("black" , "chartreuse4",  "orangered2",  "#F8766D", "dodgerblue4", "#619CFF", "#7CAE00")) +
+  #scale_shape_manual(values = c(15, 18, 16,  23, 17, 13, 6)) + 
+  theme_bw() +
+  ylab("S-metolachlor Sinks (%)") +
+  theme(#legend.position = "top",
+        # legend.title = element_blank(),
+        #axis.title = element_blank(),
+        axis.title.x = element_blank(),
+        axis.text.x = element_blank()
+        #axis.text.x=element_text(angle = 45, hjust = 1)
+        ) +
+  # xlab("Date") +
+  scale_x_datetime(breaks = date_breaks("2 weeks"), labels = date_format("%b %d"))
+
+emptypts
+#colnames(wSoil)[which(names(wSoil) == "Transect-Deg.")] <- "Transect"
+
+## Merging both figures
+
+# massBalNoL <- massBal + theme(legend.position='none')
+BsoilNoL <- Bsoil1 + theme(legend.position='none')
+MBalNoL <- massBalTop + theme(legend.position = 'none')
+
+legend_deg_solid = get_legend(solidpts + 
+                          theme(legend.title = element_text(face = "bold"), 
+                                legend.text = element_text(size = 9), 
+                                legend.key.height = unit(x = 0.35, units = 'cm'),
+                                legend.background = element_rect(colour = "black")) + 
+                          guides(colour = guide_legend(title.position = "top", ncol = 1, byrow = T)))
+
+legend_deg_empty = get_legend(emptypts + 
+                          theme(legend.title = element_text(face = "bold"),
+                                legend.text = element_text(size = 9), 
+                                legend.key.height = unit(x = 0.35, units = 'cm'),
+                                legend.background = element_rect(colour = "black")) + 
+                          guides(colour = guide_legend(title.position = "top", ncol = 1, byrow = T)))
+
+legend_mass = get_legend(massBalTop + 
+                           theme(legend.text = element_text(size = 9), 
+                                 legend.key.height = unit(x = 0.4, units = 'cm'),
+                                 legend.background = element_rect(colour = "black"),
+                                  legend.title = element_blank()))
+                         #+   guides(colour = guide_legend(title = "Mass Distribution",  title.position = "top", ncol =1, byrow = T)))
+
+gridPartB <- plot_grid(BsoilNoL, MBalNoL,
+                    ncol =1, nrow = 2, align ="v",
+                    labels = c("A", "B"))
+gridPartB
+
+fig2 <- ggdraw() +
+  draw_plot(gridPartB, x=0, y=0, width =  0.93, height = 1) + 
+  draw_plot(legend_deg_solid, x=0.48, y =0.62, width = 0.70, height = 0.20) +
+  draw_plot(legend_deg_empty, x=0.52, y =0.65, width = 0.75, height = 0.35) +
+  draw_plot(legend_mass, x=0.5, y=0.05, width = 0.63, height = 0.28)
+
+fig2
+
+ggsave(fig2, filename = "BvsMassBal.tiff", height = 17, width = 17.8, units = 'cm')
+
+```
+
+### Degradation per transect (no bulk)
+
+```{r}
+Bsoil2 = ggplot(wSoil, aes(x=Date.ti, y=B.mean.comp, colour=Transect, shape=Transect, group = Transect)) +
+  # Bsoil2 = ggplot(wSoilBulkDeg, aes(x=Date.ti)) +
+  # 
+  # stat_smooth(aes(y=B.mean.bulk), method = "lm", formula = y ~ poly(x, 2), se=T) +
+  # geom_point(aes(y=B.mean.com, colour=Transect, group = Transect)) +
+  # geom_point(aes(y=B.mean.bulk, group=BulkLabel, colour="Bulk Isotopes")) +
+  geom_point(size = 2) +
+  
+  stat_smooth( method = "lm", formula = y ~ poly(x, 2), se=F) +
+  
+  scale_colour_manual(values=c("#F8766D", "#7CAE00", "#619CFF")) +
+  scale_shape_manual(values = c(15, 16, 17)) +
+  # scale_shape_manual(values = c(23, 15, 16, 17)) +
+  # geom_point(aes(x=Date.ti, y=B.comp, colour=Transect, group = Transect)) +
+  # Theme and axes
+  theme_bw() +
+  ylab("Degr. %") +
+  theme(legend.position = "top",
+        #axis.title = element_blank(),
+        axis.title.x = element_blank(),
+        axis.text.x = element_blank()
+        #axis.text.x=element_text(angle = 45, hjust = 1)
+        ) +
+  # xlab("Date") +
+  scale_x_datetime(breaks = date_breaks("2 weeks"), labels = date_format("%b %d"))
+  # ylab(expression(paste("Degradation %"))) +
+  
+  # scale_y_continuous(breaks = c(25, 50, 75, 100), limits = c(0, 100) ) +
+  
+  # geom_smooth(data=subset(weeklySoil[14:28, ]), method = "lm", formula = y ~ poly(x, 2), se = F) +
+  # geom_smooth(aes(group = 1), method = "lm", formula = y ~ poly(x, 2)) +
+  # stat_smooth(data=subset(weeklySoil[4:39, ]), method = "lm", formula = y ~ poly(x, 2), se = F) 
+  # stat_smooth(method = "lm", formula = y ~ x, se=FALSE)
 
 
   #geom_text_repel(aes(y=B.mean.bulk, label=Wnum, color = factor(Transect)),
@@ -960,33 +1285,7 @@ Bsoil2 = ggplot(wSoilBulkDeg, aes(x=Date.ti, y=B.mean.com, colour=Transect, grou
         #          nudge_x = .05)
 
 Bsoil2
-
-## Merging both figures
-
-# massBalNoL <- massBal + theme(legend.position='none')
-BsoilNoL <- Bsoil2 + theme(legend.position='none')
-
-legend_mass = get_legend(massBalLegend + guides(colour = guide_legend(title = "Mass Distribution",  title.position = "top", nrow = 4, byrow = T)))
-legend_deg = get_legend(Bsoil2 + guides(colour = guide_legend(title.position = "top", nrow = 4, byrow = T)))
-
-
-gridPartB <- plot_grid(BsoilNoL, massBalTop, massBalBottom,
-                    ncol =1, nrow = 3, align ="v",
-                    labels = c("A", "B"))
-gridPartB
-
-fig2 <- ggdraw() +
-  draw_plot(gridPartB, x=0, y=0, width =  0.75, height = 1) + 
-  draw_plot(legend_deg, x=0.5, y =0.7, width = 0.65, height = 0.25) +
-  draw_plot(legend_mass, x=0.5, y=0.2, width = 0.75, height = 0.3)
-
-fig2
-
-ggsave(fig2, filename = "BvsMassBal.tiff", height = 12, width = 17.8, units = 'cm')
-
 ```
-
-
 
 
 ### XY-Plots

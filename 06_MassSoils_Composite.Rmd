@@ -52,7 +52,7 @@ Isotopes selected where cleaned according to the following rules:
 
 a) The isotope shift was not largely beyond (2x) Streitwieser theoretical limits (i.e. > 10)
 b) Isotope shift was non-negative
-c) Nanograms of carbon > 2.0.
+c) Nanograms of carbon > 5.0.
 
 1. Import CSV files 
 
@@ -87,14 +87,19 @@ weeklySoilIso <- weeklySoilIso[, c("ID",
                                    "DD13", 
                                    "ngC")]
 
-weeklySoilIso <- subset(weeklySoilIso, DD13 > 0 & DD13 < 10 & ngC >= 2)
+weeklySoilIso <- subset(weeklySoilIso, DD13 > 0 & DD13 < 10 & ngC >= 5)
 
 
 isoCompSummary = ddply(weeklySoilIso, c("ID"), summarise,
                          N_compsoil    = length(d.13C.12C),
                          comp.d13C = mean(d.13C.12C),
                          comp.d13C.SD = sd(d.13C.12C),
-                         comp.d13C.SE = comp.d13C.SD / sqrt(N_compsoil))
+                         comp.d13C.SE = comp.d13C.SD / sqrt(N_compsoil),
+                         N_ngC = length(ngC),
+                         ngC.mean = mean(ngC),
+                         ngC.SD = sd(ngC),
+                         ngC.SE = ngC.SD/sqrt(N_ngC))
+
 
 print("Soil Composites - Isotopes All")
 str(weeklySoilIso)
@@ -137,12 +142,12 @@ epsilon_mean = -1.75
 # Remaining fraction
 comp.CoIs$DD13C.comp <- (comp.CoIs$comp.d13C - (d13Co))
 
-# Max epsilon (30C, 20%) 
-comp.CoIs$f.comp <-
+# Max epsilon (20C, 20%) 
+comp.CoIs$f.max.comp <-
   ((10^(-3)*comp.CoIs$comp.d13C + 1)/(10^(-3)*d13Co + 1))^(1000/(epsilon_max))
 
-comp.CoIs$B.comp <-
-  (1 - comp.CoIs$f.comp)*100 
+comp.CoIs$B.max.comp <-
+  (1 - comp.CoIs$f.max.comp)*100 
 
 # Min epsilon (20C, 40%) 
 comp.CoIs$f.min.comp <-
@@ -155,7 +160,7 @@ comp.CoIs$B.min.comp <-
 comp.CoIs$f.mean.comp <- 
   ((10^(-3)*comp.CoIs$comp.d13C + 1)/(10^(-3)*d13Co + 1))^(1000/(epsilon_mean))
 
-comp.CoIs$B.mean.com <-
+comp.CoIs$B.mean.comp <-
   (1 - comp.CoIs$f.mean.comp)*100
 
 
@@ -240,16 +245,6 @@ comp.CoIs$Area.S <-
 print("S-meto mass per transect at time-t")
 str(comp.CoIs)
 tail(comp.CoIs)
+
+write.csv2(comp.CoIs, 'Data/WeeklySoils_Rng.csv', row.names = F)
 ```
-
-
-## Save files
-
-```{r, message=FALSE}
-
-
-
-
-write.csv2(comp.CoIs, 
-           'Data/WeeklySoils_Rng.csv', row.names = F)
-

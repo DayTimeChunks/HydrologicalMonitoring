@@ -269,9 +269,9 @@ The data frame produced will include, for each sub-week, the:
 - initial discharge (iflux)
 - final discharge (fflux)
 - change in discharge between ti and tf (changeflux)
-- change in discharge to extreme (peak or valley) withing subsample (chExtreme)
-- discharge at peak (peak)
-- minimum discharge (valley)
+- change in discharge to extreme (maxQ or minQ) withing subsample (chExtreme)
+- discharge at maxQ (maxQ)
+- minimum discharge (minQ)
 - elapsed time in hours (tdiff)
 
 ```{r}
@@ -286,24 +286,24 @@ dflux = grpAlteck %>%
             iflux = Q.HW1[1], 
             fflux = Q.HW1[length(Q.HW1)], 
             changeflux = (Q.HW1[length(Q.HW1)] - Q.HW1[1]), 
-            peak = max(Q.HW1), 
-            valley = min(Q.HW1)) 
+            maxQ = max(Q.HW1), 
+            minQ = min(Q.HW1)) 
 
 # Time elapsed within sub-week in hrs (sampled and non-sampled)
-dflux$tdiff = 
+dflux$Duration.Hrs = 
   as.numeric(difftime(dflux$tf, dflux$ti, units = "hours"), units = "hours")
 
 # "chngeExtreme" is computed as:
 # If change in flux within subsample is: 
-# negative, peakvalley =  (min. discharge) - (initial discharge)
-# positive, peakvalley =  (max. discharge) - (initial discharge)
+# negative, maxQminQ =  (min. discharge) - (initial discharge)
+# positive, maxQminQ =  (max. discharge) - (initial discharge)
 dflux$chExtreme = NA
 
 dflux$chExtreme[dflux$changeflux <= 0] = 
-  dflux$valley[dflux$changeflux <= 0] - dflux$iflux[dflux$changeflux <= 0]
+  dflux$minQ[dflux$changeflux <= 0] - dflux$iflux[dflux$changeflux <= 0]
 
 dflux$chExtreme[dflux$changeflux > 0] = 
-  dflux$peak[dflux$changeflux > 0] - dflux$iflux[dflux$changeflux > 0]
+  dflux$maxQ[dflux$changeflux > 0] - dflux$iflux[dflux$changeflux > 0]
 
 colnames(dflux)[1] <- "WeekSubWeek"
 
@@ -314,6 +314,7 @@ head(dflux)
 ## Saving
 
 ```{r}
+
 write.csv2(dflux, "Data/fluxAlteck2016_R.csv", row.names = F)
 ```
 

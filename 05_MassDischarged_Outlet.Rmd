@@ -41,6 +41,7 @@ Generates:
 library("stringr")
 library("plyr")
 library("dplyr")
+library("zoo")
 
 ```
 
@@ -248,13 +249,37 @@ out.CoIs <- out.CoIs[!is.na(out.CoIs$tf), ]
 out.CoIs$ExpMES.Kg = out.CoIs$Volume.m3*out.CoIs$MES.mg.L/1000
 ```
 
+## Section to UPDATE!!!
+
 3. Weekly exported S-metolachlor mass (mg)
 
+This section converts the observed S-metolachlor concentrations to [mg] in dissolved water and suspended solids. For non-sampled subsets a linear interpolation value based on the trailing and leading observed concentrations was assumed. An approximative model will be tested at a later stage. 
+
 ```{r}
+# Assume first observation is equivalent to second for all measured values
+out.CoIs[1, c("Conc.mug.L")] <- out.CoIs[2, c("Conc.mug.L")]
+out.CoIs[1, c("OXA_mean")] <- out.CoIs[2, c("OXA_mean")]
+out.CoIs[1, c("ESA_mean")] <- out.CoIs[2, c("ESA_mean")]
+out.CoIs[1, c("Conc.Solids.mug.gMES")] <- out.CoIs[2, c("Conc.Solids.mug.gMES")]
+out.CoIs[1, c("ExpMES.Kg")] <- out.CoIs[2, c("ExpMES.Kg")]
+
+# Assign linear approximation of trailing and leading observed values
+out.CoIs <- out.CoIs[with(out.CoIs , order(ti)), ]
+out.CoIs$Conc.mug.L <- na.approx(out.CoIs$Conc.mug.L)
+out.CoIs$OXA_mean <- na.approx(out.CoIs$OXA_mean)
+out.CoIs$ESA_mean <- na.approx(out.CoIs$ESA_mean)
+out.CoIs$Conc.Solids.mug.gMES <- na.approx(out.CoIs$Conc.Solids.mug.gMES)
+out.CoIs$ExpMES.Kg <- na.approx(out.CoIs$ExpMES.Kg)
+
+# Assign trailing observed value
+# out.CoIs$Conc.mug.L.sim = na.locf(out.CoIs$Conc.mug.L.sim, na.rm = TRUE)
+
 
 # Dissolved - [mg] S-metolachlor exported per sub-week
 # Conc. [mu.g s-meto/L H20] * Vol[m3] * [10^3 L/m^3] * [1 mg/10^3 mu.g]
-out.CoIs$DissSmeto.mg = out.CoIs$Conc.mug.L*out.CoIs$Volume.m3  
+out.CoIs$DissSmeto.mg = out.CoIs$Conc.mug.L*out.CoIs$Volume.m3
+out.CoIs$DissOXA.mg = out.CoIs$OXA_mean*out.CoIs$Volume.m3 
+out.CoIs$DissESA.mg = out.CoIs$ESA_mean*out.CoIs$Volume.m3 
 
 # Solids - [mg] S-metolachlor in solids exported per sub-week 
 # Conc. [mu.g s-meto / g MES] * Kg MES * [10^3 g/Kg] * [1 mg/10^3 mu.g]
@@ -304,7 +329,7 @@ out.CoIs$CumAppMass.g = cumsum(out.CoIs$Appl.Mass.g)
 
 ## Section to UPDATE!!!
 
-5. This section converts the observed S-metolachlor concentrations to [g] in dissolved water and suspended solids, assuming 0 for the values where no sample was taken. An approximative model will be tested at a later stage. 
+5. This section is based on approximate carried-last-observation for the observed concentration data (if no model has been conducted yet). 
 
 ```{r}
 
@@ -312,21 +337,34 @@ out.CoIs$CumAppMass.g = cumsum(out.CoIs$Appl.Mass.g)
 # Option 1, just assume 0.0 
 out.CoIs$SimOutDiss.g = out.CoIs$DissSmeto.mg/10^3
 out.CoIs$SimOutFilt.g = out.CoIs$FiltSmeto.mg/10^3
+out.CoIs$SimOutOXA.g = out.CoIs$DissOXA.mg/10^3
+out.CoIs$SimOutESA.g = out.CoIs$DissESA.mg/10^3
+
 out.CoIs$SimOutDiss.g = ifelse(is.na(out.CoIs$SimOutDiss.g), 0.0, out.CoIs$SimOutDiss.g)
 out.CoIs$SimOutFilt.g = ifelse(is.na(out.CoIs$SimOutFilt.g), 0.0, out.CoIs$SimOutFilt.g)
 out.CoIs$SimOutSmeto.g = out.CoIs$SimOutDiss.g + out.CoIs$SimOutFilt.g
+
+mw.SM <- 283.796 # g/mol
+mw.MOXA <- 279.33 # g/ml
+mw.MESA <- 329.1 # g/mol
+out.CoIs$SimMELsm.g <- out.CoIs$SimOutSmeto.g + out.CoIs$SimOutOXA.g * (mw.SM/mw.MOXA) + out.CoIs$SimOutESA.g * (mw.SM/mw.MESA)
 
 # Cumulative OUT
 out.CoIs$CumOutDiss.g = cumsum(out.CoIs$SimOutDiss.g)
 out.CoIs$CumOutFilt.g = cumsum(out.CoIs$SimOutFilt.g)
 out.CoIs$CumOutSmeto.g = out.CoIs$CumOutDiss.g + out.CoIs$CumOutFilt.g
+out.CoIs$CumOutMELsm.g = cumsum(out.CoIs$SimMELsm.g)
 
 # Balance
-out.CoIs$BalMassDisch.g = out.CoIs$CumAppMass.g - out.CoIs$CumOutSmeto.g
+out.CoIs$BalMassDisch.g = out.CoIs$CumAppMass.g - out.CoIs$CumOutMELsm.g
 
 # Mass fraction
 massOUT = tail(out.CoIs$CumOutSmeto.g, n=1)
-out.CoIs$FracMassOut = (out.CoIs$SimOutSmeto.g / massOUT)
+MELsmOUT = tail(out.CoIs$CumOutMELsm.g, n=1)
+
+TotAppl = tail(out.CoIs$CumAppMass.g, n=1)
+
+out.CoIs$prctMassOut = (out.CoIs$SimOutSmeto.g / massOUT)
 out.CoIs$FracDeltaOut = (out.CoIs$SimOutSmeto.g / massOUT)*out.CoIs$diss.d13C
 out.CoIs$FracDeltaOut = ifelse(is.na(out.CoIs$FracDeltaOut), 0.0, out.CoIs$FracDeltaOut)
 
@@ -337,8 +375,16 @@ BulkDeltaOut = sum(out.CoIs$FracDeltaOut)
 The total mass discharged (up to Week 15) and bulk isotope signature (up to week 11) was:
 
 ```{r}
+# Cummulative S-metolachlor [g] discharged (before correction)
+cat("SM mass sampled: " , as.character(91.10687))
+
 # Cummulative S-metolachlor [g] discharged
-massOUT
+cat("SM mass sampled and non-sampled: ",  as.character(massOUT)) 
+
+# Cummulative MEL-sm [g] discharged
+cat("MEL-sm [g] sampled and non-sampled: ",  as.character(MELsmOUT)) 
+
+cat("% Mass applied in discahrge [MEL-sm]: ",  (MELsmOUT/TotAppl)*100)
 
 # Bulk isotope signature
 BulkDeltaOut

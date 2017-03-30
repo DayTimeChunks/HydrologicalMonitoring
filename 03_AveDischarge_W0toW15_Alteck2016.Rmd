@@ -454,6 +454,11 @@ head(WeeklyHydro)
 
 ```{r, message=FALSE}
 
+VolNS = sum(WeeklyDischargeNS$Volume.m3)
+VolS = sum(WeeklyDischarge$Volume.m3)
+print("% Not sampled: ")
+VolNS/(VolNS+VolS)*100  
+
 write.csv2(WeeklyHydro, 
            'D:/Documents/these_pablo/Alteckendorf2016/R/WeeklyHydro_R.csv', row.names = F)
 write.csv2(WeeklyHydro, 

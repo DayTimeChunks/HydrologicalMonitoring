@@ -52,7 +52,7 @@ outlet$ti <- as.POSIXct(outlet$ti, "%Y-%m-%d %H:%M", tz = "EST")
 sum(is.na(outlet$ti))
 
 # Select variables from Water dataset
-outlet <- outlet[, c("ti", "WeekSubWeek", "B.diss", "B.filt", "CumOutDiss.g", "CumOutFilt.g", "CumAppMass.g")]
+outlet <- outlet[, c("ti", "WeekSubWeek", "B.diss", "B.filt", "CumOutDiss.g", "CumOutFilt.g", "CumAppMass.g", "CumOutMELsm.g")]
 print("Water")
 str(outlet)
 
@@ -72,30 +72,30 @@ str(soils)
 
 # North
 soils.N <- subset(soils, soils$Transect == "N")
-soils.N <- soils.N[, c("Date.ti", "B.comp", "MassSoil.g", 
+soils.N <- soils.N[, c("Date.ti", "B.mean.comp",  "B.max.comp",  "B.min.comp",  "MassSoil.g", 
                        "comp.d13C", "comp.d13C.SD", "comp.d13C.SE", 
                        "ID", "Area.N", "Area.T", "Area.S" )]
 
-colnames(soils.N) <- c("ti",  "B.comp.North", "MassSoil.g.North", 
+colnames(soils.N) <- c("ti",  "B.mean.comp.North", "B.max.comp.North", "B.min.comp.North", "MassSoil.g.North", 
                        "comp.d13C.North", "comp.d13C.SD.North", "comp.d13C.SE.North",  
                        "ID.N", "Area.N", "Area.T", "Area.S" )
 
 # Talweg
 soils.T <- subset(soils, soils$Transect == "T")
-soils.T <- soils.T[, c("Date.ti", "B.comp", "MassSoil.g", 
+soils.T <- soils.T[, c("Date.ti", "B.mean.comp",  "B.max.comp",  "B.min.comp", "MassSoil.g", 
                        "comp.d13C", "comp.d13C.SD", "comp.d13C.SE", 
                        "ID")]
 
-colnames(soils.T) <- c("ti",  "B.comp.Talweg", "MassSoil.g.Talweg", 
+colnames(soils.T) <- c("ti",  "B.mean.comp.Talweg", "B.max.comp.Talweg", "B.min.comp.Talweg", "MassSoil.g.Talweg", 
                        "comp.d13C.Talweg", "comp.d13C.SD.Talweg", "comp.d13C.SE.Talweg", 
                        "ID.T" )
 
 # South
 soils.S <- subset(soils, soils$Transect == "S")
-soils.S <- soils.S[, c("Date.ti", "B.comp", "MassSoil.g", 
+soils.S <- soils.S[, c("Date.ti", "B.mean.comp",  "B.max.comp",  "B.min.comp", "MassSoil.g", 
                        "comp.d13C", "comp.d13C.SD", "comp.d13C.SE", 
                        "ID" )]
-colnames(soils.S) <- c("ti",  "B.comp.South", "MassSoil.g.South", 
+colnames(soils.S) <- c("ti",  "B.mean.comp.South", "B.max.comp.South", "B.min.comp.South", "MassSoil.g.South", 
                        "comp.d13C.South", "comp.d13C.SD.South", "comp.d13C.SE.South",
                        "ID.S" )
 
@@ -167,26 +167,33 @@ library("cowplot")
 
 # Melt data set
 ##Subset the necessary columns
-soilsRemainMass <- soilsOut[, c("ti" ,"CumAppMass.g", "CumOutDiss.g", "CumOutFilt.g", "CatchMassSoil.g")]
+soilsRemainMass <- soilsOut[, c("ti" ,"CumAppMass.g", "CumOutDiss.g", "CumOutFilt.g", "CumOutMELsm.g" , "CatchMassSoil.g")]
 
-# Replace each NA with the most recent non-NA prior to it.
+# Replace Catchment Mass's NA with the most recent non-NA prior to it (assumes no degradation).
 # Purpose: To match continuous outlet time array    
 soilsRemainMass$CatchMassSoil.g <- na.locf(soilsRemainMass$CatchMassSoil.g)
+soilsRemainMass <- na.omit(soilsRemainMass)
 
 ##Then rearrange your data frame
 remainMassMolten = melt(soilsRemainMass, id=c("ti"))
+
 # View(remainMassMolten)
 
 pg <- remainMassMolten
+
 # Change variable names:
-levels(pg$variable)[levels(pg$variable)=="CumAppMass.g"] <- "Applied Cum. (Survey)"
-levels(pg$variable)[levels(pg$variable)=="CumOutDiss.g"] <- "Dissolved Cum. (Outlet)"
-levels(pg$variable)[levels(pg$variable)=="CumOutFilt.g"] <- "Sediment Cum. (Outlet)"
-levels(pg$variable)[levels(pg$variable)=="CatchMassSoil.g"] <- "Catchment Mass (1cm Soil)"
+levels(pg$variable)[levels(pg$variable)=="CumAppMass.g"] <- "Applied SM Cum. (Survey)"
+levels(pg$variable)[levels(pg$variable)=="CumOutMELsm.g"] <- "MEL-SM Cum. (Outlet)"
+levels(pg$variable)[levels(pg$variable)=="CatchMassSoil.g"] <- "Remaining SM (1cm Soil)"
+
+levels(pg$variable)[levels(pg$variable)=="CumOutDiss.g"] <- "Dissolved SM Cum. (Outlet)"
+levels(pg$variable)[levels(pg$variable)=="CumOutFilt.g"] <- "Sediment SM Cum. (Outlet)"
 
 # Change the order:
 levels(pg$variable)
-pg$variable <- factor(pg$variable, levels = c("Applied Cum. (Survey)", "Catchment Mass (1cm Soil)", "Dissolved Cum. (Outlet)", "Sediment Cum. (Outlet)" ))
+pg$variable <- factor(pg$variable, levels = c("Applied SM Cum. (Survey)",  "Remaining SM (1cm Soil)", "MEL-SM Cum. (Outlet)", "Dissolved SM Cum. (Outlet)", "Sediment SM Cum. (Outlet)" ))
+
+pgSimple <- pg[which(pg$variable != ("Dissolved SM Cum. (Outlet)") & pg$variable != ("Sediment SM Cum. (Outlet)")), ]
 # names(pg)[names(pg)=="variable"]  <- "Estimated Mass"
 
 massBalTop <- ggplot(pg) + 
@@ -201,13 +208,14 @@ massBalTop <- ggplot(pg) +
         
         )+
   labs(color = "Estimated Mass") +
-  guides(col = guide_legend(ncol = 2)) +  # Sets legend parameters
+  guides(col = guide_legend(ncol = 1)) +  # Sets legend parameters
   
   # xlab("Date") +
   scale_x_datetime(breaks = date_breaks("2 weeks"), labels = date_format("%b %d")) +
-  ylab(expression(paste("Mass. S-Meto.  ", {(g)}))) # +
+  ylab(expression(paste("Mass ", {(g)}))) +
   # scale_y_continuous(breaks = c(100, 5000, 10000, 20000), limits = c(100, 20000) ) 
-  # scale_y_continuous(trans=log_trans(), breaks=c(1,5,10,50,100,500,1000,2000,3000,4000,5000))
+  scale_y_continuous(trans=log_trans(), breaks=c(1,5,10,50,100,500,1000,5000, 10000))
+massBalTop
 
 
 massBalBottom <- ggplot(pg) + 
@@ -228,7 +236,28 @@ massBalBottom <- ggplot(pg) +
 
 
 massBal = plot_grid(massBalTop, massBalBottom, ncol = 1, nrow = 2, align = "v")
-massBal
+
+
+
+massBal_MEL <- ggplot(pgSimple) + 
+  geom_line(aes(x=ti, y=value, group = variable, color=variable)) +
+  
+  # Themes and axes
+  theme_bw() +
+  theme(# axis.text.x=element_text(angle = 45, hjust = 1), 
+        axis.text.x=element_blank(),
+        axis.title.x=element_blank(),
+        legend.position="top"
+        
+        )+
+  labs(color = "Estimated Mass") +
+  guides(col = guide_legend(ncol = 3)) +  # Sets legend parameters
+  
+  # xlab("Date") +
+  scale_x_datetime(breaks = date_breaks("2 weeks"), labels = date_format("%b %d")) +
+  ylab(expression(paste("Mass ", {(g)})))
+
+massBal_MEL
   
 ```
 
