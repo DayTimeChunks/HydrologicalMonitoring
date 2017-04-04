@@ -52,7 +52,7 @@ outlet$ti <- as.POSIXct(outlet$ti, "%Y-%m-%d %H:%M", tz = "EST")
 sum(is.na(outlet$ti))
 
 # Select variables from Water dataset
-outlet <- outlet[, c("ti", "WeekSubWeek", "B.diss", "B.filt", "CumOutDiss.g", "CumOutFilt.g", "CumAppMass.g", "CumOutMELsm.g")]
+outlet <- outlet[, c("ti", "WeekSubWeek", "Event", "B.diss", "B.filt", "CumOutDiss.g", "CumOutFilt.g", "CumAppMass.g", "CumOutMELsm.g")]
 print("Water")
 str(outlet)
 
@@ -236,7 +236,6 @@ massBalBottom <- ggplot(pg) +
 
 
 massBal = plot_grid(massBalTop, massBalBottom, ncol = 1, nrow = 2, align = "v")
-
 
 
 massBal_MEL <- ggplot(pgSimple) + 

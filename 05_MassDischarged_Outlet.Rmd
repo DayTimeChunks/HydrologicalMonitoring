@@ -42,6 +42,8 @@ library("stringr")
 library("plyr")
 library("dplyr")
 library("zoo")
+library("ggplot2")
+library("plotly")
 
 ```
 
@@ -249,25 +251,73 @@ out.CoIs <- out.CoIs[!is.na(out.CoIs$tf), ]
 out.CoIs$ExpMES.Kg = out.CoIs$Volume.m3*out.CoIs$MES.mg.L/1000
 ```
 
+## Fork! Prepare Data for C-Q Hysteresis curves
+
+```{r}
+CQdata <- out.CoIs[with(out.CoIs, order(ti)), ]
+CQdata$FlowType <- ifelse(is.na(CQdata$Event), "Fall", "Peak")
+CQdata$Event[1:3]<- 0
+CQdata$EventMark <- NA
+
+CQdata$EventMark <- na.locf(CQdata$Event)
+
+CQdata$EventMark <- ifelse(is.na(CQdata$Event), CQdata$EventMark, CQdata$EventMark*10)
+CQdata$Row <- seq.int(nrow(CQdata))
+
+cq1 <- subset(CQdata[1:6, ])
+
+cq1 <- cq1[cq1$Sampled != 'Not Sampled', ]
+
+str(cq1)
+ 
+p <- ggplot(cq1) + 
+  geom_point(aes(x=AveDischarge.m3.h, y=Conc.mug.L), colour="black") +
+  geom_polygon(aes(x=AveDischarge.m3.h, y=Conc.mug.L), colour="black", fill = NA) +
+  
+  geom_text(data = cq1, 
+            aes(x=AveDischarge.m3.h, y=Conc.mug.L, label=FlowType), hjust=1.5, vjust=0.5, size = 2)
+p
+
+#p <- ggplotly(p)
+#p
+```
+
+
 ## Section to UPDATE!!!
 
 3. Weekly exported S-metolachlor mass (mg)
 
 This section converts the observed S-metolachlor concentrations to [mg] in dissolved water and suspended solids. For non-sampled subsets a linear interpolation value based on the trailing and leading observed concentrations was assumed. An approximative model will be tested at a later stage. 
 
+To revise: SD for filtered samples!!
+
 ```{r}
 # Assume first observation is equivalent to second for all measured values
 out.CoIs[1, c("Conc.mug.L")] <- out.CoIs[2, c("Conc.mug.L")]
+out.CoIs[1, c("Conc.SD")] <- out.CoIs[2, c("Conc.SD")]
+
 out.CoIs[1, c("OXA_mean")] <- out.CoIs[2, c("OXA_mean")]
+out.CoIs[1, c("OXA_SD")] <- out.CoIs[2, c("OXA_SD")]
+
 out.CoIs[1, c("ESA_mean")] <- out.CoIs[2, c("ESA_mean")]
+out.CoIs[1, c("ESA_SD")] <- out.CoIs[2, c("ESA_SD")]
+
 out.CoIs[1, c("Conc.Solids.mug.gMES")] <- out.CoIs[2, c("Conc.Solids.mug.gMES")]
+
 out.CoIs[1, c("ExpMES.Kg")] <- out.CoIs[2, c("ExpMES.Kg")]
 
 # Assign linear approximation of trailing and leading observed values
 out.CoIs <- out.CoIs[with(out.CoIs , order(ti)), ]
+
 out.CoIs$Conc.mug.L <- na.approx(out.CoIs$Conc.mug.L)
+out.CoIs$Conc.SD <- na.approx(out.CoIs$Conc.SD)
+
 out.CoIs$OXA_mean <- na.approx(out.CoIs$OXA_mean)
+out.CoIs$OXA_SD <- na.approx(out.CoIs$OXA_SD)
+
 out.CoIs$ESA_mean <- na.approx(out.CoIs$ESA_mean)
+out.CoIs$ESA_SD <- na.approx(out.CoIs$ESA_SD)
+
 out.CoIs$Conc.Solids.mug.gMES <- na.approx(out.CoIs$Conc.Solids.mug.gMES)
 out.CoIs$ExpMES.Kg <- na.approx(out.CoIs$ExpMES.Kg)
 
@@ -278,13 +328,23 @@ out.CoIs$ExpMES.Kg <- na.approx(out.CoIs$ExpMES.Kg)
 # Dissolved - [mg] S-metolachlor exported per sub-week
 # Conc. [mu.g s-meto/L H20] * Vol[m3] * [10^3 L/m^3] * [1 mg/10^3 mu.g]
 out.CoIs$DissSmeto.mg = out.CoIs$Conc.mug.L*out.CoIs$Volume.m3
-out.CoIs$DissOXA.mg = out.CoIs$OXA_mean*out.CoIs$Volume.m3 
+out.CoIs$DissSmeto.mg.SD = out.CoIs$Conc.SD*out.CoIs$Volume.m3
+
+out.CoIs$DissOXA.mg = out.CoIs$OXA_mean*out.CoIs$Volume.m3
+out.CoIs$DissOXA.mg.SD = out.CoIs$OXA_SD*out.CoIs$Volume.m3
+
 out.CoIs$DissESA.mg = out.CoIs$ESA_mean*out.CoIs$Volume.m3 
+out.CoIs$DissESA.mg.SD = out.CoIs$ESA_SD*out.CoIs$Volume.m3 
 
 # Solids - [mg] S-metolachlor in solids exported per sub-week 
 # Conc. [mu.g s-meto / g MES] * Kg MES * [10^3 g/Kg] * [1 mg/10^3 mu.g]
 out.CoIs$FiltSmeto.mg = out.CoIs$Conc.Solids.mug.gMES*out.CoIs$ExpMES.Kg 
-
+###############
+# SD for MES S-meto mass (mg) 
+##############
+# mg = Conc. [mu.g s-meto / g MES] * MES.sd [mg/L] * Vol [m3] * [10^3 L/1 m3]* [mg/10^3mug] 
+# out.CoIs$Conc.Solids.mug.gMES * out.CoIs$MES.sd * out.CoIs$Volume.m3... check calculation
+  
 # Total
 out.CoIs$TotMassOut.mg = out.CoIs$DissSmeto.mg + out.CoIs$FiltSmeto.mg
 
@@ -340,14 +400,31 @@ out.CoIs$SimOutFilt.g = out.CoIs$FiltSmeto.mg/10^3
 out.CoIs$SimOutOXA.g = out.CoIs$DissOXA.mg/10^3
 out.CoIs$SimOutESA.g = out.CoIs$DissESA.mg/10^3
 
+out.CoIs$DissSmeto.g.SD = out.CoIs$DissSmeto.mg.SD/10^3
+out.CoIs$DissOXA.g.SD = out.CoIs$DissOXA.mg.SD/10^3
+out.CoIs$DissESA.g.SD = out.CoIs$DissESA.mg.SD/10^3
+
 out.CoIs$SimOutDiss.g = ifelse(is.na(out.CoIs$SimOutDiss.g), 0.0, out.CoIs$SimOutDiss.g)
 out.CoIs$SimOutFilt.g = ifelse(is.na(out.CoIs$SimOutFilt.g), 0.0, out.CoIs$SimOutFilt.g)
 out.CoIs$SimOutSmeto.g = out.CoIs$SimOutDiss.g + out.CoIs$SimOutFilt.g
 
+# Need to update this :
+out.CoIs$SimOutSmeto.g.SD = out.CoIs$DissSmeto.g.SD
+
 mw.SM <- 283.796 # g/mol
 mw.MOXA <- 279.33 # g/ml
 mw.MESA <- 329.1 # g/mol
-out.CoIs$SimMELsm.g <- out.CoIs$SimOutSmeto.g + out.CoIs$SimOutOXA.g * (mw.SM/mw.MOXA) + out.CoIs$SimOutESA.g * (mw.SM/mw.MESA)
+out.CoIs$SimMELsm.g <- 
+  out.CoIs$SimOutSmeto.g + 
+  out.CoIs$SimOutOXA.g * (mw.SM/mw.MOXA) +
+  out.CoIs$SimOutESA.g * (mw.SM/mw.MESA)
+
+# How to sum a standard deviation
+# http://stats.stackexchange.com/questions/25848/how-to-sum-a-standard-deviation
+out.CoIs$SimMELsm.g.SD <- 
+  sqrt((out.CoIs$SimOutSmeto.g.SD^2 +
+     (out.CoIs$DissOXA.g.SD * (mw.SM/mw.MOXA))^2 +
+     (out.CoIs$DissESA.g.SD * (mw.SM/mw.MESA))^2)/3)
 
 # Cumulative OUT
 out.CoIs$CumOutDiss.g = cumsum(out.CoIs$SimOutDiss.g)
@@ -399,7 +476,7 @@ BulkDeltaOut
 
 # Regression Tree Example 1
 
-library("party")
+# library("party")
 
 #outCoIs.model <- out.CoIs[, c("chExtreme", "changeflux", "AveDischarge.m3.h", "Volume.m3", "TotMassOut.mg")]
 
@@ -410,7 +487,7 @@ library("party")
 
 # Regression Tree Example 2
 
-library("rpart")
+#library("rpart")
 
 # grow tree 
 #fit <- rpart(TotMassOut.mg ~ AveDischarge.m3.h + Volume.m3 + chExtreme + changeflux,  method="anova", data=outCoIs.model)
@@ -428,8 +505,6 @@ library("rpart")
 #text(fit, use.n=TRUE, all=TRUE, cex=.8)
 
 ```
-
-
 
 ## Save files
 

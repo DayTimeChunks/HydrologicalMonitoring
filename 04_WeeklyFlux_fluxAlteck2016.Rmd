@@ -248,9 +248,93 @@ Split3 <- strsplit(grpAlteck$WeekNo, "-", fixed=T)
 grpAlteck$WeekNo <- sapply(Split3, "[", 1)
 grpAlteck$WeekNo = as.numeric(grpAlteck$WeekNo)
 
+
+
+
 head(grpAlteck)
 
 ```
+
+## Classifying events
+
+```{r}
+
+library(dplyr)
+library(gridExtra)
+library("scales")
+
+Q1change <- mutate(grpAlteck, Row = 1:n()) %>%
+  mutate(PercentChange = (Q.HW1-lag(Q.HW1))/lag(Q.HW1) * 100)
+Q1change$PercentChange[1] <- 0
+
+dd <- Q1change[, c("Date", "Q.HW1")]
+# set the number of rows to reduce by
+idx <- ceiling(seq_len(nrow(Q1change)) / 10)
+# do colMeans on the last column with lapply
+# bind them with rbind to give a matrix, then convert to as.data.frame
+res <- as.data.frame(do.call(rbind, lapply(split(dd[ncol(dd)], idx), 
+                 colMeans, na.rm = TRUE)))
+# assign first value of "Date" in each n-th group to the new dataframe
+res$Date <- dd$Date[seq(1, nrow(dd), by=10)]
+
+# Compute the %change on every row
+res1 <- mutate(res, Event = 1:n()) %>%
+  mutate(PercentChange = (Q.HW1-lag(Q.HW1))/lag(Q.HW1) * 100)
+
+res1 <- mutate(res1, Event = 1:n()) %>%
+  mutate(Change = (Q.HW1-lag(Q.HW1)))
+
+res1$PercentChange[1] <- 0
+
+res1$Markers1 <- ifelse(  res1$Change > 5 , res1$Q.HW1, NA)
+res1$Markers2 <- ifelse(  res1$PercentChange > 90 & res1$Q.HW1 >20 & res1$Q.HW1 < 100, res1$Q.HW1, NA)
+
+res1$Markers <- ifelse(!is.na(res1$Markers1), res1$Markers1, 
+                       ifelse(!is.na(res1$Markers2), res1$Markers2, NA))
+res <- res1[complete.cases(res1["Markers"]),]
+
+resTime <- mutate(res, Event = 1:n()) %>%
+  mutate(TimeDiff = Date-lag(Date))
+
+resTime$TimeDiff[1]<-1440
+resTime <- resTime[resTime$TimeDiff > 20, ]
+
+# For some reason, changed minutes to hrs
+resTime <- mutate(resTime, Event = 1:n()) %>%
+  mutate(TimeDiff = Date-lag(Date))
+
+# Add first row time, so as to not loose it
+resTime$TimeDiff[1]<-24
+resTime <- resTime[resTime$TimeDiff > 5, ]
+resTime <- mutate(resTime, Event = 1:n()) %>%
+  mutate(TimeDiff = Date-lag(Date))
+
+resTime$TimeDiff[1]<-24
+resTime <- resTime[resTime$TimeDiff >= 9, ]
+resTime <- mutate(resTime, Event = 1:n()) %>%
+  mutate(TimeDiff = Date-lag(Date))
+
+resTime$TimeDiff[1]<-24
+resTime <- resTime[resTime$TimeDiff > 12, ]
+resTime <- mutate(resTime, Event = 1:n()) %>%
+  mutate(TimeDiff = Date-lag(Date))
+
+resTime$TimeDiff[1]<-24
+resTime$Markers1 <- NULL
+resTime$Markers2 <- NULL
+resTime$Q.HW1 <- NULL
+
+grpAlteck <- merge(grpAlteck, resTime, by= "Date", all = T)
+
+# (Sub)Event markers
+ggplot() +
+  geom_line(data = grpAlteck, aes(x= Date, y = Q.HW1), color = "blue") +
+  geom_point(data = grpAlteck, aes(x= Date, y = Markers), color = "forestgreen") +
+  scale_y_continuous(trans=log_trans(), breaks=c(1,5,8, 10,25, 50, 80, 100,1000))
+```
+
+
+
 
 Save the file in current state, as it is needed in the App. 
 
@@ -304,6 +388,11 @@ dflux$chExtreme[dflux$changeflux <= 0] =
 
 dflux$chExtreme[dflux$changeflux > 0] = 
   dflux$maxQ[dflux$changeflux > 0] - dflux$iflux[dflux$changeflux > 0]
+
+EventMarker <- grpAlteck[, c("SubWeeks", "Event", "Markers", "TimeDiff")]
+EventMarker <- EventMarker[!is.na(EventMarker$Event),]
+
+dflux <- merge(dflux, EventMarker, by = "SubWeeks", all = T)
 
 colnames(dflux)[1] <- "WeekSubWeek"
 

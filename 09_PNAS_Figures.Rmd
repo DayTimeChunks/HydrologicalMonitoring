@@ -87,7 +87,7 @@ limits_conc_soil <- aes(ymin=Conc.mug.g.dry.soil-Conc.ComSoil.SD,  ymax=Conc.mug
 
 pd <- position_dodge(0.5) # move them .05 to the left and right
 
-co = ggplot(weeklySoil[1:48, ], 
+co = ggplot(weeklySoil[4:48, ], 
            aes(x=Date.ti, y=Conc.mug.g.dry.soil, colour=Transect, group = Transect)) + 
   
   geom_point() +
@@ -100,16 +100,17 @@ co = ggplot(weeklySoil[1:48, ],
   # Themes and axes
   theme_bw() +
   theme(legend.position = "top",
-        axis.text.x=element_blank(), 
-        axis.title.x=element_blank()
+        axis.text.x=element_text(angle = 45, hjust = 1)
+        #axis.text.x=element_blank(), 
+        #axis.title.x=element_blank()
         ) +
   
   scale_x_datetime(breaks = date_breaks("2 weeks"), labels = date_format("%b %d")) +
   ylab(expression(paste("Conc. S-Meto.  ", {({mu}*g / g.soil.dry)}))) +
   # facet_wrap(~Transect, nrow = 3) +
   # xlab("Date") +
-  # theme(axis.text.x=element_text(angle = 45, hjust = 1)) +
-  # scale_x_datetime(breaks = date_breaks("2 weeks"), labels = date_format("%b %d")) +
+  # theme() +
+  scale_x_datetime(breaks = date_breaks("2 weeks"), labels = date_format("%b %d")) +
   
   # Smooth linear models
   # stat_smooth(method = "lm", formula = y ~ poly(x, 2)) +
@@ -342,34 +343,34 @@ deltaTime
 
 limits_DdCsoil <- aes(ymin=comp.d13C-comp.d13C.SE-initialDelta, ymax=comp.d13C+comp.d13C.SE-initialDelta, colour = Transect)
 
-weeklySoil$ngC.Label <- ifelse(weeklySoil$ngC.mean <10, "< 10 ng", 
-                               ifelse( weeklySoil$ngC.mean >= 10 & weeklySoil$ngC.mean < 15, "< 15 ng", "> 15 ng"))
+weeklySoil$ngC.Label <- ifelse(weeklySoil$ngC.mean < 10, "< 10 ng", "> 10 ng")
+                               
+                               # ifelse( weeklySoil$ngC.mean >= 10 & weeklySoil$ngC.mean < 15, "< 15 ng", "> 15 ng"))
 wk <- weeklySoil
 # wk <- na.omit(weeklySoil)
-wk$Application <- ifelse(wk$Date.ti == as.POSIXct('2016-05-17 09:16:00', tz = "EST") & wk$Transect == "T", 0, 
-                         ifelse(wk$Date.ti == as.POSIXct('2016-03-25 00:04:00', tz = "EST") & wk$Transect == "T", 0, 
-                                ifelse(wk$Date.ti == as.POSIXct('2016-04-05 15:08:00', tz = "EST") & wk$Transect == "T", 0,
-                                       ifelse(wk$Date.ti == as.POSIXct('2016-04-14 13:52:00', tz = "EST") & wk$Transect == "T", 0, NA))))
+wk$Application <- ifelse(wk$Date.ti == as.POSIXct('2016-05-17 09:16:00', tz = "EST") & wk$Transect == "T", 0.05, 
+                    ifelse(wk$Date.ti == as.POSIXct('2016-03-30 12:18:00', tz = "EST") & wk$Transect == "T", 0.05, 
+                     ifelse(wk$Date.ti == as.POSIXct('2016-04-05 15:08:00', tz = "EST") & wk$Transect == "T", 0.05,
+                       ifelse(wk$Date.ti == as.POSIXct('2016-04-14 13:52:00', tz = "EST") & wk$Transect == "T", 0.05, NA))))
 
-
-                
 
 deltaTime = ggplot(wk, aes(Date.ti, DD13C.comp)) +
   geom_errorbar(limits_DdCsoil, width = 0.5) +
   geom_point(aes(colour = Transect, shape = ngC.Label, shape = "Application"), size = 2) +
   labs(colour="Transect", shape = "Mass Carbon") +
-  geom_point(aes(Date.ti, Application, shape = "Application"), data = wk,  legend.title = element_blank()) +
+  geom_point(aes(Date.ti, Application, shape = "Application"), 
+             size =2 , data = wk,  legend.title = element_blank()) +
   # geom_point(weeklySoil[1:48, ], aes(x=Date.ti, y=DD13C.comp, colour=Transect, group = Transect)) +
   
   # Themes and axes
   theme_bw() +
-  theme(# legend.position="none",
+  theme(legend.position="top",
         # axis.title.x = element_blank(),
         axis.text.x=element_text(angle = 45, hjust = 1)
         ) +
   xlab("Date") +
   scale_x_datetime(breaks = date_breaks("2 weeks"), labels = date_format("%b %d")) +
-
+  guides(col = guide_legend(nrow =  3), shape = guide_legend(nrow =  3)) +
   ylab(expression(paste({Delta~delta}^"13","C", ' (\u2030)'))) +
   scale_y_continuous(breaks=seq(0, 8, 1)) +
   # ylab(expression(paste({delta}^"13","C", ' \211'))) +
@@ -421,6 +422,8 @@ deltaTime = ggplot(wk, aes(Date.ti, DD13C.comp)) +
                  nudge_x = .5, show.legend = F)
 
 deltaTime
+
+ggsave(deltaTime, filename = "Composite_DD.png", width = 8, height = 5, units = "in", scale = 1)
 
 ```
 
@@ -527,13 +530,41 @@ Bsoil2
 AOdf = read.csv2("Data/WeeklyHydroContam_R.csv")
 str(AOdf)
 
+names(AOdf)[names(AOdf) == "Event"] <- "Peak"
+AOdf$Events <- as.factor(c("0-1", "0-2", "0-3",
+                         "1-1", "1-2", "1-3", 
+                         "2-1", "2-2", "2-3", 
+                         "3-1", 
+                         "4-1", "4-2", "4-3", "4-4", "4-5",
+                         "5-1", 
+                         "6-1", "6-2", "6-3",
+                         "7-1", 
+                         "8-1", "8-2", "8-3",
+                         "9-1", "9-2", "9-3", "9-4", "9-5",
+                         "10-1", "10-2", "10-3", "10-4", "10-5", 
+                         "11-1", 
+                         "12-1", "12-2", "12-3",
+                         "13-1",
+                         "14-1",
+                         "15-1", "15-2", "15-3", "15-4", 
+                         "16-1", "16-2", 
+                         "17-1", "17-2",
+                         "18-1", "18-2", "18-3", "18-4"))
+
 # Adding a Weeks column for labelling
 AOdf$WeekSubWeek <- as.character(AOdf$WeekSubWeek)
 Split <- strsplit(AOdf$WeekSubWeek, "-", fixed = TRUE)
 AOdf$Weeks <- sapply(Split, "[", 1)
 
+Split2 <- strsplit(as.character(AOdf$Events), "-", fixed = T)
+AOdf$Event <- as.factor(sapply(Split2, "[", 1))
+
 AOdf$WeekSubWeek <- factor(AOdf$WeekSubWeek, levels = unique(AOdf$WeekSubWeek))
 AOdf$Weeks <- factor(AOdf$Weeks, levels = unique(AOdf$Weeks))
+
+AOdf$Events <- factor(AOdf$Events, levels = unique(AOdf$Events))
+AOdf$Event <- factor(AOdf$Event, levels = unique(AOdf$Event))
+
 AOdf$ti <- as.POSIXct(strptime(AOdf$ti, "%Y-%m-%d %H:%M", tz="EST"))
 sum(is.na(AOdf$ti))
 
@@ -547,33 +578,37 @@ sum(is.na(AOdf$ti))
 
 # View(AOdf)
 
-limits_conc <- aes(ymin=Conc.mug.L-Conc.SD, ymax=Conc.mug.L+Conc.SD, color = Weeks, group = Weeks)
+# Subset the data
+# newdata <- mydata[ which(mydata$gender=='F' & mydata$age > 65), ]
 
+limits_conc <- aes(ymin=Conc.mug.L-Conc.SD, ymax=Conc.mug.L+Conc.SD, color = Event, group = Event)
+data <- AOdf[which(AOdf$Sampled == 'Sampled'), ]
+data$Row <- seq.int(nrow(data))
 
-
-conc1 <- ggplot(AOdf, aes(x=ti, y=Conc.mug.L)) +
-  geom_point( aes(color = Weeks, group = Weeks)) +
+conc1 <- ggplot(data, aes(x=ti, y=Conc.mug.L)) +
+  geom_point( aes(color = Event, group = Event)) +
+  # geom_point( aes(color = Event)) +
   
   # Error bars
   geom_errorbar(limits_conc, width=1) +
   
   # Themes and axes
   theme_bw() +
-  theme(# axis.text.x=element_text(angle = 45, hjust = 1), 
-        axis.text.x=element_blank(),
-        axis.title.x=element_blank(),
+  theme(axis.text.x=element_text(angle = 45, hjust = 1), 
+        #axis.text.x=element_blank(),
+        #axis.title.x=element_blank(),
         legend.position="top"
         )+
-  guides(col = guide_legend(nrows = 2)) +  # Sets legend parameters
+  guides(col = guide_legend(nrow =  2)) +  # Sets legend parameters
   xlab("Date") +
   scale_x_datetime(breaks = date_breaks("2 weeks"), labels = date_format("%b %d")) +
   ylab(expression(paste("Conc. S-Meto.  ", {({mu}*g / L)}))) +
-  scale_y_continuous(breaks = c(18,16,14,12,10, 8, 6, 4, 2, 0), limits = c(-1, 18) ) +
+  scale_y_continuous( breaks = c(28, 26, 18,16,14,12,10, 8, 6, 4, 2, 0), limits = c(0, 30) ) +
   
   # Smooth linear models
-  geom_smooth(data=subset(AOdf[4:27, ]), method = "lm", formula = y ~ poly(x, 2)) +
-  geom_smooth(data=subset(AOdf[27:length(AOdf), ]), method = "lm", formula = y ~ poly(x, 2)) +
-  
+  geom_smooth(data=subset(AOdf[4:28, ]), method = "lm", formula = y ~ poly(x, 2), se = F) +
+  geom_smooth(data=subset(AOdf[28:length(AOdf), ]), method = "lm", formula = y ~ poly(x, 2), se= F) +
+  #stat_smooth(data=subset(data[19:30, ]), method = "lm", formula = y ~ x) +
   # Text
   # Application W9
   # annotate("text", 
@@ -581,18 +616,136 @@ conc1 <- ggplot(AOdf, aes(x=ti, y=Conc.mug.L)) +
   # geom_segment(aes(x = as.POSIXct('2016-06-05 08:04:00'), y = -1, 
   #                 xend = as.POSIXct('2016-05-25 18:04:00'), yend = -0.9), color = "black",
   #             arrow = arrow(length = unit(0.2, "cm"))) +
-  geom_text_repel(aes(label=WeekSubWeek, color = factor(Weeks)), # WeekSubWeek or Weeks
+  geom_text_repel(aes(label=Events, color = factor(Event)), # WeekSubWeek or Weeks
+                  size = 3,
+                  arrow = arrow(length = unit(0.005, 'npc'), type = "closed"),
+                  force = 0.5, 
+                  point.padding = unit(0.5, 'lines'), 
+                  max.iter = 2e3,
+                  nudge_x = .05, show.legend = F)
+conc1
+
+```
+
+
+##  Outlet - Masses vs time
+
+```{r}
+library("tidyr")
+
+data1 <- data[ , c("ti", "SimOutESA.g", "SimOutOXA.g", "SimOutSmeto.g", "SimMELsm.g")]
+
+limits_conc <- aes(ymin=Conc.mug.L-Conc.SD, ymax=Conc.mug.L+Conc.SD, color = Event, group = Event)
+
+mass1 <- ggplot(data) +
+  geom_point(aes(x=ti, y=SimOutSmeto.g)) +
+  geom_point(aes(x=ti, y=SimMELsm.g)) + 
+  scale_colour_manual(values=c("blue", "cyan4"))
+
+
+  geom_point( aes(color = Event, group = Event)) +
+  
+  # geom_point( aes(color = Event)) +
+  
+  # Error bars
+  geom_errorbar(limits_conc, width=1) +
+  
+  # Themes and axes
+  theme_bw() +
+  theme(axis.text.x=element_text(angle = 45, hjust = 1), 
+        #axis.text.x=element_blank(),
+        #axis.title.x=element_blank(),
+        legend.position="top"
+        )+
+  guides(col = guide_legend(nrow =  2)) +  # Sets legend parameters
+  xlab("Date") +
+  scale_x_datetime(breaks = date_breaks("2 weeks"), labels = date_format("%b %d")) +
+  ylab(expression(paste("Conc. S-Meto.  ", {({mu}*g / L)}))) +
+  scale_y_continuous( breaks = c(28, 26, 18,16,14,12,10, 8, 6, 4, 2, 0), limits = c(0, 30) ) +
+  
+  # Smooth linear models
+  geom_smooth(data=subset(AOdf[4:28, ]), method = "lm", formula = y ~ poly(x, 2), se = F) +
+  geom_smooth(data=subset(AOdf[28:length(AOdf), ]), method = "lm", formula = y ~ poly(x, 2), se= F) +
+  #stat_smooth(data=subset(data[19:30, ]), method = "lm", formula = y ~ x) +
+  # Text
+  # Application W9
+  # annotate("text", 
+  #         x = as.POSIXct('2016-06-10 08:04:00'), y = -1, label = lbW9, parse = T, size = 3.0) +
+  # geom_segment(aes(x = as.POSIXct('2016-06-05 08:04:00'), y = -1, 
+  #                 xend = as.POSIXct('2016-05-25 18:04:00'), yend = -0.9), color = "black",
+  #             arrow = arrow(length = unit(0.2, "cm"))) +
+  geom_text_repel(aes(label=Events, color = factor(Event)), # WeekSubWeek or Weeks
+                  size = 3,
+                  arrow = arrow(length = unit(0.005, 'npc'), type = "closed"),
+                  force = 0.5, 
+                  point.padding = unit(0.5, 'lines'), 
+                  max.iter = 2e3,
+                  nudge_x = .05, show.legend = F)
+```
+
+
+
+## Outlet Isotope Shifts (DD)
+
+```{r}
+# DeltaDelta Water
+#limits_DdCwater <- aes(ymin=diss.d13C-SD.d13C-initialDelta, ymax=diss.d13C+SD.d13C-initialDelta, color = Weeks, group = Weeks)
+limits_DdCwater <- aes(ymin=diss.d13C-se.d13C-initialDelta, ymax=diss.d13C+se.d13C-initialDelta, color = Event, group = Event)
+
+iso2 <- ggplot(data, aes(x=ti, y=DD13C.diss)) +
+  # Error bars
+  # geom_errorbar(aes(ymin=mean.d13C-SD.d13C, ymax=mean.d13C+SD.d13C), width=.1) +
+  geom_errorbar(limits_DdCwater, width=1) +
+  
+  # Themes and Axes
+  # theme_gray() +
+  # theme(axis.text.x = element_blank()) +
+  # theme(plot.margin = unit(c(1,1,1,1), "lines")) +
+  theme_bw() +
+  theme(legend.position="none",
+        # legend.title = element_blank(),
+        axis.text.x=element_text(angle = 45, hjust = 1)) +
+  guides(col = guide_legend(nrow = 2)) +  # Sets legend parameters
+  xlab("Date") +
+  scale_x_datetime(breaks = date_breaks("2 weeks"), labels = date_format("%b %d")) +
+  
+  # scale_y_continuous(breaks = c(-32,-31,-30,-29, -28, -27), limits = c(-32, -26.4) ) +
+  # scale_y_continuous(breaks = c(6, 4, 2, 0), limits = c(-1, 6) ) +
+  scale_y_continuous(breaks=seq(0, 6, 1)) +
+  ylab(expression(paste({Delta}, {delta}^"13","C", ' (\u2030)'))) +
+  
+  #scale_x_datetime(breaks = date_breaks("week"), labels = date_format("%m/%d")) +
+  geom_point( aes(color = Event, group = Event)) +
+  
+  # Smooth linear models
+  # stat_smooth(method = "lm", formula = y ~ x) +
+  # geom_smooth(data=subset(AOdf[4:length(AOdf), ]), method = "lm", formula = y ~ poly(x, 2)) +
+  #geom_smooth(data=subset(AOdf[4:27, ]), method = "lm", formula = y~x) +
+  #geom_smooth(data=subset(AOdf[28:length(AOdf), ]), method = "lm", formula = y ~ x) +
+  geom_smooth(data=subset(AOdf[4:length(AOdf), ]), method = "lm", formula = y ~ poly(x, 2)) +
+  
+  # Text
+  # annotate("text", 
+  #         x = as.POSIXct('2016-06-10 08:04:00'), y = 0.3, label = lbW9, parse = T, size = 3.0) +
+  # geom_segment(aes(x = as.POSIXct('2016-06-05 08:04:00'), y = 0.2, 
+  #                  xend = as.POSIXct('2016-05-25 18:04:00'), yend = 0), color = "black",
+  #              arrow = arrow(length = unit(0.2, "cm"))) +
+  # annotate("text", x = as.POSIXct('2016-06-25 00:04:00'), y = -31.2, label = lb1, parse = T) +
+  geom_text_repel(aes(label=Events, color = factor(Event)),
                   size = 3,
                   arrow = arrow(length = unit(0.005, 'npc'), type = "closed"),
                   force = 0.5, 
                   point.padding = unit(0.5, 'lines'), 
                   max.iter = 2e3,
                   nudge_x = .05)
-conc1
+  #ylab(expression(paste({delta}^"13","C", ' \211')))
+  #ylab(expression(paste({delta}^"13","C"))) 
+ 
+iso2
 
+# plot_grid(co, deltaTime, ncol = 1, nrow = 2, align = "v")
 ```
 
-## 
 
 
 
@@ -644,9 +797,9 @@ conc2 <- ggplot(AOdf[28:length(AOdf),], aes(x=ti, y=Conc.mug.L)) +
 ```
 
 
-## Outlet Isotopes - Continous
+## Outlet Isotopes - Continous (by Week)
 
-```{r, fig.height=3.42, fig.width=3.42}
+```{r}
 AOdf$SD.d13C.err  <- ifelse(is.na(AOdf$SD.d13C), 0.5, AOdf$SD.d13C)
 # limits_dC <- aes(ymin=diss.d13C-SD.d13C.err, ymax=diss.d13C+SD.d13C.err, color = Weeks, group = Weeks)
 limits_dC <- aes(ymin=diss.d13C-SD.d13C, ymax=diss.d13C+SD.d13C, color = Weeks, group = Weeks)
@@ -688,64 +841,6 @@ iso
 
 ggsave(iso, filename = "Outlet_Delta_ti_cont.png", width = 8, height = 5, units = "in", scale = 1)
 
-
-# DeltaDelta Water
-
-#limits_DdCwater <- aes(ymin=diss.d13C-SD.d13C-initialDelta, ymax=diss.d13C+SD.d13C-initialDelta, color = Weeks, group = Weeks)
-limits_DdCwater <- aes(ymin=diss.d13C-se.d13C-initialDelta, ymax=diss.d13C+se.d13C-initialDelta, color = Weeks, group = Weeks)
-
-iso2 <- ggplot(AOdf, aes(x=ti, y=DD13C.diss)) +
-  # Error bars
-  # geom_errorbar(aes(ymin=mean.d13C-SD.d13C, ymax=mean.d13C+SD.d13C), width=.1) +
-  geom_errorbar(limits_DdCwater, width=1) +
-  
-  # Themes and Axes
-  # theme_gray() +
-  # theme(axis.text.x = element_blank()) +
-  # theme(plot.margin = unit(c(1,1,1,1), "lines")) +
-  theme_bw() +
-  theme(legend.position="none",
-        # legend.title = element_blank(),
-        axis.text.x=element_text(angle = 45, hjust = 1)) +
-  guides(col = guide_legend(nrow = 2)) +  # Sets legend parameters
-  xlab("Date") +
-  scale_x_datetime(breaks = date_breaks("2 weeks"), labels = date_format("%b %d")) +
-  
-  # scale_y_continuous(breaks = c(-32,-31,-30,-29, -28, -27), limits = c(-32, -26.4) ) +
-  # scale_y_continuous(breaks = c(6, 4, 2, 0), limits = c(-1, 6) ) +
-  scale_y_continuous(breaks=seq(0, 6, 1)) +
-  ylab(expression(paste({Delta}, {delta}^"13","C", ' (\u2030)'))) +
-  
-  #scale_x_datetime(breaks = date_breaks("week"), labels = date_format("%m/%d")) +
-  geom_point( aes(color = Weeks, group = Weeks)) +
-  
-  # Smooth linear models
-  # stat_smooth(method = "lm", formula = y ~ x) +
-  # geom_smooth(data=subset(AOdf[4:length(AOdf), ]), method = "lm", formula = y ~ poly(x, 2)) +
-  geom_smooth(data=subset(AOdf[4:27, ]), method = "lm", formula = y~x) +
-  geom_smooth(data=subset(AOdf[28:length(AOdf), ]), method = "lm", formula = y ~ x) +
-  
-  # Text
-  # annotate("text", 
-  #         x = as.POSIXct('2016-06-10 08:04:00'), y = 0.3, label = lbW9, parse = T, size = 3.0) +
-  # geom_segment(aes(x = as.POSIXct('2016-06-05 08:04:00'), y = 0.2, 
-  #                  xend = as.POSIXct('2016-05-25 18:04:00'), yend = 0), color = "black",
-  #              arrow = arrow(length = unit(0.2, "cm"))) +
-  # annotate("text", x = as.POSIXct('2016-06-25 00:04:00'), y = -31.2, label = lb1, parse = T) +
-  geom_text_repel(aes(label=WeekSubWeek, color = factor(Weeks)),
-                  size = 3,
-                  arrow = arrow(length = unit(0.005, 'npc'), type = "closed"),
-                  force = 0.5, 
-                  point.padding = unit(0.5, 'lines'), 
-                  max.iter = 2e3,
-                  nudge_x = .05)
-  #ylab(expression(paste({delta}^"13","C", ' \211')))
-  #ylab(expression(paste({delta}^"13","C"))) 
- 
-iso2
-
-# plot_grid(co, deltaTime, ncol = 1, nrow = 2, align = "v")
-
 ```
 
 
@@ -755,17 +850,18 @@ iso2
 
 concSoils <- co + theme(legend.position='none')
 concWater <- conc1 + theme(legend.position='none')
+isoSoils <- deltaTime + theme(legend.position='none')
 
-legend_soils = get_legend(co)
+legend_soils = get_legend(deltaTime)
 legend_water = get_legend(conc1)
 
-grid4 <- plot_grid(concSoils, concWater, deltaTime, iso2,
+grid4 <- plot_grid(concSoils, isoSoils, concWater, iso2, 
                     ncol =2, nrow = 2, align ="v",
                     labels = c("A", "C", "B", "D"))
 fig1 <- ggdraw() +
   draw_plot(grid4, x=0, y=.2, width =  1, height = .8) + 
-  draw_plot(legend_water, x=0.5, y = 0, width = 0.5, height = 0.2) +
-  draw_plot(legend_soils, x=0, y=0, width = 0.6, height = 0.2)
+  draw_plot(legend_water, x=0.5, y = 0.05, width = 0.5, height = 0.2) +
+  draw_plot(legend_soils, x=0, y=0.05, width = 0.6, height = 0.2)
 
 fig1
 
