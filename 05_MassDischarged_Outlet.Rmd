@@ -303,6 +303,7 @@ out.CoIs[1, c("ESA_mean")] <- out.CoIs[2, c("ESA_mean")]
 out.CoIs[1, c("ESA_SD")] <- out.CoIs[2, c("ESA_SD")]
 
 out.CoIs[1, c("Conc.Solids.mug.gMES")] <- out.CoIs[2, c("Conc.Solids.mug.gMES")]
+out.CoIs[1, c("Conc.Solids.ug.gMES.SD")] <- out.CoIs[2, c("Conc.Solids.ug.gMES.SD")]
 
 out.CoIs[1, c("ExpMES.Kg")] <- out.CoIs[2, c("ExpMES.Kg")]
 
@@ -319,39 +320,9 @@ out.CoIs$ESA_mean <- na.approx(out.CoIs$ESA_mean)
 out.CoIs$ESA_SD <- na.approx(out.CoIs$ESA_SD)
 
 out.CoIs$Conc.Solids.mug.gMES <- na.approx(out.CoIs$Conc.Solids.mug.gMES)
+out.CoIs$Conc.Solids.ug.gMES.SD <- na.approx(out.CoIs$Conc.Solids.ug.gMES.SD)
+
 out.CoIs$ExpMES.Kg <- na.approx(out.CoIs$ExpMES.Kg)
-
-# Assign trailing observed value
-# out.CoIs$Conc.mug.L.sim = na.locf(out.CoIs$Conc.mug.L.sim, na.rm = TRUE)
-
-
-# Dissolved - [mg] S-metolachlor exported per sub-week
-# Conc. [mu.g s-meto/L H20] * Vol[m3] * [10^3 L/m^3] * [1 mg/10^3 mu.g]
-out.CoIs$DissSmeto.mg = out.CoIs$Conc.mug.L*out.CoIs$Volume.m3
-out.CoIs$DissSmeto.mg.SD = out.CoIs$Conc.SD*out.CoIs$Volume.m3
-
-out.CoIs$DissOXA.mg = out.CoIs$OXA_mean*out.CoIs$Volume.m3
-out.CoIs$DissOXA.mg.SD = out.CoIs$OXA_SD*out.CoIs$Volume.m3
-
-out.CoIs$DissESA.mg = out.CoIs$ESA_mean*out.CoIs$Volume.m3 
-out.CoIs$DissESA.mg.SD = out.CoIs$ESA_SD*out.CoIs$Volume.m3 
-
-# Solids - [mg] S-metolachlor in solids exported per sub-week 
-# Conc. [mu.g s-meto / g MES] * Kg MES * [10^3 g/Kg] * [1 mg/10^3 mu.g]
-out.CoIs$FiltSmeto.mg = out.CoIs$Conc.Solids.mug.gMES*out.CoIs$ExpMES.Kg 
-###############
-# SD for MES S-meto mass (mg) 
-##############
-# mg = Conc. [mu.g s-meto / g MES] * MES.sd [mg/L] * Vol [m3] * [10^3 L/1 m3]* [mg/10^3mug] 
-# out.CoIs$Conc.Solids.mug.gMES * out.CoIs$MES.sd * out.CoIs$Volume.m3... check calculation
-  
-# Total
-out.CoIs$TotMassOut.mg = out.CoIs$DissSmeto.mg + out.CoIs$FiltSmeto.mg
-
-
-# Proportion in dissolved and suspended solids
-out.CoIs$FracDiss = out.CoIs$DissSmeto.mg/out.CoIs$TotMassOut.mg
-out.CoIs$FracFilt = out.CoIs$FiltSmeto.mg/out.CoIs$TotMassOut.mg
 
 ```
 
@@ -395,42 +366,68 @@ out.CoIs$CumAppMass.g = cumsum(out.CoIs$Appl.Mass.g)
 
 # First simulate a mass out to deal with missing values
 # Option 1, just assume 0.0 
-out.CoIs$SimOutDiss.g = out.CoIs$DissSmeto.mg/10^3
-out.CoIs$SimOutFilt.g = out.CoIs$FiltSmeto.mg/10^3
-out.CoIs$SimOutOXA.g = out.CoIs$DissOXA.mg/10^3
-out.CoIs$SimOutESA.g = out.CoIs$DissESA.mg/10^3
 
+# Dissolved - [mg] S-metolachlor exported per sub-week
+# Conc. [mu.g s-meto/L H20] * Vol[m3] * [10^3 L/m^3] * [1 mg/10^3 mu.g]
+out.CoIs$DissSmeto.mg = out.CoIs$Conc.mug.L*out.CoIs$Volume.m3
+out.CoIs$DissSmeto.mg.SD = out.CoIs$Conc.SD*out.CoIs$Volume.m3
+out.CoIs$DissSmeto.g = out.CoIs$DissSmeto.mg/10^3
 out.CoIs$DissSmeto.g.SD = out.CoIs$DissSmeto.mg.SD/10^3
+
+out.CoIs$DissOXA.mg = out.CoIs$OXA_mean*out.CoIs$Volume.m3
+out.CoIs$DissOXA.mg.SD = out.CoIs$OXA_SD*out.CoIs$Volume.m3
+out.CoIs$DissOXA.g = out.CoIs$DissOXA.mg/10^3
 out.CoIs$DissOXA.g.SD = out.CoIs$DissOXA.mg.SD/10^3
+
+out.CoIs$DissESA.mg = out.CoIs$ESA_mean*out.CoIs$Volume.m3 
+out.CoIs$DissESA.mg.SD = out.CoIs$ESA_SD*out.CoIs$Volume.m3 
+out.CoIs$DissESA.g = out.CoIs$DissESA.mg/10^3
 out.CoIs$DissESA.g.SD = out.CoIs$DissESA.mg.SD/10^3
 
-out.CoIs$SimOutDiss.g = ifelse(is.na(out.CoIs$SimOutDiss.g), 0.0, out.CoIs$SimOutDiss.g)
-out.CoIs$SimOutFilt.g = ifelse(is.na(out.CoIs$SimOutFilt.g), 0.0, out.CoIs$SimOutFilt.g)
-out.CoIs$SimOutSmeto.g = out.CoIs$SimOutDiss.g + out.CoIs$SimOutFilt.g
+# Solids - [mg] S-metolachlor in solids exported per sub-week 
+# Conc. [mu.g s-meto / g MES] * Kg MES * [10^3 g/Kg] * [1 mg/10^3 mu.g]
+out.CoIs$FiltSmeto.mg = out.CoIs$Conc.Solids.mug.gMES*out.CoIs$ExpMES.Kg 
+out.CoIs$FiltSmeto.mg.SD = out.CoIs$Conc.Solids.ug.gMES.SD*out.CoIs$ExpMES.Kg 
+out.CoIs$FiltSmeto.g = out.CoIs$FiltSmeto.mg/10^3
+out.CoIs$FiltSmeto.g.SD  = out.CoIs$FiltSmeto.mg.SD/10^3
+  
+# Total SM
+out.CoIs$TotSMout.mg = out.CoIs$DissSmeto.mg + out.CoIs$FiltSmeto.mg
+out.CoIs$TotSMout.mg.SD = sqrt(((out.CoIs$DissSmeto.mg.SD)^2 + (out.CoIs$FiltSmeto.mg.SD)^2)/2)
+out.CoIs$TotSMout.g = out.CoIs$TotSMout.mg/10^3
+out.CoIs$TotSMout.g.SD = out.CoIs$TotSMout.mg.SD/10^3
+
+# Distribution dissolved vs suspended solids
+out.CoIs$FracDiss = out.CoIs$DissSmeto.mg/out.CoIs$TotSMout.mg
+out.CoIs$FracFilt = out.CoIs$FiltSmeto.mg/out.CoIs$TotSMout.mg
+
+#out.CoIs$DissSmeto.g = ifelse(is.na(out.CoIs$DissSmeto.g), 0.0, out.CoIs$DissSmeto.g)
+#out.CoIs$FiltSmeto.g = ifelse(is.na(out.CoIs$FiltSmeto.g), 0.0, out.CoIs$FiltSmeto.g)
+#out.CoIs$TotSMout.g = out.CoIs$DissSmeto.g + out.CoIs$FiltSmeto.g
 
 # Need to update this :
-out.CoIs$SimOutSmeto.g.SD = out.CoIs$DissSmeto.g.SD
+# out.CoIs$TotSMout.g.SD = out.CoIs$DissSmeto.g.SD
 
 mw.SM <- 283.796 # g/mol
 mw.MOXA <- 279.33 # g/ml
 mw.MESA <- 329.1 # g/mol
-out.CoIs$SimMELsm.g <- 
-  out.CoIs$SimOutSmeto.g + 
-  out.CoIs$SimOutOXA.g * (mw.SM/mw.MOXA) +
-  out.CoIs$SimOutESA.g * (mw.SM/mw.MESA)
+out.CoIs$MELsm.g <- 
+  out.CoIs$TotSMout.g + 
+  out.CoIs$DissOXA.g * (mw.SM/mw.MOXA) +
+  out.CoIs$DissESA.g * (mw.SM/mw.MESA)
 
 # How to sum a standard deviation
 # http://stats.stackexchange.com/questions/25848/how-to-sum-a-standard-deviation
-out.CoIs$SimMELsm.g.SD <- 
-  sqrt((out.CoIs$SimOutSmeto.g.SD^2 +
+out.CoIs$MELsm.g.SD <- 
+  sqrt((out.CoIs$TotSMout.g.SD^2 +
      (out.CoIs$DissOXA.g.SD * (mw.SM/mw.MOXA))^2 +
      (out.CoIs$DissESA.g.SD * (mw.SM/mw.MESA))^2)/3)
 
 # Cumulative OUT
-out.CoIs$CumOutDiss.g = cumsum(out.CoIs$SimOutDiss.g)
-out.CoIs$CumOutFilt.g = cumsum(out.CoIs$SimOutFilt.g)
+out.CoIs$CumOutDiss.g = cumsum(out.CoIs$DissSmeto.g)
+out.CoIs$CumOutFilt.g = cumsum(out.CoIs$FiltSmeto.g)
 out.CoIs$CumOutSmeto.g = out.CoIs$CumOutDiss.g + out.CoIs$CumOutFilt.g
-out.CoIs$CumOutMELsm.g = cumsum(out.CoIs$SimMELsm.g)
+out.CoIs$CumOutMELsm.g = cumsum(out.CoIs$MELsm.g)
 
 # Balance
 out.CoIs$BalMassDisch.g = out.CoIs$CumAppMass.g - out.CoIs$CumOutMELsm.g
@@ -441,8 +438,8 @@ MELsmOUT = tail(out.CoIs$CumOutMELsm.g, n=1)
 
 TotAppl = tail(out.CoIs$CumAppMass.g, n=1)
 
-out.CoIs$prctMassOut = (out.CoIs$SimOutSmeto.g / massOUT)
-out.CoIs$FracDeltaOut = (out.CoIs$SimOutSmeto.g / massOUT)*out.CoIs$diss.d13C
+out.CoIs$prctMassOut = (out.CoIs$TotSMout.g / massOUT)
+out.CoIs$FracDeltaOut = (out.CoIs$TotSMout.g / massOUT)*out.CoIs$diss.d13C
 out.CoIs$FracDeltaOut = ifelse(is.na(out.CoIs$FracDeltaOut), 0.0, out.CoIs$FracDeltaOut)
 
 BulkDeltaOut = sum(out.CoIs$FracDeltaOut)
