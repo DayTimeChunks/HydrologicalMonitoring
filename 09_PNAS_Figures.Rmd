@@ -489,12 +489,12 @@ Bsoil =ggplot(weeklySoil)+
   #scale_x_continuous(breaks=seq(0,11,1)) +
   theme(legend.position = "top") 
 
-Bsoil
+# Bsoil
 
 
 
 # Linear model
-ggsave(Bsoil, filename = "CompositeDegradationLM.png", width = 7, height = 5, units = "in", scale = 1)
+# ggsave(Bsoil, filename = "CompositeDegradationLM.png", width = 7, height = 5, units = "in", scale = 1)
 
 #deltaCo = plot_grid(co, isCo, ncol = 2, nrow = 1, align = "h")
 # deltaCoBio = plot_grid(co, isCo, Bsoil, ncol = 3, nrow = 1, align = "h") 
@@ -517,7 +517,7 @@ Bsoil2 = ggplot(weeklySoil, aes(x=Date.ti, y=B.min.comp, colour=Transect, group 
   theme_bw() +
   stat_smooth(method = "lm", formula = y ~ poly(x, 2), se=FALSE)
 
-Bsoil2
+# Bsoil2
 
 
 ```
@@ -530,43 +530,8 @@ Bsoil2
 AOdf = read.csv2("Data/WeeklyHydroContam_R.csv")
 str(AOdf)
 
-names(AOdf)[names(AOdf) == "Event"] <- "Peak"
-AOdf$Events <- as.factor(c("0-1", "0-2", "0-3",
-                         "1-1", "1-2", "1-3", 
-                         "2-1", "2-2", "2-3", 
-                         "3-1", 
-                         "4-1", "4-2", "4-3", "4-4", "4-5",
-                         "5-1", 
-                         "6-1", "6-2", "6-3",
-                         "7-1", 
-                         "8-1", "8-2", "8-3",
-                         "9-1", "9-2", "9-3", "9-4", "9-5",
-                         "10-1", "10-2", "10-3", "10-4", "10-5", 
-                         "11-1", 
-                         "12-1", "12-2", "12-3",
-                         "13-1",
-                         "14-1",
-                         "15-1", "15-2", "15-3", "15-4", 
-                         "16-1", "16-2", 
-                         "17-1", "17-2",
-                         "18-1", "18-2", "18-3", "18-4"))
-
-# Adding a Weeks column for labelling
-AOdf$WeekSubWeek <- as.character(AOdf$WeekSubWeek)
-Split <- strsplit(AOdf$WeekSubWeek, "-", fixed = TRUE)
-AOdf$Weeks <- sapply(Split, "[", 1)
-
-Split2 <- strsplit(as.character(AOdf$Events), "-", fixed = T)
-AOdf$Event <- as.factor(sapply(Split2, "[", 1))
-
-AOdf$WeekSubWeek <- factor(AOdf$WeekSubWeek, levels = unique(AOdf$WeekSubWeek))
-AOdf$Weeks <- factor(AOdf$Weeks, levels = unique(AOdf$Weeks))
-
-AOdf$Events <- factor(AOdf$Events, levels = unique(AOdf$Events))
-AOdf$Event <- factor(AOdf$Event, levels = unique(AOdf$Event))
-
 AOdf$ti <- as.POSIXct(strptime(AOdf$ti, "%Y-%m-%d %H:%M", tz="EST"))
-sum(is.na(AOdf$ti))
+sum(is.na(AOdf$ti)) == 0
 
 ```
 
@@ -629,6 +594,7 @@ cor.p.SM <- cor.test(dfSampled$Conc.mug.L, dfSampled$diss.d13C, method = "pearso
 cor.p.SM
 cor.p.ESA <- cor.test(dfSampled$ESA_mean, dfSampled$diss.d13C)
 cor.p.ESA
+
 
 cor.p.SM.soils <- cor.test(wk$Conc.mug.g.dry.soil, wk$comp.d13C)
 cor.p.SM.soils

@@ -1,0 +1,104 @@
+---
+title: "Data Screening"
+author: "PAZ"
+date: "06/04/2017"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Introduction
+
+This Data Screenining notebook follows the excellent GUide to STatistical Analysis in Microbial Ecology (GUSTA ME). The purpose is to inspect the variables that we'll be using to test for hypotheses later on, and check whether they follow typical assumptions made in parametric tests such as normality, freedom from heteroskedasticity (difference in variability btw. two+ variables) and outliers. The link to the site is below:
+
+https://sites.google.com/site/mb3gustame/home
+Buttigieg PL, Ramette A (2014) A Guide to Statistical Analysis in Microbial Ecology: a community-focused, living review of multivariate data analyses. FEMS Microbiol Ecol. 90: 543–550.
+
+# Packages
+
+```{r}
+library(vioplot)
+library(sm)
+```
+
+
+# Missing values
+
+1. Missing chemical and isotope data due to machine failure or automatic sampling servicing program.
+
+These have been considered to be Values Missing Completely at Random (MCAR) as they are associated to the end of the automatic sampler's capacity for a certain number of events where servicing was inadequate for the discharge amounts seen during a sampling week. Here the values' missingess is not related to any other value in the data set. 
+
+2. Isotope data for both soil and water samples due to concentration value being below the limit of detection.
+
+These values must be considered to be Missing at Random (MAR) as the missing value has no relation to the value that 'should' be there, but does depend on other variables in the data set. Thus, other variables must be taken into account for MAR data to be considered random (i.e. missing data is "conditioned by" other data in the data set). 
+
+# Outliers
+
+Import soils
+
+```{r}
+# Soils
+weeklySoil = read.csv2("Data/WeeklySoils_Rng.csv", na.strings=c('#DIV/0!', '', 'NA'), header = TRUE)
+weeklySoil$Date.ti <- as.POSIXct(strptime(weeklySoil$Date.ti, "%Y-%m-%d %H:%M", tz="EST")) # csv typos, option 1
+weeklySoil$Transect <- factor(weeklySoil$Transect, levels = c("N", "T", "S"))
+# Date conversion correct: 
+sum(is.na(weeklySoil$Date.ti)) == 0
+str(weeklySoil)
+```
+
+Import water
+
+```{r}
+AOdf = read.csv2("Data/WeeklyHydroContam_R.csv")
+AOdf$ti <- as.POSIXct(strptime(AOdf$ti, "%Y-%m-%d %H:%M", tz="EST"))
+AOdf$Events <- factor(AOdf$Events, levels = unique(AOdf$Events))
+AOdf$Event <- factor(AOdf$Event, levels = unique(AOdf$Event))
+
+# Date conversion correct: 
+sum(is.na(AOdf$ti)) == 0
+str(AOdf)
+```
+
+## Soil
+
+```{r}
+# plot densities 
+sm.density.compare(weeklySoil$Conc.mug.g.dry.soil, weeklySoil$Transect, xlab=expression(paste("Conc. S-Meto.  ", {({mu}*g / g.soil.dry)})))
+title(main="Catchment Soil - Concentrations")
+legend("topright", levels( weeklySoil$Transect), fill=2+(0:nlevels(weeklySoil$Transect)))
+       
+
+```
+
+
+```{r}
+
+boxplot(Conc.mug.g.dry.soil~Transect,data=weeklySoil, main="Composite Soil Transects - Concentrations", 
+  	xlab="Transects", ylab=expression(paste("Conc. S-Meto.  ", {({mu}*g / g.soil.dry)})))
+```
+
+### Soil Isotopes
+
+```{r}
+vioplot(na.omit(weeklySoil$comp.d13C),  names = "Catchment")
+title(expression(paste({delta}^"13","C", ' (\u2030)')))
+```
+
+```{r}
+
+temp <- na.omit(weeklySoil)
+sm.density.compare(temp$comp.d13C, temp$Transect, 
+                   xlab=expression(paste({delta}^"13","C", ' (\u2030)')))
+title(main="Catchment Soil - Isotope Distribution")
+legend("topright", levels( weeklySoil$Transect), fill=2+(0:nlevels(weeklySoil$Transect)))
+```
+
+
+```{r}
+boxplot(comp.d13C~Transect,data=weeklySoil, main="Composite Soil Transects - Isotopes", 
+  	xlab="Transects", ylab=expression(paste({delta}^"13","C", ' (\u2030)')))
+```
+
+

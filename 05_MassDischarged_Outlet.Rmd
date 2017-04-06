@@ -507,6 +507,41 @@ BulkDeltaOut
 
 ```{r, message=FALSE}
 
+names(out.CoIs)[names(out.CoIs) == "Event"] <- "Peak"
+out.CoIs$Events <- as.factor(c("0-1", "0-2", "0-3",
+                         "1-1", "1-2", "1-3", 
+                         "2-1", "2-2", "2-3", 
+                         "3-1", 
+                         "4-1", "4-2", "4-3", "4-4", "4-5",
+                         "5-1", 
+                         "6-1", "6-2", "6-3",
+                         "7-1", 
+                         "8-1", "8-2", "8-3",
+                         "9-1", "9-2", "9-3", "9-4", "9-5",
+                         "10-1", "10-2", "10-3", "10-4", "10-5", 
+                         "11-1", 
+                         "12-1", "12-2", "12-3",
+                         "13-1",
+                         "14-1",
+                         "15-1", "15-2", "15-3", "15-4", 
+                         "16-1", "16-2", 
+                         "17-1", "17-2",
+                         "18-1", "18-2", "18-3", "18-4"))
+
+# Adding a Weeks column for labelling
+out.CoIs$WeekSubWeek <- as.character(out.CoIs$WeekSubWeek)
+Split <- strsplit(out.CoIs$WeekSubWeek, "-", fixed = TRUE)
+out.CoIs$Weeks <- sapply(Split, "[", 1)
+
+Split2 <- strsplit(as.character(out.CoIs$Events), "-", fixed = T)
+out.CoIs$Event <- as.factor(sapply(Split2, "[", 1))
+
+out.CoIs$WeekSubWeek <- factor(out.CoIs$WeekSubWeek, levels = unique(out.CoIs$WeekSubWeek))
+out.CoIs$Weeks <- factor(out.CoIs$Weeks, levels = unique(out.CoIs$Weeks))
+
+out.CoIs$Events <- factor(out.CoIs$Events, levels = unique(out.CoIs$Events))
+out.CoIs$Event <- factor(out.CoIs$Event, levels = unique(out.CoIs$Event))
+
 head(out.CoIs)
 
 write.csv2(out.CoIs, 
