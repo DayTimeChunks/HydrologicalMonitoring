@@ -27,6 +27,7 @@ library(vioplot)
 
 library(dplyr)
 library(ggplot2)
+library("ggrepel")
 ```
 
 
@@ -71,7 +72,36 @@ soilGroups$Date.ti <- as.POSIXct(strptime(soilGroups$Date.ti,
 sum(is.na(soilGroups$Date.ti)) == 0
 
 str(soils)
+
+
+
+ggplot(soilGroups, aes(x=Conc.mug.g.dry.soil, y=comp.d13C))+
+  geom_point(aes(group = Transect, colour = Wnum, shape = Transect))+
+  geom_text_repel(aes(label=Wnum),
+                 arrow = arrow(length = unit(0.005, 'npc'), type = "closed"),
+                 force = 1, 
+                 point.padding = unit(1.0, 'lines'), 
+                 max.iter = 2e3,
+                 nudge_x = .2) #+
+  #stat_smooth(method = "lm", formula = y ~ poly(x, 2)) +
+  #stat_smooth(method = "lm", formula = y~x, se=F) 
+
 ```
+
+Soils to confirm in IRMS:
+
+North: 13, 12, 10, 9, 11, 7
+Talweg: 13, 10, 9, 8, 7
+South: 13
+
+No isotopes:
+Talweg: 1, 15
+North: 1, 5, 6, 15
+South: 15
+
+Repeat:
+
+
 
 Import water
 
@@ -107,7 +137,7 @@ WaterSoils <- merge(waters, soils, by = "Date.ti", all = F)
 str(WaterSoils)
 ```
 
-# Outliers (without transformation)
+# Outliers
 
 ```{r}
 # Test function
@@ -123,6 +153,18 @@ is_outlier <- function(x) {
 
 ## Soil concentrations
 
+Correlation will be made after variable transformation. Options tested:
+
+a) Z-scoring transformation by translation and expansion is done to create unit-free variables with means of zero and standard deviations of one. Standardised values differ from one another in units of standard deviation. The mean of each variable is subtracted from the original values and the difference divided by the variable's standard deviation and is given by:
+
+$$ z_i = \frac{y_i - \bar{y}}{s_y} $$
+
+Z-scoring did not change correlation results, nor outlier reduction.
+
+b) Scaling by expansion where all values are divided by the maximum observation.
+
+### Outliers before transformation
+
 ```{r}
 
 # Concentrations
@@ -135,11 +177,29 @@ soilGroups %>%
 
 ```
 
+### Outliers after transformation
+
+```{r}
+soilGroups <- soilGroups %>%
+  group_by(Transect) %>%
+  mutate(z_conc = (Conc.mug.g.dry.soil-mean(Conc.mug.g.dry.soil))/sd(Conc.mug.g.dry.soil))
+
+
+soilGroups %>%
+  group_by(Transect) %>%
+  mutate(outlier = ifelse(is_outlier(z_conc), as.character(ID), NA)) %>%
+  ggplot(., aes(x = factor(Transect), y = z_conc)) +
+    geom_boxplot() +
+    geom_text(aes(label = outlier), na.rm = TRUE, hjust = -0.3)
+```
+
 ## Soil Isotopes
 
 ```{r}
 # Isotopes
+
 temp <- na.omit(soilGroups)
+
 temp %>%
   group_by(Transect) %>%
   mutate(outlier = ifelse(is_outlier(comp.d13C), as.character(ID), NA)) %>%
@@ -147,27 +207,24 @@ temp %>%
     geom_boxplot() +
     geom_text(aes(label = outlier), na.rm = TRUE, hjust = -0.3)
 
-```
 
+```
 
 Looks like 7 potential outliers in concentrations and 1 for isotopes. Removing NA's for isotopes and re-computing outliers, reduces the number of outliers to 2 in concentrations and 1 for isotopes. 
 
-However, instead of removing outliers, a transformation will be performed for ease of comparability between isotopes and concentrations. 
-
-
-# Z-scoring transformation and outlier evaluation
-
-Transformation will be performed by translation and expansion to create unit-free transformed variables with means of zero and standard deviations of one. Standardised values differ from one another in units of standard deviation. The mean of each variable is subtracted from the original values and the difference divided by the variable's standard deviation and is given by:
-
-$$ z_i = \frac{y_i - \bar{y}}{s_y} $$
-
-
 ```{r}
+temp <- temp %>%
+  group_by(Transect) %>%
+  mutate(z_d13C = (comp.d13C-mean(comp.d13C))/sd(comp.d13C))
+
+temp %>%
+  group_by(Transect) %>%
+  mutate(outlier = ifelse(is_outlier(z_d13C), as.character(ID), NA)) %>%
+  ggplot(., aes(x = factor(Transect), y = z_d13C)) +
+    geom_boxplot() +
+    geom_text(aes(label = outlier), na.rm = TRUE, hjust = -0.3)
 
 ```
-
-# Outliers (with transformation)
-
 
 
 ## Correlation tests
@@ -180,34 +237,34 @@ temp <- temp %>%
 
 temp.filtered <- temp[is.na(temp$outlier ) , ]
 cor.test(temp.filtered$comp.d13C, temp.filtered$Conc.mug.g.dry.soil)
+
+
+## With outliers
+# Log of concentrations -> No change
+# cor.test(soilGroups$comp.d13C, log(soilGroups$Conc.mug.g.dry.soil), method = "spearman")
+cor.test(soilGroups$comp.d13C, soilGroups$Conc.mug.g.dry.soil, method = "spearman")
+
+## Z-scoring
+cor.test(temp$z_conc, temp$z_d13C)
 ```
 
-
-With outliers:
 
 
 ```{r}
-cor.test(soilGroups$comp.d13C,soilGroups$Conc.mug.g.dry.soil)
+cor.test(soilGroups$comp.d13C, soilGroups$Conc.mug.g.dry.soil)
 ```
 
-# Distribution of z
-
+# Distribution of z values (same as non-transformed)
 
 ```{r}
 # plot densities 
-sm.density.compare(soilGroups$Conc.mug.g.dry.soil, soilGroups$Transect, xlab=expression(paste("Conc. S-Meto.  ", {({mu}*g / g.soil.dry)})))
+#sm.density.compare(temp$z_conc, temp$Transect, xlab=expression(paste("Conc. S-Meto.  ", {({mu}*g / g.soil.dry)})))
+sm.density.compare(temp$z_conc, temp$Transect, xlab=expression(paste("Conc. S-Meto.  Z-values")))
 title(main="Catchment Soil - Concentrations")
 legend("topright", levels( soilGroups$Transect), fill=2+(0:nlevels(soilGroups$Transect)))
        
 #vioplot(soilGroups$Conc.mug.g.dry.soil,  names = "Catchment")
 #title(expression(paste("Conc. S-Meto.  ", {({mu}*g / g.soil.dry)})))
-```
-
-
-```{r}
-
-
-
 ```
 
 ## Soil Isotopes
