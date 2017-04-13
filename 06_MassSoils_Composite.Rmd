@@ -19,11 +19,12 @@ This file merges weekly composite concentrations and isotope data.
 Imports: 
 
 - **SoilCompConc_W1toW15.csv** 
-- **SoilCompIsotopes_W1toW15.csv**
+- **SoilCompIsotopes_W1toW15.csv** (old, not used)
+- **SoilCompIsotopes_W1toW15ng.csv**
 
 Generates:
 
-- **MassIso_CompositeSoils.csv**
+- **WeeklySoils_Rng.csv**
 
 ## Required R-packages:
 
@@ -59,7 +60,7 @@ c) Nanograms of carbon > 5.0.
 ```{r, message=FALSE}
 
 weeklySoilConc = read.csv2("Data/SoilCompConc_W1toW15.csv", header = TRUE)
-weeklySoilConc$Date.ti <- as.POSIXct(strptime(weeklySoilConc$Date.Soil, "%d/%m/%Y %H:%M", tz="EST"))
+weeklySoilConc$Date.ti <- as.POSIXct(strptime(weeklySoilConc$Date.Soil, "%d/%m/%Y %H:%M", tz="EST")) # stopped working
 sum(is.na(weeklySoilConc$Date.ti))
 # View(weeklySoilConc)
 weeklySoilConc <- weeklySoilConc[,c("Filename",
@@ -215,31 +216,31 @@ comp.CoIs$MassSoil.g <- NA
 
 # Areas with S-metolachlor before week 9
 comp.CoIs$MassSoil.g <- 
-  ifelse((comp.CoIs$Transect == "N" & comp.CoIs$Wnum < 9), 
+  ifelse((comp.CoIs$Transect == "N" & comp.CoIs$Wnum < 6), 
          comp.CoIs$Conc.mug.g.dry.soil*10^-6*rho*depth*Area_Na,
-  ifelse((comp.CoIs$Transect == "T" & comp.CoIs$Wnum < 9), 
+  ifelse((comp.CoIs$Transect == "T" & comp.CoIs$Wnum < 6), 
          comp.CoIs$Conc.mug.g.dry.soil*10^-6*rho*depth*Area_Ta, 
-  ifelse((comp.CoIs$Transect == "S" & comp.CoIs$Wnum < 9), 
+  ifelse((comp.CoIs$Transect == "S" & comp.CoIs$Wnum < 6), 
          comp.CoIs$Conc.mug.g.dry.soil*10^-6*rho*depth*Area_Sa, comp.CoIs$MassSoil.g)))
 
 # Areas with S-metolachlor after week 9
 comp.CoIs$MassSoil.g <- 
-  ifelse((comp.CoIs$Transect == "N" & comp.CoIs$Wnum >= 9), 
+  ifelse((comp.CoIs$Transect == "N" & comp.CoIs$Wnum >= 6), 
          comp.CoIs$Conc.mug.g.dry.soil*10^-6*rho*depth*Area_Nb,
-  ifelse((comp.CoIs$Transect == "T" & comp.CoIs$Wnum >= 9), 
+  ifelse((comp.CoIs$Transect == "T" & comp.CoIs$Wnum >= 6), 
          comp.CoIs$Conc.mug.g.dry.soil*10^-6*rho*depth*Area_Tb, 
-  ifelse((comp.CoIs$Transect == "S" & comp.CoIs$Wnum >= 9), 
+  ifelse((comp.CoIs$Transect == "S" & comp.CoIs$Wnum >= 6), 
          comp.CoIs$Conc.mug.g.dry.soil*10^-6*rho*depth*Area_Sb, comp.CoIs$MassSoil.g)))
 
 # Areas as variables (for later computation of bulk catchment mass)
 comp.CoIs$Area.N <-
-  ifelse((comp.CoIs$Wnum < 9), Area_Na, Area_Nb)
+  ifelse((comp.CoIs$Wnum < 6), Area_Na, Area_Nb)
          
 comp.CoIs$Area.T <-
-  ifelse((comp.CoIs$Wnum < 9), Area_Ta, Area_Tb)
+  ifelse((comp.CoIs$Wnum < 6), Area_Ta, Area_Tb)
 
 comp.CoIs$Area.S <-
-  ifelse((comp.CoIs$Wnum < 9), Area_Sa, Area_Sb)
+  ifelse((comp.CoIs$Wnum < 6), Area_Sa, Area_Sb)
   
 
 print("S-meto mass per transect at time-t")

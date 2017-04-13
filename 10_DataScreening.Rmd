@@ -82,11 +82,19 @@ ggplot(soilGroups, aes(x=Conc.mug.g.dry.soil, y=comp.d13C))+
                  force = 1, 
                  point.padding = unit(1.0, 'lines'), 
                  max.iter = 2e3,
-                 nudge_x = .2) #+
+                 nudge_x = .2)
   #stat_smooth(method = "lm", formula = y ~ poly(x, 2)) +
   #stat_smooth(method = "lm", formula = y~x, se=F) 
 
 ```
+
+### Correlation Soils
+
+```{r}
+cor.test(soilGroups$comp.d13C, soilGroups$Conc.mug.g.dry.soil)
+```
+
+
 
 Soils to confirm in IRMS:
 
@@ -99,8 +107,10 @@ Talweg: 1, 15
 North: 1, 5, 6, 15
 South: 15
 
-Repeat:
-
+Repeat: 
+T-1, T-13, T-15
+N-1, N-13, N-12, N-6, N-5
+S-13, S-9
 
 
 Import water
@@ -124,11 +134,34 @@ dropWater <- c("N.x", "N.y",
                "FracDiss", "FracFilt")
 waters <- waters[ , !(names(waters) %in% dropWater)]
 
-
 # Date conversion correct: 
 sum(is.na(waters$Date.ti)) == 0
 str(waters)
+
+# Conc.mug.L
+# TotSMout.g
+# MELsm.g
+ggplot(waters, aes(x=Conc.mug.L, y=diss.d13C))+
+  geom_point(aes(group = Event, colour = Event))+
+  geom_text_repel(aes(label=Events),
+                 arrow = arrow(length = unit(0.005, 'npc'), type = "closed"),
+                 force = 1, 
+                 point.padding = unit(1.0, 'lines'), 
+                 max.iter = 2e3,
+                 nudge_x = .2)
 ```
+
+### Correlations Waters
+
+```{r}
+cor.test(waters$Conc.mug.L, waters$diss.d13C)
+#cor.test(waters$TotSMout.g, waters$diss.d13C)
+
+#esaoxa <- waters$MELsm.g-waters$TotSMout.g
+# cor.test(esaoxa, waters$diss.d13C)
+```
+
+
 
 # Merge Soil and Water data frames
 
@@ -227,32 +260,6 @@ temp %>%
 ```
 
 
-## Correlation tests
-
-```{r}
-temp <- temp %>%
-  group_by(Transect) %>%
-  mutate(outlier = ifelse(is_outlier(comp.d13C), 
-                          as.character(ID), ifelse(is_outlier(Conc.mug.g.dry.soil), as.character(ID), NA)))
-
-temp.filtered <- temp[is.na(temp$outlier ) , ]
-cor.test(temp.filtered$comp.d13C, temp.filtered$Conc.mug.g.dry.soil)
-
-
-## With outliers
-# Log of concentrations -> No change
-# cor.test(soilGroups$comp.d13C, log(soilGroups$Conc.mug.g.dry.soil), method = "spearman")
-cor.test(soilGroups$comp.d13C, soilGroups$Conc.mug.g.dry.soil, method = "spearman")
-
-## Z-scoring
-cor.test(temp$z_conc, temp$z_d13C)
-```
-
-
-
-```{r}
-cor.test(soilGroups$comp.d13C, soilGroups$Conc.mug.g.dry.soil)
-```
 
 # Distribution of z values (same as non-transformed)
 

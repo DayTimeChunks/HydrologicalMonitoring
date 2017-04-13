@@ -340,11 +340,11 @@ So the total applied mass mass is merged at the nearest sampling time marker ava
 ```{r}
 
 ti = c(as.POSIXct('2016-03-25 00:04:00' , tz="EST"),
-       as.POSIXct('2016-04-05 15:08:00' , tz="EST"),
+#       as.POSIXct('2016-04-05 15:08:00' , tz="EST"),
        as.POSIXct('2016-04-14 13:52:00' , tz="EST"),
-       as.POSIXct('2016-05-31 12:00:00' , tz="EST"))
+       as.POSIXct('2016-05-10 00:06:00' , tz="EST"))
 
-Appl.Mass.g = c(6369.396, 3128.475, 4744.571, 4982.038)
+Appl.Mass.g = c(9497.87, 4744.571, 4982.038)
 
 applics = as.data.frame(ti)
 applics$Appl.Mass.g = Appl.Mass.g

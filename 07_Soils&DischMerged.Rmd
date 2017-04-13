@@ -137,6 +137,13 @@ soilsOut$CatchMassSoil.g <-
   soilsOut$MassSoil.g.Talweg + 
   soilsOut$MassSoil.g.South
 
+# Approximate initial mass for first 6 observation (before recording composite soils)
+#soilsOut$CatchMassSoil.g[1:6] <- ifelse(is.na(soilsOut$CatchMassSoil.g), 
+#                                        soilsOut$CumAppMass.g-soilsOut$CumOutMELsm.g, 
+#                                        soilsOut$CatchMassSoil.g) 
+
+
+
 soilsOut$BulkMass.g <- 
   soilsOut$MassSoil.g.North*(soilsOut$Area.N/(soilsOut$Area.N+soilsOut$Area.T+soilsOut$Area.S)) +
   soilsOut$MassSoil.g.Talweg*(soilsOut$Area.T/(soilsOut$Area.N+soilsOut$Area.T+soilsOut$Area.S)) +
@@ -168,11 +175,12 @@ library("cowplot")
 # Melt data set
 ##Subset the necessary columns
 soilsRemainMass <- soilsOut[, c("ti" ,"CumAppMass.g", "CumOutDiss.g", "CumOutFilt.g", "CumOutMELsm.g" , "CatchMassSoil.g")]
+soilsRemainMass$CumAppMass.g[1:3] <- NA
 
 # Replace Catchment Mass's NA with the most recent non-NA prior to it (assumes no degradation).
 # Purpose: To match continuous outlet time array    
 soilsRemainMass$CatchMassSoil.g <- na.locf(soilsRemainMass$CatchMassSoil.g)
-soilsRemainMass <- na.omit(soilsRemainMass)
+# soilsRemainMass <- na.omit(soilsRemainMass)
 
 ##Then rearrange your data frame
 remainMassMolten = melt(soilsRemainMass, id=c("ti"))

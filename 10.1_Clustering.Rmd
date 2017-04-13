@@ -1,0 +1,488 @@
+---
+title: "Clustering Techniques"
+author: "PAZ"
+date: "10 avril 2017"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, warning=FALSE, message = FALSE)
+Sys.setlocale("LC_ALL", "English")
+```
+
+## Reference
+
+Modified from: D. Borcard & F. Gillet
+Multivariate Analysis in Community Ecology: Constrained ordination and other analysis
+
+Adapted from: Gwenaël Imfeld, LyGeS,2009
+
+## Import packages
+
+```{r }
+# Preparation of the workspace
+# Remove all R objects in the workspace
+rm(list = ls())
+
+# ipak function: install and load multiple R packages.
+# check to see if packages are installed. Install them if they are not, then load them into the R session.
+ipak <- function(pkg){
+  new.pkg <- pkg[!(pkg %in% installed.packages()[, "Package"])]
+  if (length(new.pkg)) 
+    install.packages(new.pkg, dependencies = TRUE)
+  sapply(pkg, require, character.only = TRUE)
+}
+
+# usage
+packages <- c("vegan", "cluster", "gclus", "MASS")
+# ipak(packages)
+
+# Load required libraries
+require("vegan")
+require("cluster")
+require("gclus")
+
+library("ggplot2")
+library("ggrepel")
+library("MASS")
+
+```
+
+## Import data sets
+
+```{r}
+
+# Check working directory
+getwd()
+# setwd("D:/Documents/these_pablo/Rscripts/Clustering")
+
+waters = read.csv2("Data/WeeklyHydroContam_R.csv")
+waters$ti <- as.POSIXct(strptime(waters$ti, "%Y-%m-%d %H:%M", tz="EST"))
+colnames(waters)[colnames(waters) == "ti"] <- "Date.ti"
+waters$Events <- factor(waters$Events, levels = unique(waters$Events))
+waters$Event <- factor(waters$Event, levels = unique(waters$Event))
+
+dropWater <- c("N.x", "N.y", 
+               "Markers" , "TimeDiff", 
+               "se.d13C", "MES.mg.L", "MES.sd", "MO.mg.L", "filt.se.d13C", "f.diss", "f.filt",
+               "Appl.Mass.g", 
+               "DissSmeto.mg", "DissSmeto.mg.SD", 
+               "DissOXA.mg", "DissOXA.mg.SD", 
+               "DissESA.mg", "DissESA.mg.SD",
+               "FiltSmeto.mg", "DissSmeto.mg.SD", 
+               "TotSMout.mg", "TotSMout.mg.SD",
+               "FracDiss", "FracFilt")
+waters <- waters[ , !(names(waters) %in% dropWater)]
+
+# Date conversion correct: 
+sum(is.na(waters$Date.ti)) == 0
+str(waters)
+
+
+# Integrate Catchment's Bulk signature for normalization of discharge signatures
+# Soils
+soils = read.csv2("Data/MassBalance_R.csv", 
+                       na.strings=c('#DIV/0!', '', 'NA'), header = TRUE)
+colnames(soils)[colnames(soils) == "ti"] <- "Date.ti"
+soils$Date.ti <- as.POSIXct(strptime(soils$Date.ti, 
+                                          "%Y-%m-%d %H:%M", tz="EST")) # csv typos, option 1
+sum(is.na(soils$Date.ti)) == 0
+
+keepSoil <- c("WeekSubWeek", "Event", 
+              "comp.d13C.SE.North", "comp.d13C.SE.Talweg", "comp.d13C.SE.South", 
+              "f.max.comp", "f.mean.comp", "f.min.comp", "ngC.SD","ngC.SE", "N_compsoil", "N_ngC")
+soils <- soils[ , !(names(soils) %in% dropSoil)]
+
+
+# Conc.mug.L
+# TotSMout.g
+# MELsm.g
+ggplot(waters, aes(x=Conc.mug.L, y=diss.d13C))+
+  geom_point(aes(group = Event, colour = Event))+
+  geom_text_repel(aes(label=Events),
+                 arrow = arrow(length = unit(0.005, 'npc'), type = "closed"),
+                 force = 1, 
+                 point.padding = unit(1.0, 'lines'), 
+                 max.iter = 2e3,
+                 nudge_x = .2)
+```
+
+
+
+## Variable generation  
+
+We would like to determine whether there are different clusters in the data.
+
+Via response variables:
+
+- Concentrations ($\mu g / L$)
+- MEL-sm (g)
+- Loads (SM g)
+- Transformation products (OXA and ESA in $\mu g / L$ and in loads $g$)
+
+Via hydrological characteristics:
+
+- Event index: 
+$$ \frac{I_{max} \cdot R_{tot} } {D} $$
+
+- Event duration ($t_f - t_i$)
+- Volume discharged ($\sum^N_{i=1}Q_i \cdot dt_i$ , N: no. of measurements within the event)
+- Average discharge ($\sum^N_{i=1}Q_i/N$)
+
+Imax = max rainfall intensity mm/h ; 
+Rtot = rainfall amount (mm); 
+D = duration (min)
+
+"A high EVI represents a short but intense rainfall event, whereas a low EVI indicates an event with a low intensity but long duration. The catchment response time is defined as the time between the gravity centre of the rain event and the peak outflow. (Baartman et al., 2013; in Lefrancq etal2017)"
+
+The EVI has been adapted to reflect discharge index such that:
+
+- Discharge index A [m3/h x m3/h]
+$$DIa = \frac{Q_{max} \cdot V_{tot} }{D}  $$  
+
+- Discharge index B [-]
+$$DIb = \frac{ V_{tot}}{D \cdot Q_{max} }  $$ 
+
+
+```{r}
+
+waters$DIa <- waters$maxQ*waters$Volume.m3/waters$Duration.Hrs
+waters$DIb <- waters$Volume.m3/waters$Duration.Hrs * 1/waters$maxQ
+waters$TPs.g <- waters$MELsm.g-waters$TotSMout.g
+```
+
+## Normalization choice
+
+```{r}
+
+# Option 1. 
+# Divide by estimated mass in catchment available # [-]
+waters$SM.g.nrm <- waters$TotSMout.g/waters$BalMassDisch.g # [-]
+waters$MEL.g.nrm <- waters$MELsm.g/waters$BalMassDisch.g # [-]
+
+# Option 2
+# Divide by estimated prct. mass in catchment available # [g]
+waters$CumPrctMassOut <- cumsum(waters$prctMassOut)
+waters$SM.g.nrm.prc <- waters$TotSMout.g/waters$CumPrctMassOut # [-]
+waters$MEL.g.nrm.prc <- waters$MELsm.g/waters$CumPrctMassOut # [-]
+
+```
+
+## Variable reduction
+
+```{r}
+
+# Main data frame -> "waterSmall"
+includeWater <- c(
+  "Events",
+  # Response variables
+  "Conc.mug.L", "OXA_mean", "ESA_mean", 
+  "SM.g.nrm", "MEL.g.nrm", "SM.g.nrm.prc", "MEL.g.nrm.prc",
+  "DD13C.diss", # "diss.d13C",
+  "TotSMout.g", "MELsm.g",
+  "TPs.g", "DissOXA.g", "DissESA.g",
+  # "Cl.mM", "NO3..mM",
+  "ExpMES.Kg", 
+  # Independent/event variables
+  "DIa", "DIb", "maxQ",
+  "Duration.Hrs", "Volume.m3", "AveDischarge.m3.h")
+
+waterSmall <- waters[ , (names(waters) %in% includeWater)]
+
+# Lets reduce the data set even more to only response variables. 
+includeResponse <- c(
+  # Response variables
+  #"Conc.mug.L", "OXA_mean", "ESA_mean", 
+  # "SM.g.nrm", "MEL.g.nrm", 
+  "SM.g.nrm.prc", "MEL.g.nrm.prc",
+  #"diss.d13C",
+  "DD13C.diss"
+  #"TotSMout.g", "MELsm.g",
+  #"TPs.g", "DissOXA.g", "DissESA.g",
+  # "Cl.mM", "NO3..mM",
+  #"ExpMES.Kg"
+  )
+
+respHydro <- c(
+  "Events",
+  # Response variables
+  #"Conc.mug.L", "OXA_mean", "ESA_mean", 
+  # "SM.g.nrm", "MEL.g.nrm", 
+  "SM.g.nrm.prc", "MEL.g.nrm.prc",
+  #"diss.d13C",
+  "DD13C.diss",
+  #"TotSMout.g", "MELsm.g",
+  #"TPs.g", "DissOXA.g", "DissESA.g",
+  # "Cl.mM", "NO3..mM",
+  #"ExpMES.Kg"
+  # Independent/event variables
+  "DIa", "DIb", "maxQ",
+  "Duration.Hrs", "Volume.m3", "AveDischarge.m3.h")
+
+responseWater <- waterSmall[ , (names(waterSmall) %in% includeResponse)]
+waterXY <-  waterSmall[ , (names(waterSmall) %in% respHydro)]
+waterXY.nona <- waterXY[complete.cases(waterXY), ]
+
+```
+
+
+## Transformations
+
+```{r}
+
+responseWater.hell <- decostand(responseWater, "hellinger", na.rm=T)
+# responseWater.norm <- decostand(responseWater, "norm", na.rm=T)
+
+# Re-arrange columns to have "Events" as Index
+if (ncol(waterXY == 7)){
+  waterXY <- waterXY[, c(6,1:5,7:ncol(waterXY))]
+  waterXY.hell <- decostand(waterXY[2:ncol(waterXY)], "hellinger", na.rm=T, MARGIN = 2)
+} else {
+  waterXY.hell <- decostand(waterXY, "hellinger", na.rm=T, MARGIN = 2)
+}
+waterXY.hell.nona <- waterXY.hell[complete.cases(waterXY.hell),]
+
+# Normalized response variables
+str(responseWater.hell)
+str(waterXY.hell)
+
+```
+
+## Clustering
+
+First compute the dissimilarity matrix of the normalized response variables, which are normalized loads and $\Delta \delta^{13} C$ values.
+
+### Hierarchical clustering and Ward agglomeration (minimum variance)
+
+We'll be using "eucledian" distances, which are the root sum-of-squares of differences and the defining clusters via hierarchical clustering (hclust) using the "Ward" agglomeration method. Ward's method (Ward, 1963) determines which clusters to merge by evaluating the 'cost' of such a merge against an objective function. Merges with the minimum cost are performed at each stage of the algorithm. Typically, this is implemented by evaluating the sum of squared deviations from cluster centroids. Every possible merge is evaluated at each stage of the algorithm and that which yields the smallest increase in the sum of squared deviations is selected. 
+
+```{r}
+# Compute dissimilarity and distance matrices (Q mode)
+# resWater.dh = vegdist(responseWater.hell, "euclidean") # Hellinger
+# vegdist doesn't allow for NAs
+resWater.dh = daisy(responseWater.hell, "euclidean") # Hellinger
+waterXY.dh = daisy(waterXY.hell, "euclidean")
+waterXY.dh.nona = dist(waterXY.hell.nona, method = "euclidean")
+
+# Clusterings based on the species/rows dataset
+resWater.hw = hclust(resWater.dh, "ward.D") # Minimum variance clustering
+waterXY.hw = hclust(waterXY.dh, "ward.D")
+waterXY.hw.nona = hclust(waterXY.dh.nona, "ward.D")
+
+# Plot dendrograms of Hellinger distance based clusterings
+#windows(5,10)
+# par(mfrow=c(1,1))
+
+# The mar command defines plot margins in order bottom, left, up, right using
+# row height (text height) as a unit.
+par(mar=c(3,4,1,1)+.1)
+
+#plot(resWater.hw, method ="ward.D", xlab="", sub="")
+plot(waterXY.hw, labels = waterXY$Events, cex=0.6, 
+     method ="ward.D", xlab="With NAs", sub="")
+
+rect.hclust(waterXY.hw, 3)
+
+plot(waterXY.hw.nona, labels = waterXY.nona$Events, cex=0.7, 
+     method ="ward.D", xlab="Without NAs", sub="")
+rect.hclust(waterXY.hw.nona, 2)
+
+```
+
+## Plotting K-nodes vs. node height
+
+```{r}
+# Hellinger distance based clustering
+# windows(8,8)
+## par(mfrow=c(2,2))
+
+whichDistPlot <- function(x, x.hw){
+  plot(x.hw$height, nrow(x):2, type="S", main="Ward/Hellinger",
+       ylab="k (number of clusters)", xlab="h (node height)", col="grey")
+  text(x.hw$height, nrow(x):2, nrow(x):2, col="red", cex=0.6)
+}
+
+# whichDistPlot(responseWater, resWater.hw)
+# whichDistPlot(waterXY, waterXY.hw)
+whichDistPlot(waterXY.nona, waterXY.hw.nona)
+
+```
+
+
+### Optimal number of clusters
+
+```{r}
+# Average silhouette width (Rousseeuw internal quality index) 
+# Hellinger/Ward
+# windows(16,8)
+# par(mfrow=c(1,2))
+
+findOptimal <- function(x, x.hw, x.dh) {
+  Si = numeric(nrow(x))
+  
+  for (k in 2:(nrow(x)-1)) {
+    sil = silhouette(cutree(x.hw, k=k), x.dh)
+    Si[k] = summary(sil)$avg.width
+  }
+  
+  k.best = which.max(Si)
+  plot(1:nrow(x), Si, type="h", main="Silhouette-optimal number of clusters - Hellinger/Ward",
+       xlab="k (number of groups)", ylab="Average silhouette width")
+  axis(1, k.best, paste("optimum",k.best,sep="\n"), col="red", col.axis="red")
+}
+par(mfrow=c(2,1))  
+findOptimal(waterXY, waterXY.hw, waterXY.dh)
+findOptimal(waterXY.nona, waterXY.hw.nona, waterXY.dh.nona)
+# par(mfrow=c(1,1)) 
+```
+
+## PCA Eigenvalues
+
+Note that currently, we have not conducted any data inputation, so we are working with less observations (due to missing isotope observations).
+
+Plot the eigen values for each component and a line depicting the mean eigen value, below which components will not be considered.
+
+```{r}
+
+# The original data frame
+waterXY.nona <- waterXY[complete.cases(waterXY), ]
+
+# The transformed data frame
+waterXY.hell.nona = waterXY.hell[complete.cases(waterXY.hell),]
+
+# PCA on a covariance matrix (default scale=FALSE)
+waterXY.pca = rda(waterXY.hell.nona)
+
+
+# Automatic scaling (no need for previous transform)
+waterXY.pca2 <- rda(waterXY.nona[2:ncol(waterXY.nona)], scale = T)
+
+waterXY.pca2
+# plot (waterXY.pca2)
+summary(waterXY.pca2, scaling = 1)
+
+# Eigen values
+(ev <- waterXY.pca2$CA$eig)
+
+# Percentage of variance for each axis
+100*ev/sum(ev)
+
+# Apply Kaiser's rule to select axes
+ev[ev > mean(ev)] 
+
+# Plot eigen values and % variance for each axis
+barplot(ev, main = "Eigenvalues for PCA on ENV", col = "bisque", las=2)
+abline(h=mean(ev), col = "blue")
+legend("topright", "Average Eigenvalue", lwd = 1, col = "blue", bty = "n")
+   
+```
+
+## PCA Biplots with clustering
+
+### Scaling 1 
+
+- Distances between object points approximate the Euclidean distances between objects. Thus, objects ordinated closer together can be expected to have similar variable values.
+- The length of a variable vector in the ordination plot reflects its contribution to the ordination
+- Angles between variable vectors are meaningless
+
+### Scaling 2 
+
+- The angles between all vectors approximate their (linear) covariance/correlation.
+- Distances between object points may be non-Euclidean and should not be interpreted with great confidence.
+
+
+```{r}
+# ,echo=FALSE, out.width='.49\\linewidth', fig.width=3, fig.height=3,fig.show='hold',fig.align='center'
+source("cleanplotPCA.R")
+# source ('http://www.davidzeleny.net/anadat-r/doku.php/en:numecolr:cleanplot.pca?do=export_code&codeblock=1')
+# http://www.davidzeleny.net/anadat-r/doku.php/en:numecolr:cleanplot.pca
+cleanplot.pca(waterXY.pca2, point = T, 
+              labs = waterXY.nona$Events, k = 4, dfcut = waterXY.hw.nona,
+              cluster = TRUE)
+
+# One plot
+#k = 2
+#gr = cutree(waterXY.hw.nona, k)
+# Plot the sites with cluster symbols
+#k = length(levels(factor(gr)))
+#sit.sc = scores(waterXY.pca2, choices = c(1,2), display="wa", scaling=1)
+#pl = plot(waterXY.pca2, display="sites", type="n", scaling=1,
+#          main="PCA cov/Hell + clusters Ward/Hellinger")
+# Plot the points with different symbols and colors
+#points(sit.sc, cex=2, col=1+c(1:k)[gr], pch=15+c(1:k)[gr])
+#text(sit.sc, rownames(waterXY.nona), pos=4, cex=.7)
+# text(sit.sc, labels = waterXY.nona$Events, pos=4, cex=.7)
+# legend(locator(1), paste("Group",c(1:k)), pch=14+c(1:k), col=1+c(1:k), pt.cex=2)
+
+```
+
+Based on Scaling 1, above suggest that... 
+
+
+## Environmental interpretation
+
+```{r}
+
+# A posteriori interpretation of the species by significative environmental variables
+## Selection of the significant variables      
+# windows(8,8)                                    
+# par(mfrow=c(1,1))                                                                          
+fit = envfit(waterXY.pca2, waterXY.nona, perm=1000)                                                           
+fit
+
+plot(waterXY.pca2, type="t", main=paste("PCA/Hellinger"))       
+plot(fit, axis=T) 
+
+# waterXY.pca2
+```
+
+
+## Non-metric Multidimensional Scaling
+
+Non-metric multidimensional scaling (NMDS) is an indirect gradient analysis approach which produces an ordination based on a dissimilarity matrix. In other words, NMDS maps community dissimilarities into ordination space. 
+
+Unlike methods which attempt to maximise the variance between objects in an ordination, NMDS attempts to represent the pairwise dissimilarity between objects in a low-dimensional space. Any dissimilarity coefficient or distance measure may be used to build the distance matrix used as input (so you may need to normalize anyway?).
+
+NMDS is a rank-based approach. This means that the original distance data is substituted with ranks. While information about the magnitude of distances is lost, rank-based methods are generally more robust to data which do not have an identifiable distribution.
+
+NMDS can:
+- tolerate missing pairwise distances
+- be applied to a (dis)similarity matrix built with any (dis)similarity measure and
+- use quantitative, semi-quantitative, qualitative, or mixed variables
+
+### Jargon
+
+- Stress (S): is a goodness of fit statistic 
+
+### How many dimensions?
+
+As a rule of thumb, an NMDS ordination with a stress value around or above 0.2 is deemed suspect and a stress value approaching 0.3 indicates that the ordination is arbitrary. Stress values equal to or below 0.1 are considered fair, while values equal to or below 0.05 indicate good fit. Allowing the algorithm to ordinate in more dimensions can reduce the stress; however, allowing more than 3 dimensions quickly makes interpretation more challenging.
+
+Shepard stress plot shows the relationship between the actual dissimilarities between objects (from the original dissimilarity matrix) and the ordination distances (i.e. the distances on the final plot). If these are well correlated, the ordination stress will be low and the visualisation trustworthy. If there is a large amount of scatter (i.e. a poor linear relationship), then the ordination is not representative of the original distances. Occasionally, specific objects may be ordinated poorly (blue arrow), despite the overall solution being acceptable.
+
+```{r}
+# Normalized data with NAs (waterXY.hell)
+# Dissimilarity matrix (waterXY.dh)
+waterXY.mds0 <- isoMDS(waterXY.dh)
+
+# Sheperd plot
+stressplot(waterXY.mds0, waterXY.dh)
+
+# Plot the NMDS plot, then
+waterXY.mds <- metaMDS(waterXY.hell.nona, trace = FALSE)
+waterXY.mds
+
+ordiplot(waterXY.mds, type= "t")
+
+text(waterXY.mds, labels = waterXY.dh.nona) #, display="wa", choices=c(ax1, ax2), cex=cex, pos=3, scaling=1)
+
+```
+
+
+### Plotting dimensions
+
+Points represent objects. Objects that are more similar to one another are ordinated closer together. The axes are arbitrary as is the orientation of the plot. Stress values should always accompany an NMDS ordination
+
+
+
+

@@ -412,7 +412,8 @@ deltaTime = ggplot(wk, aes(Date.ti, DD13C.comp)) +
   #                 xend = as.POSIXct('2016-05-25 18:04:00'), yend = 0), color = "black",
   #             arrow = arrow(length = unit(0.2, "cm"))) +
   
-  geom_text_repel(data = subset(weeklySoil, Wnum < 10 & Wnum > 6), aes(label=Wnum, colour = Transect), 
+  #geom_text_repel(data = subset(weeklySoil, Wnum < 10 & Wnum > 6), aes(label=Wnum, colour = Transect),
+  geom_text_repel(data = subset(weeklySoil), aes(label=Wnum, colour = Transect),
                  arrow = arrow(length = unit(0.01, 'npc'), type = "closed"),
                  force = 1, 
                  point.padding = unit(0.5, 'lines'), 
@@ -579,7 +580,7 @@ conc1 <- ggplot(dfSampled, aes(x=ti, y=Conc.mug.L)) +
   # geom_segment(aes(x = as.POSIXct('2016-06-05 08:04:00'), y = -1, 
   #                 xend = as.POSIXct('2016-05-25 18:04:00'), yend = -0.9), color = "black",
   #             arrow = arrow(length = unit(0.2, "cm"))) +
-  geom_text_repel(aes(label=Events, color = factor(Event)), # WeekSubWeek or Weeks
+  geom_text_repel(aes(label=Events, color = Event), # WeekSubWeek or Weeks
                   size = 3,
                   arrow = arrow(length = unit(0.005, 'npc'), type = "closed"),
                   force = 0.5, 
@@ -641,52 +642,7 @@ Or this: https://github.com/tidyverse/ggplot2/wiki/Align-two-plots-on-a-page
 #limits_DdCwater <- aes(ymin=diss.d13C-SD.d13C-initialDelta, ymax=diss.d13C+SD.d13C-initialDelta, color = Weeks, group = Weeks)
 limits_DdCwater <- aes(ymin=diss.d13C-se.d13C-initialDelta, ymax=diss.d13C+se.d13C-initialDelta, color = Event, group = Event)
 
-iso2 <- ggplot(dfSampled, aes(x=ti, y=DD13C.diss)) +
-  # Error bars
-  # geom_errorbar(aes(ymin=mean.d13C-SD.d13C, ymax=mean.d13C+SD.d13C), width=.1) +
-  geom_errorbar(limits_DdCwater, width=1) +
-  
-  # Themes and Axes
-  # theme_gray() +
-  # theme(axis.text.x = element_blank()) +
-  # theme(plot.margin = unit(c(1,1,1,1), "lines")) +
-  theme_bw() +
-  theme(legend.position="none",
-        # legend.title = element_blank(),
-        axis.text.x=element_text(angle = 45, hjust = 1)) +
-  guides(col = guide_legend(nrow = 2)) +  # Sets legend parameters
-  xlab("Date") +
-  scale_x_datetime(breaks = date_breaks("2 weeks"), labels = date_format("%b %d")) +
-  
-  # scale_y_continuous(breaks = c(-32,-31,-30,-29, -28, -27), limits = c(-32, -26.4) ) +
-  # scale_y_continuous(breaks = c(6, 4, 2, 0), limits = c(-1, 6) ) +
-  scale_y_continuous(breaks=seq(0, 6, 1)) +
-  ylab(expression(paste({Delta}, {delta}^"13","C", ' (\u2030)'))) +
-  
-  #scale_x_datetime(breaks = date_breaks("week"), labels = date_format("%m/%d")) +
-  geom_point( aes(color = Event, group = Event)) +
-  
-  # Smooth linear models
-  # stat_smooth(method = "lm", formula = y ~ x) +
-  # geom_smooth(data=subset(AOdf[4:length(AOdf), ]), method = "lm", formula = y ~ poly(x, 2)) +
-  #geom_smooth(data=subset(AOdf[4:27, ]), method = "lm", formula = y~x) +
-  #geom_smooth(data=subset(AOdf[28:length(AOdf), ]), method = "lm", formula = y ~ x) +
-  geom_smooth(data=subset(AOdf[4:length(AOdf), ]), method = "lm", formula = y ~ poly(x, 2)) +
-  
-  # Text
-  # annotate("text", 
-  #         x = as.POSIXct('2016-06-10 08:04:00'), y = 0.3, label = lbW9, parse = T, size = 3.0) +
-  # geom_segment(aes(x = as.POSIXct('2016-06-05 08:04:00'), y = 0.2, 
-  #                  xend = as.POSIXct('2016-05-25 18:04:00'), yend = 0), color = "black",
-  #              arrow = arrow(length = unit(0.2, "cm"))) +
-  # annotate("text", x = as.POSIXct('2016-06-25 00:04:00'), y = -31.2, label = lb1, parse = T) +
-  geom_text_repel(aes(label=Events, color = factor(Event)),
-                  size = 3,
-                  arrow = arrow(length = unit(0.005, 'npc'), type = "closed"),
-                  force = 0.5, 
-                  point.padding = unit(0.5, 'lines'), 
-                  max.iter = 2e3,
-                  nudge_x = .05)
+iso2 <- +
   #ylab(expression(paste({delta}^"13","C", ' \211')))
   #ylab(expression(paste({delta}^"13","C"))) 
  
