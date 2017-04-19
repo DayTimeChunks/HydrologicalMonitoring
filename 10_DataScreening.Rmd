@@ -26,10 +26,16 @@ library(sm)
 library(vioplot)
 
 library(dplyr)
+library(reshape)
 library(ggplot2)
 library("ggrepel")
 
 library("plotly")
+library("cowplot")
+library("gridExtra")
+library("Cairo")
+library("GGally")
+library("scales")
 ```
 
 
@@ -346,29 +352,29 @@ limits_DdCsoil <- aes(ymin=comp.d13C-comp.d13C.SE-initialDelta, ymax=comp.d13C+c
 #                       ifelse(wk$Date.ti == as.POSIXct('2016-04-14 13:52:00', tz = "EST") & wk$Transect == "T", 0.05, NA))))
 
 
-  geom_errorbar(limits_DdCsoil, width = 0.5) +
-  geom_point(aes(colour = Transect, shape = ngC.Label, shape = "Application"), size = 2) +
-  labs(colour="Transect", shape = "Mass Carbon") +
-  geom_point(aes(Date.ti, Application, shape = "Application"), 
-             size =2 , data = wk,  legend.title = element_blank()) +
+  #geom_errorbar(limits_DdCsoil, width = 0.5) +
+  #geom_point(aes(colour = Transect, shape = ngC.Label, shape = "Application"), size = 2) +
+  #labs(colour="Transect", shape = "Mass Carbon") +
+  #geom_point(aes(Date.ti, Application, shape = "Application"), 
+   #          size =2 , data = wk,  legend.title = element_blank()) +
   # geom_point(weeklySoil[1:48, ], aes(x=Date.ti, y=DD13C.comp, colour=Transect, group = Transect)) +
 
   # Themes and axes
 
-  guides(col = guide_legend(nrow =  3), shape = guide_legend(nrow =  3)) +
+  #guides(col = guide_legend(nrow =  3), shape = guide_legend(nrow =  3)) +
   # ylab(expression(paste({delta}^"13","C", ' \211'))) +
   # ylab(expression(paste({delta}^"13","C", ' (\u2030)'))) +
-  stat_smooth(data = weeklySoil, method = "lm", se=T) +
-  geom_text_repel(data = subset(weeklySoil), aes(label=Wnum, colour = Transect),
-                 arrow = arrow(length = unit(0.01, 'npc'), type = "closed"),
-                 force = 1, 
-                 point.padding = unit(0.5, 'lines'), 
-                 max.iter = 2e3,
-                 nudge_x = .5, show.legend = F)
+  #stat_smooth(data = weeklySoil, method = "lm", se=T) +
+  #geom_text_repel(data = subset(weeklySoil), aes(label=Wnum, colour = Transect),
+  #               arrow = arrow(length = unit(0.01, 'npc'), type = "closed"),
+  #               force = 1, 
+   #              point.padding = unit(0.5, 'lines'), 
+   #              max.iter = 2e3,
+  #               nudge_x = .5, show.legend = F)
 
 
 
-ggsave(x, filename = "xx.png", width = 8, height = 5, units = "in", scale = 1)
+#ggsave(x, filename = "xx.png", width = 8, height = 5, units = "in", scale = 1)
 
 keepWS <- c("Date.ti",
             "DD13C.diss", "DD13C.filt",
@@ -465,7 +471,27 @@ ggplot(data = loads , aes(x=Events, y=value, fill = variable))+
         )
   # geom_bar(stat = "identity", position = position_dodge())
 
-waters$DIa <- waters$maxQ*waters$Volume.m3/waters$Duration.Hrs
+WaterSoils$DIE <- WaterSoils$maxQ*WaterSoils$Volume.m3/WaterSoils$Duration.Hrs
+
+keepCor <- c("maxQ", "Duration.Hrs", "AveDischarge.m3.h", "Volume.m3", "DIE",
+            "DissOXA.g", "DissESA.g", "DissSmeto.g", "FiltSmeto.g",
+            "NH4.mM", "TIC.ppm.filt", "Cl.mM", "NO3..mM", "PO4..mM", "NPOC.ppm", 
+            "TIC.ppm.unfilt", "TOC.ppm.unfilt")
+
+corData <- WaterSoils[ , (names(WaterSoils) %in% keepCor)]
+
+library(psych)
+pairs.panels(corData)
+
+library(PerformanceAnalytics)
+chart.Correlation(corData,..
+
+
+keepLoads <- c("Date.ti",
+            "DissOXA.g", "DissESA.g", "DissSmeto.g", "FiltSmeto.g", 
+            "Event.x", "Events")
+wsLoads <- WaterSoils[ , (names(WaterSoils) %in% keepLoads)]
+
 
 ```
 

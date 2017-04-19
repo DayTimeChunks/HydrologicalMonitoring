@@ -280,7 +280,28 @@ plot(waterXY.hw.nona, labels = waterXY.nona$Events, cex=0.7,
      method ="ward.D", xlab="Without NAs", sub="")
 rect.hclust(waterXY.hw.nona, 2)
 
+
+clusterGroups = cutree(waterXY.hw.nona, k = 3)
+
+# No. of rows/observations
+length(clusterGroups) == lengths(waterXY.hell.nona)[1]
+  
+head(waterXY.hw.nona)
+
+head(waterXY.hell.nona)
+
+
+bindedGroups <- cbind2(clusterGroups, waterXY.hell.nona)
+View(bindedGroups)
+View(waterXY.hell.nona)
 ```
+
+## Extracting labels by group
+
+```{r}
+
+```
+
 
 ## Plotting K-nodes vs. node height
 
@@ -396,16 +417,16 @@ cleanplot.pca(waterXY.pca2, point = T,
 # One plot
 #k = 2
 #gr = cutree(waterXY.hw.nona, k)
-# Plot the sites with cluster symbols
+## Plot the sites with cluster symbols
 #k = length(levels(factor(gr)))
 #sit.sc = scores(waterXY.pca2, choices = c(1,2), display="wa", scaling=1)
 #pl = plot(waterXY.pca2, display="sites", type="n", scaling=1,
 #          main="PCA cov/Hell + clusters Ward/Hellinger")
-# Plot the points with different symbols and colors
+## Plot the points with different symbols and colors
 #points(sit.sc, cex=2, col=1+c(1:k)[gr], pch=15+c(1:k)[gr])
 #text(sit.sc, rownames(waterXY.nona), pos=4, cex=.7)
-# text(sit.sc, labels = waterXY.nona$Events, pos=4, cex=.7)
-# legend(locator(1), paste("Group",c(1:k)), pch=14+c(1:k), col=1+c(1:k), pt.cex=2)
+#text(sit.sc, labels = waterXY.nona$Events, pos=4, cex=.7)
+#legend(locator(1), paste("Group",c(1:k)), pch=14+c(1:k), col=1+c(1:k), pt.cex=2)
 
 ```
 
