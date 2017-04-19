@@ -115,6 +115,15 @@ str(isoCompSummary)
 comp.CoIs = merge(weeklySoilConc, isoCompSummary, by = "ID", all = T)
 comp.CoIs$Wnum = as.numeric(comp.CoIs$Wnum)
 comp.CoIs <- comp.CoIs[order(comp.CoIs$Wnum),]
+
+comp.CoIs$comp.IMP.d13C <- comp.CoIs$comp.d13C
+comp.CoIs$comp.IMP.d13C[is.na(comp.CoIs$comp.d13C)] <- ave(comp.CoIs$comp.d13C,
+                                                           comp.CoIs$Wnum,
+                                                           FUN= function(x) mean(x, na.rm = T))[is.na(comp.CoIs$comp.d13C)] 
+
+
+comp.CoIs$comp.d13C <- ifelse(is.na(comp.CoIs$comp.d13C), comp.CoIs$comp.IMP.d13C, comp.CoIs$comp.d13C) 
+
 print("Merged Soil Concentrations and Isotopes")
 str(comp.CoIs)  
 ```
@@ -131,6 +140,9 @@ d13Co = -31.2144
 # Alteck
 epsilon_max = -1.5 # +/- 0.3 (@ 20C, 20% vwc)
 epsilon_min = -2.0 # +/- 0.2 (@ 20C, 40% vwc)
+
+mean(c(epsilon_max, epsilon_min))
+sd(c(epsilon_max, epsilon_min))
 
 epsilon_mean = -1.75
 

@@ -52,7 +52,8 @@ outlet$ti <- as.POSIXct(outlet$ti, "%Y-%m-%d %H:%M", tz = "EST")
 sum(is.na(outlet$ti))
 
 # Select variables from Water dataset
-outlet <- outlet[, c("ti", "WeekSubWeek", "Event", "B.diss", "B.filt", "CumOutDiss.g", "CumOutFilt.g", "CumAppMass.g", "CumOutMELsm.g")]
+outlet <- outlet[, c("ti", "WeekSubWeek", "Event", "timeSinceApp",
+                     "B.diss", "B.filt", "CumOutDiss.g", "CumOutFilt.g", "CumAppMass.g", "CumOutMELsm.g")]
 print("Water")
 str(outlet)
 
@@ -154,6 +155,7 @@ soilsOut$BulkCatch.d13 <-
   (soilsOut$MassSoil.g.North/soilsOut$CatchMassSoil.g)*soilsOut$comp.d13C.North + 
   (soilsOut$MassSoil.g.Talweg/soilsOut$CatchMassSoil.g)*soilsOut$comp.d13C.Talweg + 
   (soilsOut$MassSoil.g.South/soilsOut$CatchMassSoil.g)*soilsOut$comp.d13C.South
+
 
 print("Merged Soils and Outlet by ti")
 str(soilsOut)

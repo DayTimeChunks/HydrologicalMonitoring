@@ -15,7 +15,7 @@ Sys.setlocale("LC_ALL", "English")
 Modified from: D. Borcard & F. Gillet
 Multivariate Analysis in Community Ecology: Constrained ordination and other analysis
 
-Adapted from: Gwenaël Imfeld, LyGeS,2009
+Adapted from: Gwena?l Imfeld, LyGeS,2009
 
 ## Import packages
 
@@ -91,20 +91,13 @@ sum(is.na(soils$Date.ti)) == 0
 keepSoil <- c("WeekSubWeek", "Event", 
               "comp.d13C.SE.North", "comp.d13C.SE.Talweg", "comp.d13C.SE.South", 
               "f.max.comp", "f.mean.comp", "f.min.comp", "ngC.SD","ngC.SE", "N_compsoil", "N_ngC")
-soils <- soils[ , !(names(soils) %in% dropSoil)]
+soils <- soils[ , !(names(soils) %in% keepSoil)]
 
 
 # Conc.mug.L
 # TotSMout.g
 # MELsm.g
-ggplot(waters, aes(x=Conc.mug.L, y=diss.d13C))+
-  geom_point(aes(group = Event, colour = Event))+
-  geom_text_repel(aes(label=Events),
-                 arrow = arrow(length = unit(0.005, 'npc'), type = "closed"),
-                 force = 1, 
-                 point.padding = unit(1.0, 'lines'), 
-                 max.iter = 2e3,
-                 nudge_x = .2)
+
 ```
 
 

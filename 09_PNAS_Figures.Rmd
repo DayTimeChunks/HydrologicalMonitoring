@@ -642,11 +642,11 @@ Or this: https://github.com/tidyverse/ggplot2/wiki/Align-two-plots-on-a-page
 #limits_DdCwater <- aes(ymin=diss.d13C-SD.d13C-initialDelta, ymax=diss.d13C+SD.d13C-initialDelta, color = Weeks, group = Weeks)
 limits_DdCwater <- aes(ymin=diss.d13C-se.d13C-initialDelta, ymax=diss.d13C+se.d13C-initialDelta, color = Event, group = Event)
 
-iso2 <- +
+#iso2 <- +
   #ylab(expression(paste({delta}^"13","C", ' \211')))
   #ylab(expression(paste({delta}^"13","C"))) 
  
-iso2
+#iso2
 
 
 

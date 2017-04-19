@@ -352,6 +352,17 @@ applics$Appl.Mass.g = Appl.Mass.g
 out.CoIs = merge(out.CoIs, applics, by = "ti", all = T)
 out.CoIs$Appl.Mass.g <- ifelse(is.na(out.CoIs$Appl.Mass.g), 0.0, out.CoIs$Appl.Mass.g)
 
+out.CoIs$timeSinceApp <- NA
+for (i in 1:length(out.CoIs$Duration.Hrs)){
+  if (out.CoIs[i, ]['Appl.Mass.g'] != 0){
+    out.CoIs[i,]['timeSinceApp'] = out.CoIs[i, ]['Duration.Hrs']
+  } else {
+    out.CoIs[i, ]['timeSinceApp'] = out.CoIs[i ,]['Duration.Hrs'] + out.CoIs[i-1,]['timeSinceApp']
+  }
+}
+
+out.CoIs$timeSinceApp <- round(out.CoIs$timeSinceApp/24, 1) 
+
 # Cumulative (Continous)
 out.CoIs$CumAppMass.g = cumsum(out.CoIs$Appl.Mass.g)
 
