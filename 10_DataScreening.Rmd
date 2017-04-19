@@ -305,6 +305,7 @@ ggplot(waterClean, aes(x=TotSMout.g, y=DD13C.diss))+
 cor.test(waterClean$TotSMout.g, waterClean$DD13C.diss)
 ```
 
+
 ### Correlations Waters
 
 ```{r}
@@ -419,10 +420,10 @@ ggplot(data = ws, aes(x = Date.ti, y = value)) +
         ) +
   stat_smooth(data=subset(ws,
                           (Source != "Outlet" & Event.x < 17 )), 
-              method = "lm", formula = y ~  poly(x, 2)) +
+              method = "lm", formula = y ~  poly(x, 2), se = F, colour = "brown") +
   stat_smooth(data=subset(ws,
                           (Source == "Outlet" & Event.x > 1 & Type == "Dissolved")), 
-              method = "lm", formula = y ~ poly(x, 2)) +
+              method = "lm", formula = y ~ poly(x, 2), se = F, colour = "dodgerblue") +
   # geom_smooth(data=subset(ws, Source != "Outlet"), method = "lm", formula = y ~ poly(x, 2)) +
   xlab("Date") + 
   #ylab(expression(paste({Delta~delta}^"13","C", ' (\u2030)'))) +
@@ -432,6 +433,39 @@ ggplot(data = ws, aes(x = Date.ti, y = value)) +
                         name = "Degr (%)", breaks=seq(0, 90, 10))
   )
 
+
+```
+
+
+### Loadings
+
+```{r}
+keepLoads <- c("Date.ti",
+            "DissOXA.g", "DissESA.g", "DissSmeto.g", "FiltSmeto.g", 
+            "Event.x", "Events")
+wsLoads <- WaterSoils[ , (names(WaterSoils) %in% keepLoads)]
+
+mw.SM <- 283.796 # g/mol
+mw.MOXA <- 279.33 # g/ml
+mw.MESA <- 329.1 # g/mol
+wsLoads$TPsmeq.g <- 
+  wsLoads$DissOXA.g * (mw.SM/mw.MOXA) +
+  wsLoads$DissESA.g * (mw.SM/mw.MESA)
+
+wsLoads <- wsLoads[ , !(names(wsLoads) %in% c("DissOXA.g", "DissESA.g"))]
+
+loads <- melt(wsLoads, id=c("Date.ti", "Events", "Event.x"))
+ 
+ggplot(data = loads , aes(x=Events, y=value, fill = variable))+
+  theme_bw() +
+  geom_bar(stat = "identity") +
+  theme(# legend.position="top"
+        # axis.title.x = element_blank(),
+        axis.text.x=element_text(angle = 45, hjust = 1)
+        )
+  # geom_bar(stat = "identity", position = position_dodge())
+
+waters$DIa <- waters$maxQ*waters$Volume.m3/waters$Duration.Hrs
 
 ```
 
