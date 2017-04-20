@@ -127,7 +127,11 @@ c) Nanograms of carbon > 2.0.
 ```{r, message=FALSE}
 
 # Outlet isotope data:
+
 outletIso = read.csv2("Data/Outlet_Isotopes_W0toW17.csv", header = T)
+if (length(outletIso) == 1){
+  outletIso = read.csv("Data/Outlet_Isotopes_W0toW17.csv", header = T)
+}
 head(outletIso)
 
 colnames(outletIso)[colnames(outletIso) == "DD13...31.21."] <- "DD13"
@@ -135,9 +139,16 @@ colnames(outletIso)[colnames(outletIso) == "ng..C."] <- "ngC"
 outletIso <- subset(outletIso, DD13 > 0 & DD13 < 10 & ngC >= 2)
 
 # Filter isotope data:
+
 filtersIso = read.csv2("Data/MESAlteck_FilterIsotopes.csv", header = T)
+#filtersIso <- filtersIso[filtersIso$Levl != "J+7", ]
+if (length(filtersIso) == 1){
+  filtersIso = read.csv("Data/MESAlteck_FilterIsotopes.csv", header = T)
+}
 filtersIso$WeekSubWeek = paste(filtersIso$Week, filtersIso$Num, sep = "-")
-filtersIso <- filtersIso[filtersIso$Levl != "J+7", ]
+colnames(filtersIso)[colnames(filtersIso) == "DD13...31.21."] <- "DD13"
+colnames(filtersIso)[colnames(filtersIso) == "ng..C."] <- "ngC"
+
 head(filtersIso)
 
 
@@ -172,7 +183,12 @@ isoOutSummary = ddply(outletIso, c("WeekSubWeek"), summarise,
                          N    = length(d.13C.12C),
                          diss.d13C = mean(d.13C.12C),
                          SD.d13C = sd(d.13C.12C),
-                         se.d13C = SD.d13C / sqrt(N))
+                         se.d13C = SD.d13C / sqrt(N), 
+                         N_ngC.diss = length(ngC),
+                         ngC.mean.diss = mean(ngC),
+                         ngC.SD.diss = sd(ngC))
+                      
+
 
 head(isoOutSummary)
 
@@ -181,7 +197,10 @@ isoFiltSummary = ddply(filtersIso, c("WeekSubWeek"), summarise,
                          N    = length(d.13C.12C),
                          filt.d13C = mean(d.13C.12C),
                          filt.SD.d13C = sd(d.13C.12C),
-                         filt.se.d13C = filt.SD.d13C / sqrt(N))
+                         filt.se.d13C = filt.SD.d13C / sqrt(N),
+                         N_ngC.fl = length(ngC),
+                         ngC.mean.fl = mean(ngC),
+                         ngC.SD.fl = sd(ngC))
 head(isoFiltSummary)
 ```
 
@@ -519,6 +538,7 @@ BulkDeltaOut
 ```{r, message=FALSE}
 
 names(out.CoIs)[names(out.CoIs) == "Event"] <- "Peak"
+
 out.CoIs$Events <- as.factor(c("0-1", "0-2", "0-3",
                          "1-1", "1-2", "1-3", 
                          "2-1", "2-2", "2-3", 
