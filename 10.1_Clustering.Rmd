@@ -34,7 +34,7 @@ ipak <- function(pkg){
 }
 
 # usage
-packages <- c("vegan", "cluster", "gclus", "MASS")
+# packages <- c("vegan", "cluster", "gclus", "MASS")
 # ipak(packages)
 
 # Load required libraries
@@ -178,7 +178,7 @@ includeWater <- c(
   "ExpMES.Kg", 
   # Independent/event variables
   "DIa", "DIb", "maxQ",
-  "Duration.Hrs", "Volume.m3", "AveDischarge.m3.h")
+  "Duration.Hrs", "Volume.m3" )#, "AveDischarge.m3.h")
 
 waterSmall <- waters[ , (names(waters) %in% includeWater)]
 
@@ -225,10 +225,10 @@ waterXY.nona <- waterXY[complete.cases(waterXY), ]
 
 responseWater.hell <- decostand(responseWater, "hellinger", na.rm=T)
 # responseWater.norm <- decostand(responseWater, "norm", na.rm=T)
-
+ncol(waterXY)
 # Re-arrange columns to have "Events" as Index
-if (ncol(waterXY == 7)){
-  waterXY <- waterXY[, c(6,1:5,7:ncol(waterXY))]
+if (ncol(waterXY == 8)){
+  waterXY <- waterXY[, c(5,1:4,6:ncol(waterXY))]
   waterXY.hell <- decostand(waterXY[2:ncol(waterXY)], "hellinger", na.rm=T, MARGIN = 2)
 } else {
   waterXY.hell <- decostand(waterXY, "hellinger", na.rm=T, MARGIN = 2)
@@ -273,7 +273,6 @@ par(mar=c(3,4,1,1)+.1)
 #plot(resWater.hw, method ="ward.D", xlab="", sub="")
 plot(waterXY.hw, labels = waterXY$Events, cex=0.6, 
      method ="ward.D", xlab="With NAs", sub="")
-
 rect.hclust(waterXY.hw, 3)
 
 plot(waterXY.hw.nona, labels = waterXY.nona$Events, cex=0.7, 
@@ -281,7 +280,7 @@ plot(waterXY.hw.nona, labels = waterXY.nona$Events, cex=0.7,
 rect.hclust(waterXY.hw.nona, 2)
 
 
-clusterGroups = cutree(waterXY.hw.nona, k = 3)
+clusterGroups = cutree(waterXY.hw.nona, k = 5)
 
 # No. of rows/observations
 length(clusterGroups) == lengths(waterXY.hell.nona)[1]
@@ -368,7 +367,7 @@ waterXY.hell.nona = waterXY.hell[complete.cases(waterXY.hell),]
 waterXY.pca = rda(waterXY.hell.nona)
 
 
-# Automatic scaling (no need for previous transform)
+# Automatic scaling with scale = "TRUE" (no need for earlier transformations/normalization)
 waterXY.pca2 <- rda(waterXY.nona[2:ncol(waterXY.nona)], scale = T)
 
 waterXY.pca2
@@ -410,8 +409,8 @@ legend("topright", "Average Eigenvalue", lwd = 1, col = "blue", bty = "n")
 source("cleanplotPCA.R")
 # source ('http://www.davidzeleny.net/anadat-r/doku.php/en:numecolr:cleanplot.pca?do=export_code&codeblock=1')
 # http://www.davidzeleny.net/anadat-r/doku.php/en:numecolr:cleanplot.pca
-cleanplot.pca(waterXY.pca2, point = T, 
-              labs = waterXY.nona$Events, k = 4, dfcut = waterXY.hw.nona,
+cleanplot.pca(waterXY.pca, point = T, 
+              labs = waterXY.nona$Events, k = 3, dfcut = waterXY.hw.nona,
               cluster = TRUE)
 
 # One plot

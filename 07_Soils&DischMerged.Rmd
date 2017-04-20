@@ -18,7 +18,7 @@ Note that week numbers for water and soils are offset by one. I.e. Week 1 soils 
 Imports: 
 
 - **WeeklyHydroContam_R.csv** 
-- **WeeklySoils_R.csv**
+- **WeeklySoils_Rng.csv**
 
 Generates:
 

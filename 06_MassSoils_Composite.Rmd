@@ -76,7 +76,12 @@ print("Soil Composites- Concentrations")
 str(weeklySoilConc)
 
 # weeklySoilIso = read.csv2("Data/SoilCompIsotopes_W1toW15.csv", header = TRUE) # JESIUM data (before nangoram revision)
-weeklySoilIso  = read.csv2("Data/SoilCompIsotopes_W1toW15ng.csv", header = TRUE)
+weeklySoilIso  = read.csv2("Data/SoilCompIsotopes_W1toW15ng.csv", header = TRUE, dec = ".")
+if (length(weeklySoilIso) == 1){
+  weeklySoilIso = read.csv("Data/SoilCompIsotopes_W1toW15ng.csv", header = T)
+}
+head(weeklySoilIso)
+
 
 colnames(weeklySoilIso)[colnames(weeklySoilIso) == "DD13...31.21."] <- "DD13"
 colnames(weeklySoilIso)[colnames(weeklySoilIso) == "ng..C."] <- "ngC"
@@ -88,7 +93,7 @@ weeklySoilIso <- weeklySoilIso[, c("ID",
                                    "DD13", 
                                    "ngC")]
 
-weeklySoilIso <- subset(weeklySoilIso, DD13 > 0 & DD13 < 10 & ngC >= 5)
+weeklySoilIso <- subset(weeklySoilIso, DD13 > 0 & DD13 < 10) # & ngC >= 5)
 
 
 isoCompSummary = ddply(weeklySoilIso, c("ID"), summarise,
