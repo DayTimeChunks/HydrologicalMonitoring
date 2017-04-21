@@ -779,7 +779,7 @@ ggsave(fig1, filename = "SoilsAndOutlet.tiff", height = 18, width = 17.8, units 
 
 ## Mass balance approach
 
-
+### As continous graph
 ```{r, fig.height=5, fig.width=5}
 
 library("ggplot2")
@@ -790,6 +790,15 @@ library("zoo")
 soilsOut = read.csv2("Data/MassBalance_R.csv", header = T)
 soilsOut$ti <- as.POSIXct(soilsOut$ti, "%Y-%m-%d %H:%M", tz = "EST")
 sum(is.na(soilsOut$ti))
+
+# Remove bulk catchment values that came from 
+# at least one source of inputed data (all inputed data has no stdrd. devs)
+soilsOut$BulkCatch.d13 <- ifelse(is.na(soils$comp.d13C.SD.North), NA, 
+                                 ifelse(is.na(soils$comp.d13C.SD.Talweg), NA,
+                                              ifelse(is.na(soils$comp.d13C.SD.South), NA, soilsOut$BulkCatch.d13)
+                                        )
+                                 )
+
 
 print("Mass Balance Soils")
 str(soilsOut)
@@ -900,6 +909,66 @@ massBal_MEL <- ggplot(pgSimple) +
 massBalLegend <- get_legend(massBalTop)
 
 ```
+
+### As bar chart, showing only summary when soils are measured
+
+```{r}
+# Omit cumulateive variables for dates 
+# in which no soil sample was made  
+remainOnSampleDay <- na.omit(soilsRemainMass)
+
+remainOnSampleDay$Persist.Prct <- (remainOnSampleDay$CatchMassSoil.g/remainOnSampleDay$CumAppMass.g)*100
+remainOnSampleDay$TPs.PrctOut <- ((remainOnSampleDay$CumOutMELsm.g-
+                                  (remainOnSampleDay$CumOutDiss.g+remainOnSampleDay$CumOutFilt.g))
+                                  /remainOnSampleDay$CumAppMass.g)*100
+remainOnSampleDay$SM.PrctOut <- ((remainOnSampleDay$CumOutDiss.g+remainOnSampleDay$CumOutFilt.g)
+                                 /remainOnSampleDay$CumAppMass.g)*100
+
+remainOnSampleDay$Unknown <- 100 - 
+  (remainOnSampleDay$Persist.Prct + 
+     remainOnSampleDay$TPs.PrctOut + 
+     remainOnSampleDay$SM.PrctOut)
+
+keepPrct <- c("ti",
+            "Persist.Prct", "TPs.PrctOut", "SM.PrctOut", "Unknown")
+
+prctMB <- remainOnSampleDay[ , (names(remainOnSampleDay) %in% keepPrct)]
+
+prctMB <- melt(prctMB, id=c("ti"))
+levels(prctMB$variable)
+prctMB$variable <- factor(prctMB$variable, levels = c( "Unknown", "Persist.Prct" , "SM.PrctOut", "TPs.PrctOut"))
+ 
+massbar <- ggplot(data = prctMB , aes(x=ti, y=value))+
+  theme_bw() +
+  geom_bar(stat = "identity", aes(fill = variable)) +
+  # Add error bars,
+  # see: http://stackoverflow.com/questions/30872977/how-to-stack-error-bars-in-a-stacked-histogram-using-geom-errorbar-ggplot
+  # geom_errorbar(aes(ymin=value-0.5, ymax=value+0.5), width=.5, position = "identity")+
+  xlab("Date") +
+  ylab("% Fraction") + 
+  scale_x_datetime(breaks = date_breaks("2 weeks"), labels = date_format("%b %d")) +
+  theme(# legend.position="top"
+        # axis.title.x = element_blank(),
+        axis.text.x=element_text(angle = 45, hjust = 1)
+        ) + 
+  scale_fill_manual( 
+                    values = c("#a6611a", "#dfc27d", "#80cdc1", "#018571"),
+                    name="% Fraction", # \n
+                       breaks=c("Unknown", "Persist.Prct",  "SM.PrctOut", "TPs.PrctOut"),
+                       labels=c("Unknown", "SM (Top soil)", "SM (Outlet)", "TPs (Outlet)" ))
+
+
+  #scale_fill_brewer(# palette="OrRd", 
+  #                  palette = c("#a6611a", "chocolate", "green4", "dodgerblue"),
+  #                  # values=c("#999999", "chocolate", "green4", "dodgerblue"), 
+  #                  name="% Fraction", # \n
+  #                     breaks=c("Unknown", "Persist.Prct",  "SM.PrctOut", "TPs.PrctOut"),
+  #                     labels=c("Unknown", "SM (Top soil)", "SM (Outlet)", "TPs (Outlet)" ))
+  
+massbar
+ggsave(massbar, filename = "MassBalBar..png", width = 8, height = 5, units = "in", scale = 1)
+```
+
 
 
 ## Catchment degradation based on bulk signatures

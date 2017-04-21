@@ -64,6 +64,8 @@ soils$Date.ti <- as.POSIXct(strptime(soils$Date.ti,
 sum(is.na(soils$Date.ti)) == 0
 
 initialDelta = -31.21
+
+# Get rid of imputed values to avoid unwanted bias
 soils$DD13C.North <- (ifelse(!is.na(soils$comp.d13C.SD.North), soils$comp.d13C.North - (initialDelta), NA))
 soils$DD13C.Talweg <- (ifelse(!is.na(soils$comp.d13C.SD.Talweg), soils$comp.d13C.Talweg - (initialDelta), NA))
 soils$DD13C.South <- (ifelse(!is.na(soils$comp.d13C.SD.South), soils$comp.d13C.South - (initialDelta), NA))
