@@ -106,8 +106,7 @@ Table: Background S-metolachlor in soils, 2016
 The total S-metolachlor mass applied $\sum M_{tot_{app}}$ across all plots $n$ during 2016 is given by:
 
 $$
-M_{tot_{app}} = 
-\sum_{t=1}^t \Big(  \sum_{n=1}^n C_{(t, n)_{prod}} \cdot A_n \cdot Ds \Big)
+M_{tot_{app}} = \sum_{t=1}^t \Big(  \sum_{n=1}^n C_{(t, n)_{prod}} \cdot A_n \cdot Ds \Big)
 \stepcounter{equation}\tag{\theequation}\label{massApp} 
 $$
 

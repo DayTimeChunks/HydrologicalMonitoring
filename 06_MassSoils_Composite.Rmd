@@ -46,6 +46,50 @@ getwd()
 
 ```
 
+## Lab Parameters
+
+```{r}
+# Pure and cuve isotope average
+d13Co = -31.2144
+
+# Lab enrichment: Alteck
+epsilon_max = -1.5 # +/- 0.3 (@ 20C, 20% vwc)
+epsilon_min = -2.0 # +/- 0.2 (@ 20C, 40% vwc)
+
+epsilon_mean = mean(c(epsilon_max, epsilon_min))
+epsilon_mean
+
+sd(c(epsilon_max, epsilon_min))
+```
+
+## Filed Assumptions
+
+```{r}
+# S-metolachlor Mass [g]
+# Conc. [ug/g dry soil] * [g/10^6 ug] * density [g/m3] * depth [m]* A [m2] 
+# Soil bulk density: 2200 or 0.99? -> Leaching experiments: 0.99 [g/cm3]
+rho = 0.99*10^6 # soil density [g/m3]
+depth = 0.005 # [m]
+
+# Transect Areas pre-corn applications
+Area_Na = 13.92663*10^4 # [m2]
+
+# Corrections (old values):
+#Area_Ta = 6.55813*10^4  # [m2] # South Burger's as Talweg
+#Area_Sa = 11.05376*10^4 # [m2] # South Burger's as Talweg
+Area_Ta = 4.37134*10^4  # [m2]
+Area_Sa = 13.3175*10^4 # [m2] # South Burger's as South
+
+# Transect Areas post Corn applications (not on transect)
+Area_Nb = 14.9949*10^4 # [m2] 
+
+# Corrections (old values): 
+#Area_Tb = 6.55813*10^4  # [m2] # South Burger's as Talweg
+#Area_Sb = 11.65202*10^4 # [m2] # South Burger's as Talweg
+Area_Tb = 4.37134*10^4  # [m2]
+Area_Sb = 13.91767*10^4 # [m2] # South Burger's as South
+```
+
 
 ## Composite Concentrations & Isotope Data - Alteckendorf 2016
 
@@ -75,13 +119,15 @@ colnames(weeklySoilConc)[colnames(weeklySoilConc) == "Filename"] <- "ID"
 print("Soil Composites- Concentrations")
 str(weeklySoilConc)
 
-# weeklySoilIso = read.csv2("Data/SoilCompIsotopes_W1toW15.csv", header = TRUE) # JESIUM data (before nangoram revision)
+# JESIUM data (before nangoram revision)
+# weeklySoilIso = read.csv2("Data/SoilCompIsotopes_W1toW15.csv", header = TRUE) 
+
+# After nanogram revision
 weeklySoilIso  = read.csv2("Data/SoilCompIsotopes_W1toW15ng.csv", header = TRUE, dec = ".")
 if (length(weeklySoilIso) == 1){
   weeklySoilIso = read.csv("Data/SoilCompIsotopes_W1toW15ng.csv", header = T)
 }
 head(weeklySoilIso)
-
 
 colnames(weeklySoilIso)[colnames(weeklySoilIso) == "DD13...31.21."] <- "DD13"
 colnames(weeklySoilIso)[colnames(weeklySoilIso) == "ng..C."] <- "ngC"
@@ -139,17 +185,14 @@ str(comp.CoIs)
 ```{r}
 
 # Pure and cuve isotope average
-d13Co = -31.2144
+d13Co
 
-# Lab enrichment:
-# Alteck
-epsilon_max = -1.5 # +/- 0.3 (@ 20C, 20% vwc)
-epsilon_min = -2.0 # +/- 0.2 (@ 20C, 40% vwc)
+# Lab enrichment: Alteck
+epsilon_max # +/- 0.3 (@ 20C, 20% vwc)
+epsilon_min # +/- 0.2 (@ 20C, 40% vwc)
 
-mean(c(epsilon_max, epsilon_min))
+epsilon_mean
 sd(c(epsilon_max, epsilon_min))
-
-epsilon_mean = -1.75
 
 # Vine
 # (@ 20C, 20% vwc) -0.8 +/- 0.1
@@ -204,29 +247,18 @@ $$
 # S-metolachlor Mass [g]
 # Conc. [ug/g dry soil] * [g/10^6 ug] * density [g/m3] * depth [m]* A [m2] 
 # Soil bulk density: 2200 or 0.99? -> Leaching experiments: 0.99 [g/cm3]
-rho = 0.99*10^6 # soil density [g/m3]
-depth = 0.005 # [m]
+rho # soil density [g/m3]
+depth # [m]
 
 # Transect Areas pre-corn applications
-Area_Na = 13.92663*10^4 # [m2]
-
-# Corrections (old values):
-#Area_Ta = 6.55813*10^4  # [m2] # South Burger's as Talweg
-#Area_Sa = 11.05376*10^4 # [m2] # South Burger's as Talweg
-Area_Ta = 4.37134*10^4  # [m2]
-Area_Sa = 13.3175*10^4 # [m2] # South Burger's as South
+Area_Na # [m2]
+Area_Ta  # [m2]
+Area_Sa # [m2]
 
 # Transect Areas post Corn applications (not on transect)
-Area_Nb = 14.9949*10^4 # [m2] 
-
-# Corrections (old values): 
-#Area_Tb = 6.55813*10^4  # [m2] # South Burger's as Talweg
-#Area_Sb = 11.65202*10^4 # [m2] # South Burger's as Talweg
-Area_Tb = 4.37134*10^4  # [m2]
-Area_Sb = 13.91767*10^4 # [m2] # South Burger's as South
-
-
-
+Area_Nb # [m2] 
+Area_Tb # [m2]
+Area_Sb # [m2]
 
 # Assign new column for S-metolachlor mass in grams
 comp.CoIs$MassSoil.g <- NA

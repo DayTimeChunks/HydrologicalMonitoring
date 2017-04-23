@@ -44,6 +44,23 @@ getwd()
 
 ```
 
+## Lab Parameters
+
+```{r}
+# Pure and cuve isotope average
+d13Co = -31.2144
+
+# Lab enrichment: Alteck
+epsilon_max = -1.5 # +/- 0.3 (@ 20C, 20% vwc)
+epsilon_min = -2.0 # +/- 0.2 (@ 20C, 40% vwc)
+
+epsilon_mean = mean(c(epsilon_max, epsilon_min))
+epsilon_mean
+
+sd(c(epsilon_max, epsilon_min))
+```
+
+
 ## Import files
 
 ```{r}
@@ -53,6 +70,7 @@ sum(is.na(outlet$ti))
 
 # Select variables from Water dataset
 outlet <- outlet[, c("ti", "WeekSubWeek", "Event", "timeSinceApp",
+                     "diss.d13C", "SD.d13C", 
                      "B.diss", "B.filt", "CumOutDiss.g", "CumOutFilt.g", "CumAppMass.g", "CumOutMELsm.g")]
 print("Water")
 str(outlet)
@@ -155,6 +173,24 @@ soilsOut$BulkCatch.d13 <-
   (soilsOut$MassSoil.g.North/soilsOut$CatchMassSoil.g)*soilsOut$comp.d13C.North + 
   (soilsOut$MassSoil.g.Talweg/soilsOut$CatchMassSoil.g)*soilsOut$comp.d13C.Talweg + 
   (soilsOut$MassSoil.g.South/soilsOut$CatchMassSoil.g)*soilsOut$comp.d13C.South
+
+soilsOut$BulkCatch.d13.SD <- 
+  (soilsOut$MassSoil.g.North/soilsOut$CatchMassSoil.g)*soilsOut$comp.d13C.SD.North + 
+  (soilsOut$MassSoil.g.Talweg/soilsOut$CatchMassSoil.g)*soilsOut$comp.d13C.SD.Talweg + 
+  (soilsOut$MassSoil.g.South/soilsOut$CatchMassSoil.g)*soilsOut$comp.d13C.SD.South
+
+# Lab epsilon (mean)
+epsilon_mean
+
+# Measured initial signature in tank
+d13Co
+
+# Mean epsilon (# Alteck)
+soilsOut$f.mean.bulk <- 
+  ((10^(-3)*soilsOut$BulkCatch.d13 + 1)/(10^(-3)*d13Co + 1))^(1000/(epsilon_mean))
+
+soilsOut$B.mean.bulk <-
+  (1 - soilsOut$f.mean.bulk)*100
 
 
 print("Merged Soils and Outlet by ti")
