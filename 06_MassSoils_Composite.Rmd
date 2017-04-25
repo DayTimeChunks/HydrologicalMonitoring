@@ -139,7 +139,7 @@ weeklySoilIso <- weeklySoilIso[, c("ID",
                                    "DD13", 
                                    "ngC")]
 
-weeklySoilIso <- subset(weeklySoilIso, DD13 > 0 & DD13 < 10) # & ngC >= 5)
+weeklySoilIso <- subset(weeklySoilIso, DD13 > 0 & DD13 < 10 & ngC > 5)
 
 
 isoCompSummary = ddply(weeklySoilIso, c("ID"), summarise,

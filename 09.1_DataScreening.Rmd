@@ -26,6 +26,7 @@ library(sm)
 library(vioplot)
 
 library(dplyr)
+library(tidyr)
 library(reshape)
 library(ggplot2)
 library("ggrepel")
@@ -114,16 +115,23 @@ pearson_r <- cor.test(soilGroups$comp.d13C, soilGroups$Conc.mug.g.dry.soil)[4]
 r_label <- sprintf("r == %0.2f", pearson_r)
 p_value <- cor.test(soilGroups$comp.d13C, soilGroups$Conc.mug.g.dry.soil)[3]
 
-if (p_value < 0.001){
+if (p_value < 0.0001){
   p_label <- "(p < 0.0001)"
+} else if (p_value < 0.001) {
+  p_label <- "(p < 0.001)"
+} else if (p_value < 0.015) {
+  p_label <- ("p < 0.01")
 } else {
   p_label <- "Check significance"
 }
 
+soilGrApp$Source <- ifelse(soilGrApp$Transect == "T", "Valley", "Plateau")
+soilGrApp$Source <- as.factor(soilGrApp$Source)
+
 p <- ggplot(data = subset(soilGrApp, !is.na(ngC.Label)), aes(x=Conc.mug.g.dry.soil, y=DD13C.comp))+
-  geom_point(aes(group = Transect, size = timeSinceApp, colour = Transect, shape = ngC.Label)) +
+  geom_point(aes(group = Source, size = timeSinceApp, colour = Source)) +  # , shape = ngC.Label)) +
   theme_bw() +
-  labs(size="Days after appl.", colour="Transect", shape = "Mass Carbon") +
+  labs(size="Days post appl.", colour="Source" ) + #, shape = "Mass Carbon") +
   ylab(expression(paste({Delta~delta}^"13","C", ' (\u2030)'))) +
   xlab(expression(paste("Conc. S-Meto.  ", {({mu}*g / g.soil.dry)}))) +
   annotate("text", x = 5, y = 6, label = as.character(r_label), parse = T, size = 3.0) +
@@ -142,7 +150,7 @@ p <- ggplot(data = subset(soilGrApp, !is.na(ngC.Label)), aes(x=Conc.mug.g.dry.so
   #               max.iter = 2e3,
   #               nudge_x = .2)
 p
-# ggsave(p, filename = "DDvsConc_soils.png", width = 8, height = 5, units = "in", scale = 1)
+#ggsave(p, filename = "DDvsConc_soils.png", width = 8, height = 5, units = "in", scale = 1)
 #ggplotly(p)
   #stat_smooth(method = "lm", formula = y ~ poly(x, 2)) +
   #stat_smooth(method = "lm", formula = y~x, se=F) 
@@ -189,10 +197,10 @@ mean(c(coef(modelSouth)[2]*1000 , coef(modelNorth)[2]*1000 , coef(modelTalweg)[2
 #summary(modelFull)  
 
 raleigh <- ggplot(data = subset(soilGrApp, ( Wnum > 0 & !is.na(ngC.Label) & !is.na(yRaleigh) )), aes(x=xRaleigh, y=yRaleigh))+
-  geom_point(aes(group = Transect, size = timeSinceApp, colour = Transect, shape = ngC.Label)) +
+  geom_point(aes(group = Source, size = timeSinceApp, colour = Source)) +  #, shape = ngC.Label)) +
   theme_bw() +
   scale_size_continuous(range = c(1, 3)) +
-  labs(size="Days post appl.", colour="Transect", shape = "Mass Carbon") +
+  labs(size="Days post appl.", colour="Source") + #, shape = "Mass Carbon") +
   xlab("ln f") +
   ylab("ln R/Ro") +
   ylab(expression(paste("ln  ",  R / R['0'] ))) +
@@ -220,7 +228,7 @@ raleigh <- ggplot(data = subset(soilGrApp, ( Wnum > 0 & !is.na(ngC.Label) & !is.
       #           max.iter = 2e3,
        #          nudge_x = .2)
 raleigh
-ggsave(raleigh, filename = "lnDDvslnConc_soils.png", width = 8, height = 5, units = "in", scale = 1)
+#ggsave(raleigh, filename = "lnDDvslnConc_soils.png", width = 8, height = 5, units = "in", scale = 1)
 ```
 
 
@@ -229,25 +237,6 @@ ggsave(raleigh, filename = "lnDDvslnConc_soils.png", width = 8, height = 5, unit
 ```{r}
 cor.test(soilGroups$comp.d13C, soilGroups$Conc.mug.g.dry.soil)
 ```
-
-
-
-Soils to confirm in IRMS:
-
-North: 13, 12, 10, 9, 11, 7
-Talweg: 13, 10, 9, 8, 7
-South: 13
-
-No isotopes:
-Talweg: 1, 15
-North: 1, 5, 6, 15
-South: 15
-
-Repeat: 
-T-1, T-13, T-15
-N-1, N-13, N-12, N-6, N-5
-S-13, S-9
-
 
 Import water
 
@@ -286,7 +275,7 @@ cof <- as.numeric(coef(model)[2]*1000)
 se <- summary(model)$coef[[4]]*1000
 
 
-waterRaleigh <- ggplot(data = subset(waterClean, (!is.na(yRaleigh))), aes(x=xRaleigh, y=yRaleigh))+
+waterRaleigh <- ggplot(data = subset(waterClean, (!is.na(yRaleigh) & xRaleigh > -7 & ngC.mean.diss > 5)), aes(x=xRaleigh, y=yRaleigh))+
   geom_point(aes(size = timeSinceApp)) +
   theme_bw() +
   scale_size_continuous(range = c(1, 3)) +
@@ -294,7 +283,7 @@ waterRaleigh <- ggplot(data = subset(waterClean, (!is.na(yRaleigh))), aes(x=xRal
   xlab("ln f") +
   ylab("ln R/Ro") +
   ylab(expression(paste("ln  ",  R / R['0'] ))) +
-  stat_smooth(data= subset(waterClean, (!is.na(yRaleigh))), method = "lm", formula = y~x, se=T) 
+  stat_smooth(data= subset(waterClean, (!is.na(yRaleigh) & xRaleigh > -7  & ngC.mean.diss > 5)), method = "lm", formula = y~x, se=T) 
 
 waterRaleigh
 ggsave(waterRaleigh, filename = "lnDDvslnConc_water.png", width = 8, height = 5, units = "in", scale = 1)
@@ -352,7 +341,8 @@ ggplot(mpg, aes(displ, hwy)) +
 Or this: https://github.com/tidyverse/ggplot2/wiki/Align-two-plots-on-a-page
 
 ```{r}
-WaterSoils <- merge(waterClean, soils, by = "Date.ti", all = F)
+waterClean_ng <- subset(waterClean, ngC.mean.diss > 5)
+WaterSoils <- merge(waterClean_ng, soils, by = "Date.ti", all = T)
 
 str(WaterSoils)
 names(WaterSoils)
@@ -433,8 +423,8 @@ epsilon_field <- cof
 initialDelta
 
 # Subset the data to values with SD < 1
-wstidier = subset(wstidier, SD < 1.55)
-wsNoPlat = subset(wsNoPlat, SD < 1.55)
+wstidier = subset(wstidier, SD < 1.50)
+wsNoPlat = subset(wsNoPlat, SD < 1.50)
 
 
 limits_DdC <- aes(ymin=measure-SD, ymax=measure+SD, colour = Source)
@@ -486,9 +476,56 @@ wsPlot <- ggplot(data = wsNoPlat, aes(x = Date, y = measure)) +
   #                   ) +
   # scale_shape_manual(name= )
 
+wsALL <- ggplot(data = wstidier, aes(x = Date, y = measure)) + 
+  geom_errorbar(limits_DdC) +
+  geom_jitter(aes(shape = Type, colour = Source)) +
+  #stat_smooth(data=subset(wstidier,
+  #                        (Source == "Valley" & Event > 8 )), 
+  #            method = "lm", formula = y ~ poly(x, 2), se = F, colour = 'darkgreen' , alpha = 0.1, size=0.2) +
+  #stat_smooth(data=subset(wstidier,
+  #                        (Source != "Outlet" & Source != "Valley" & Event < 20 )), 
+  #            method = "lm", formula = y ~  poly(x, 2), se = F, alpha = 0.1, size=0.2) +
+  stat_smooth(data=subset(wstidier,
+                          (Source == "Outlet" & Event > 1 & Type == "Dissolved")), 
+              method = "lm", formula = y ~ poly(x, 2), se = T, aes(colour = 'Outlet'), alpha = 0.2, size=0.2) +
+  stat_smooth(data=subset(wstidier,
+                          (Source == "Bulk")), 
+              method = "lm", formula = y ~ poly(x, 2), se = T, aes(colour = 'Bulk'), alpha = 0.2, size=0.2) +
+  theme_bw() + 
+  # Applics
+  annotate("text", x = as.POSIXct('2016-03-28 08:04:00'), y = 0, 
+           label = as.character(expression(paste( "\u066D"))), parse = T, size = 6.0) +
+  annotate("text", x = as.POSIXct('2016-04-05 08:04:00'), y = 0, 
+           label = as.character(expression(paste( "\u066D"))), parse = T, size = 6.0) +
+  annotate("text", x = as.POSIXct('2016-04-13 08:04:00'), y = 0, 
+           label = as.character(expression(paste( "\u066D"))), parse = T, size = 6.0) +
+  annotate("text", x = as.POSIXct('2016-05-17 08:04:00'), y = 0, 
+           label = as.character(expression(paste( "\u066D"))), parse = T, size = 6.0) +
+  # Title applics
+  annotate("text", x = as.POSIXct('2016-04-01 08:04:00'), y = 7.5, 
+           label = as.character(expression(paste( "\u066D", " Applications"))), parse = T, size = 4.0) +
+  
+  scale_x_datetime(breaks = date_breaks("2 weeks"), labels = date_format("%b %d")) +
+  theme(legend.position="top"
+        # axis.title.x = element_blank(),
+        # axis.text.x=element_text(angle = 45, hjust = 1)
+        ) +
+  # geom_smooth(data=subset(ws, Source != "Outlet"), method = "lm", formula = y ~ poly(x, 2)) +
+  xlab("Date") + 
+  #ylab(expression(paste({Delta~delta}^"13","C", ' (\u2030)'))) +
+  scale_y_continuous(
+    expression(paste({Delta~delta}^"13","C", ' (\u2030)')), 
+    sec.axis = sec_axis(trans = ~ (1-((1000 + d13Co + .)/(1000+d13Co))^(1000/cof))*100 , 
+                        name = "Degr (%)", breaks=c(20, 40, 60, 80, 95) )# breaks=seq(20, 120, 15))
+  )  + 
+  scale_color_manual(name= "Source", 
+                      values = c("black", "#D55E00", "darkgreen", "dodgerblue")
+                     ) # +
+  # scale_shape_manual(name= )
 
-wsPlot
-ggsave(wsPlot, filename = "WateSoilvsTime.png", width = 8, height = 5, units = "in", scale = 1)
+wsALL
+#wsPlot
+# ggsave(wsALL, filename = "WaterSoilvsTime.png", width = 8, height = 5, units = "in", scale = 1)
 ```
 
 
