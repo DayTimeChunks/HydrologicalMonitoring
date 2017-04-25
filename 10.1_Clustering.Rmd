@@ -10,12 +10,16 @@ knitr::opts_chunk$set(echo = TRUE, warning=FALSE, message = FALSE)
 Sys.setlocale("LC_ALL", "English")
 ```
 
-## Reference
+## Files
 
-Modified from: D. Borcard & F. Gillet
-Multivariate Analysis in Community Ecology: Constrained ordination and other analysis
+Imports: 
 
-Adapted from: Gwena?l Imfeld, LyGeS,2009
+- **WeeklyHydroContam_R.csv** (water)
+- **MassBalance_R.csv** (soils)
+
+Generates (by merging above):
+
+- **WaterSoils_R.csv**
 
 ## Import packages
 
@@ -46,9 +50,28 @@ library("ggplot2")
 library("ggrepel")
 library("MASS")
 
+library("zoo")
+
 ```
 
-## Import data sets
+
+# Lab parameters
+
+```{r}
+# Initial signature measured in tank
+initialDelta = -31.2144
+```
+
+
+## References
+
+Modified from: D. Borcard & F. Gillet
+Multivariate Analysis in Community Ecology: Constrained ordination and other analysis
+
+Adapted from: Gwena?l Imfeld, LyGeS,2009
+
+
+## Import and merge water and soil data sets
 
 ```{r}
 
@@ -57,27 +80,13 @@ getwd()
 # setwd("D:/Documents/these_pablo/Rscripts/Clustering")
 
 waters = read.csv2("Data/WeeklyHydroContam_R.csv")
+
 waters$ti <- as.POSIXct(strptime(waters$ti, "%Y-%m-%d %H:%M", tz="EST"))
 colnames(waters)[colnames(waters) == "ti"] <- "Date.ti"
 waters$Events <- factor(waters$Events, levels = unique(waters$Events))
 waters$Event <- factor(waters$Event, levels = unique(waters$Event))
 
-dropWater <- c("N.x", "N.y", 
-               "Markers" , "TimeDiff", 
-               "se.d13C", "MES.mg.L", "MES.sd", "MO.mg.L", "filt.se.d13C", "f.diss", "f.filt",
-               "Appl.Mass.g", 
-               "DissSmeto.mg", "DissSmeto.mg.SD", 
-               "DissOXA.mg", "DissOXA.mg.SD", 
-               "DissESA.mg", "DissESA.mg.SD",
-               "FiltSmeto.mg", "DissSmeto.mg.SD", 
-               "TotSMout.mg", "TotSMout.mg.SD",
-               "FracDiss", "FracFilt")
-waters <- waters[ , !(names(waters) %in% dropWater)]
-
-# Date conversion correct: 
-sum(is.na(waters$Date.ti)) == 0
-str(waters)
-
+colnames(waters)
 
 # Integrate Catchment's Bulk signature for normalization of discharge signatures
 # Soils
@@ -87,6 +96,7 @@ colnames(soils)[colnames(soils) == "ti"] <- "Date.ti"
 soils$Date.ti <- as.POSIXct(strptime(soils$Date.ti, 
                                           "%Y-%m-%d %H:%M", tz="EST")) # csv typos, option 1
 sum(is.na(soils$Date.ti)) == 0
+colnames(soils)
 
 keepSoil <- c("WeekSubWeek", "Event", 
               "comp.d13C.SE.North", "comp.d13C.SE.Talweg", "comp.d13C.SE.South", 
@@ -94,12 +104,69 @@ keepSoil <- c("WeekSubWeek", "Event",
 soils <- soils[ , !(names(soils) %in% keepSoil)]
 
 
-# Conc.mug.L
-# TotSMout.g
-# MELsm.g
+watSoilMerged <- merge(waters, soils, by = "Date.ti", all = T)
+
+# Remove duplicates
+dropDups <- c("Weeks", "N.x", "N.y", 
+              "timeSinceApp.y", 
+              "diss.d13C.y","SD.d13C.y", 
+              "B.diss.y" , "B.filt.y" ,
+              "CumOutDiss.g.y","CumOutFilt.g.y","CumAppMass.g.y", "CumOutMELsm.g.y"
+              )
+
+watSoilMerged <- watSoilMerged[ , !(names(watSoilMerged) %in% dropDups)]
+
+
+watSoilMerged$DD13.Bulk <- watSoilMerged$BulkCatch.d13-initialDelta 
+watSoilMerged$DD.diss.norm <- watSoilMerged$DD13C.diss/watSoilMerged$DD13.Bulk
+
+colnames(watSoilMerged)
+
+write.csv2(watSoilMerged, 
+           'Data/WaterSoils_R.csv', row.names = F)
 
 ```
 
+## Reduce variable size 
+
+```{r}
+
+dropNoUse <- c("Markers" , "TimeDiff", 
+               "se.d13C", "MES.mg.L", "MES.sd", "MO.mg.L", "filt.se.d13C", "f.diss", "f.filt",
+               "Appl.Mass.g", 
+               "FracDiss", "FracFilt",
+               # Nanogram obs numbers.
+               "N_ngC.diss", "N_ngC.fl", 
+               # Remove in mg units 
+               "DissSmeto.mg", "DissSmeto.mg.SD" ,
+               "DissOXA.mg", "DissOXA.mg.SD",
+              "DissESA.mg", "DissESA.mg.SD" , 
+              "FiltSmeto.mg", "FiltSmeto.mg.SD" ,
+              "TotSMout.mg","TotSMout.mg.SD",
+              # Transect areas
+              "ID.N", "ID.T", "ID.S", "Area.N", "Area.T", "Area.S",
+              # Standard errors
+              "se.d13C", "filt.se.d13C",
+              # Degradation 
+              "B.diss.x", "B.filt.x",
+              "B.mean.comp.North", "B.max.comp.North" , "B.min.comp.North",
+              "B.mean.comp.Talweg", "B.max.comp.Talweg", "B.min.comp.Talweg",
+              "B.mean.comp.South", "B.max.comp.South" , "B.min.comp.South", 
+              "FracDeltaOut" ,
+              # Isotopes (DD already included)
+               "comp.d13C.North","comp.d13C.SD.North", 
+              "comp.d13C.Talweg", "comp.d13C.SD.Talweg" ,
+              # Masses on transects
+              "MassSoil.g.North", "MassSoil.g.Talweg", "MassSoil.g.South" )
+
+watSoilMerged <- watSoilMerged[ , !(names(watSoilMerged) %in% dropNoUse)]
+
+
+# Date conversion correct: 
+sum(is.na(watSoilMerged$Date.ti)) == 0
+colnames(watSoilMerged)
+
+```
 
 
 ## Variable generation  
@@ -133,15 +200,12 @@ The EVI has been adapted to reflect discharge index such that:
 - Discharge index A [m3/h x m3/h]
 $$DIa = \frac{Q_{max} \cdot V_{tot} }{D}  $$  
 
-- Discharge index B [-]
-$$DIb = \frac{ V_{tot}}{D \cdot Q_{max} }  $$ 
-
 
 ```{r}
 
-waters$DIa <- waters$maxQ*waters$Volume.m3/waters$Duration.Hrs
-waters$DIb <- waters$Volume.m3/waters$Duration.Hrs * 1/waters$maxQ
-waters$TPs.g <- waters$MELsm.g-waters$TotSMout.g
+watSoilMerged$DIa <- watSoilMerged$maxQ*watSoilMerged$Volume.m3/watSoilMerged$Duration.Hrs
+# watSoilMerged$DIb <- watSoilMerged$Volume.m3/watSoilMerged$Duration.Hrs * 1/watSoilMerged$maxQ
+watSoilMerged$TPs.g <- watSoilMerged$MELsm.g-watSoilMerged$TotSMout.g
 ```
 
 ## Normalization choice
@@ -150,18 +214,18 @@ waters$TPs.g <- waters$MELsm.g-waters$TotSMout.g
 
 # Option 1. 
 # Divide by estimated mass in catchment available # [-]
-waters$SM.g.nrm <- waters$TotSMout.g/waters$BalMassDisch.g # [-]
-waters$MEL.g.nrm <- waters$MELsm.g/waters$BalMassDisch.g # [-]
+watSoilMerged$SM.g.nrm <- watSoilMerged$TotSMout.g/watSoilMerged$BalMassDisch.g # [-]
+watSoilMerged$MEL.g.nrm <- watSoilMerged$MELsm.g/watSoilMerged$BalMassDisch.g # [-]
 
 # Option 2
 # Divide by estimated prct. mass in catchment available # [g]
-waters$CumPrctMassOut <- cumsum(waters$prctMassOut)
-waters$SM.g.nrm.prc <- waters$TotSMout.g/waters$CumPrctMassOut # [-]
-waters$MEL.g.nrm.prc <- waters$MELsm.g/waters$CumPrctMassOut # [-]
+watSoilMerged$CumPrctMassOut <- cumsum(watSoilMerged$prctMassOut)
+watSoilMerged$SM.g.nrm.prc <- watSoilMerged$TotSMout.g/watSoilMerged$CumPrctMassOut # [-]
+watSoilMerged$MEL.g.nrm.prc <- watSoilMerged$MELsm.g/watSoilMerged$CumPrctMassOut # [-]
 
 ```
 
-## Variable reduction
+## Variable reduction for water cluster analysis 
 
 ```{r}
 
@@ -172,6 +236,7 @@ includeWater <- c(
   "Conc.mug.L", "OXA_mean", "ESA_mean", 
   "SM.g.nrm", "MEL.g.nrm", "SM.g.nrm.prc", "MEL.g.nrm.prc",
   "DD13C.diss", # "diss.d13C",
+  "DD.diss.norm", "DD13.Bulk",
   "TotSMout.g", "MELsm.g",
   "TPs.g", "DissOXA.g", "DissESA.g",
   # "Cl.mM", "NO3..mM",
@@ -180,7 +245,17 @@ includeWater <- c(
   "DIa", "DIb", "maxQ",
   "Duration.Hrs", "Volume.m3" )#, "AveDischarge.m3.h")
 
-waterSmall <- waters[ , (names(waters) %in% includeWater)]
+waterSmall <- watSoilMerged[ , (names(watSoilMerged) %in% includeWater)]
+
+# Omit Event 0 and assume nearest DD.norm where:
+# bulk DD non-existent & DD13-dissolved is not NA.
+waterSmall <- subset(waterSmall, maxQ > 2)
+
+if (is.na(waterSmall$DD.diss.norm[1])) {
+  waterSmall$DD.diss.norm[1] <- waterSmall$DD.diss.norm[4]
+}
+waterSmall$DD.diss.norm <- na.locf(waterSmall$DD.diss.norm)
+waterSmall$DD.diss.norm <- ifelse(is.na(waterSmall$DD13C.diss), NA, waterSmall$DD.diss.norm)
 
 # Lets reduce the data set even more to only response variables. 
 includeResponse <- c(
@@ -189,7 +264,8 @@ includeResponse <- c(
   # "SM.g.nrm", "MEL.g.nrm", 
   "SM.g.nrm.prc", "MEL.g.nrm.prc",
   #"diss.d13C",
-  "DD13C.diss"
+  "DD13C.diss", 
+  "DD.diss.norm"
   #"TotSMout.g", "MELsm.g",
   #"TPs.g", "DissOXA.g", "DissESA.g",
   # "Cl.mM", "NO3..mM",
@@ -204,12 +280,13 @@ respHydro <- c(
   "SM.g.nrm.prc", "MEL.g.nrm.prc",
   #"diss.d13C",
   "DD13C.diss",
+  "DD.diss.norm",
   #"TotSMout.g", "MELsm.g",
   #"TPs.g", "DissOXA.g", "DissESA.g",
   # "Cl.mM", "NO3..mM",
   #"ExpMES.Kg"
   # Independent/event variables
-  "DIa", "DIb", "maxQ",
+  "DIa", "maxQ",
   "Duration.Hrs", "Volume.m3", "AveDischarge.m3.h")
 
 responseWater <- waterSmall[ , (names(waterSmall) %in% includeResponse)]
@@ -226,14 +303,22 @@ waterXY.nona <- waterXY[complete.cases(waterXY), ]
 responseWater.hell <- decostand(responseWater, "hellinger", na.rm=T)
 # responseWater.norm <- decostand(responseWater, "norm", na.rm=T)
 ncol(waterXY)
+
 # Re-arrange columns to have "Events" as Index
-if (ncol(waterXY == 8)){
-  waterXY <- waterXY[, c(5,1:4,6:ncol(waterXY))]
-  waterXY.hell <- decostand(waterXY[2:ncol(waterXY)], "hellinger", na.rm=T, MARGIN = 2)
-} else {
+colnames(waterXY)
+waterXY <- waterXY[c("Events", 
+                     "maxQ", "Duration.Hrs", "Volume.m3", "DIa",
+                     "DD13C.diss",  "DD.diss.norm", "SM.g.nrm.prc", "MEL.g.nrm.prc")]
+if ( class(waterXY[, 1])== "factor") {
+  # Hellinger
   waterXY.hell <- decostand(waterXY, "hellinger", na.rm=T, MARGIN = 2)
+  waterXY.hell.nona <- waterXY.hell[complete.cases(waterXY.hell),]
+  
+  waterXY.norm <- decostand(waterXY, "norm", na.rm=T, MARGIN = 2) # make margin sum of squares equal to one (default MARGIN = 1)
 }
-waterXY.hell.nona <- waterXY.hell[complete.cases(waterXY.hell),]
+
+
+
 
 # Normalized response variables
 str(responseWater.hell)
@@ -280,7 +365,7 @@ plot(waterXY.hw.nona, labels = waterXY.nona$Events, cex=0.7,
 rect.hclust(waterXY.hw.nona, 2)
 
 
-clusterGroups = cutree(waterXY.hw.nona, k = 5)
+clusterGroups = cutree(waterXY.hw.nona, k = 3)
 
 # No. of rows/observations
 length(clusterGroups) == lengths(waterXY.hell.nona)[1]
@@ -357,20 +442,55 @@ Plot the eigen values for each component and a line depicting the mean eigen val
 
 ```{r}
 
+# Choose method:
+M1 == FALSE
+M2 == FALSE
+M3 == TRUE
+
 # The original data frame
 waterXY.nona <- waterXY[complete.cases(waterXY), ]
+head(waterXY.nona)
 
 # The transformed data frame
 waterXY.hell.nona = waterXY.hell[complete.cases(waterXY.hell),]
 
+# PCA Methods
+
+# Method 1
 # PCA on a covariance matrix (default scale=FALSE)
 waterXY.pca = rda(waterXY.hell.nona)
 
-
+# Method 2
 # Automatic scaling with scale = "TRUE" (no need for earlier transformations/normalization)
 waterXY.pca2 <- rda(waterXY.nona[2:ncol(waterXY.nona)], scale = T)
-
 waterXY.pca2
+
+# Method 3
+waterXY.pca.prcomp <- prcomp(waterXY.nona[2:ncol(waterXY.nona)], retx=T, scale.=T) 
+scores <- waterXY.pca.prcomp$x[,1:3]
+
+# k-means clustering [assume 3 clusters]
+km     <- kmeans(scores, centers=3, nstart=10)
+ggdata <- data.frame(scores, Cluster=km$cluster, Species=waterXY.nona$Events)
+
+# stat_ellipse is not part of the base ggplot package
+source("https://raw.github.com/low-decarie/FAAV/master/r/stat-ellipse.R") 
+
+ggplot(ggdata) +
+  geom_point(aes(x=PC1, y=PC2, color=factor(Cluster)), size=5, shape=20) +
+  stat_ellipse(aes(x=PC1,y=PC2,fill=factor(Cluster)),
+               geom="polygon", level=0.95, alpha=0.2) +
+  guides(color=guide_legend("Cluster"),fill=guide_legend("Cluster"))
+
+   
+```
+
+## Summary of Eigenvalues
+
+```{r}
+
+# Method 2
+
 # plot (waterXY.pca2)
 summary(waterXY.pca2, scaling = 1)
 
@@ -387,8 +507,8 @@ ev[ev > mean(ev)]
 barplot(ev, main = "Eigenvalues for PCA on ENV", col = "bisque", las=2)
 abline(h=mean(ev), col = "blue")
 legend("topright", "Average Eigenvalue", lwd = 1, col = "blue", bty = "n")
-   
 ```
+
 
 ## PCA Biplots with clustering
 
@@ -412,6 +532,12 @@ source("cleanplotPCA.R")
 cleanplot.pca(waterXY.pca, point = T, 
               labs = waterXY.nona$Events, k = 3, dfcut = waterXY.hw.nona,
               cluster = TRUE)
+
+waterXY.pca.prcomp
+
+waterXY.pca # Hellinger scaling 
+waterXY.pca.norm # SS = 1
+waterXY.pca2 # Automatic scaling
 
 # One plot
 #k = 2

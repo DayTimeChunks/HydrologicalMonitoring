@@ -344,6 +344,8 @@ Or this: https://github.com/tidyverse/ggplot2/wiki/Align-two-plots-on-a-page
 waterClean_ng <- subset(waterClean, ngC.mean.diss > 5)
 WaterSoils <- merge(waterClean_ng, soils, by = "Date.ti", all = T)
 
+
+
 str(WaterSoils)
 names(WaterSoils)
 keepWS <- c("Date.ti", 
