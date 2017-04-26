@@ -37,6 +37,9 @@ library("gridExtra")
 library("Cairo")
 library("GGally")
 library("scales")
+
+# Stats
+library("vegan")
 ```
 
 # Lab parameters
@@ -286,7 +289,7 @@ waterRaleigh <- ggplot(data = subset(waterClean, (!is.na(yRaleigh) & xRaleigh > 
   stat_smooth(data= subset(waterClean, (!is.na(yRaleigh) & xRaleigh > -7  & ngC.mean.diss > 5)), method = "lm", formula = y~x, se=T) 
 
 waterRaleigh
-ggsave(waterRaleigh, filename = "lnDDvslnConc_water.png", width = 8, height = 5, units = "in", scale = 1)
+# ggsave(waterRaleigh, filename = "lnDDvslnConc_water.png", width = 8, height = 5, units = "in", scale = 1)
 # Date conversion correct: 
 sum(is.na(waters$Date.ti)) == 0
 str(waters)
@@ -533,6 +536,10 @@ wsALL
 
 ## Testing difference in $\Delta \delta$ between groups
 
+Based on ANOVA tests, there is:
+
+- No significant difference between soils and water
+
 ```{r}
 names(WaterSoils)
 keepDDtest <- c(
@@ -543,6 +550,7 @@ keepDDtest <- c(
 )
 
 wsStatTest <- WaterSoils[, colnames(WaterSoils) %in% keepDDtest]
+
 mwsStatTest <- melt(wsStatTest, id="Date.ti")
 mwsStatTest$Group1 <- ifelse(mwsStatTest$variable == "diss.d13C.x", "Outlet", "Soil")
 mwsStatTest$Group2 <- ifelse(mwsStatTest$variable == "diss.d13C.x", "Outlet", 
@@ -561,12 +569,47 @@ mwsStatTest$Group3 <- ifelse(mwsStatTest$variable == "diss.d13C.x" &
                                mwsStatTest$Date.ti > as.POSIXct('2016-05-13 12:06:00', tz = 'EST'), "Plateau(Late)", NA
                               ))))))
 
-mwsStatTest$Group1 <- as.factor(mwsStatTest$Group1)
-mwsStatTest$Group2 <- as.factor(mwsStatTest$Group2)
+Gr1 <- na.omit(mwsStatTest[, colnames(mwsStatTest) %in% c("value", "Group1")])
+Gr2 <- na.omit(mwsStatTest[, colnames(mwsStatTest) %in% c("value", "Group2")])
+Gr3 <- na.omit(mwsStatTest[, colnames(mwsStatTest) %in% c("value", "Group3")])
+
+# Transform data and compute dissimilarity
+Gr1.hell <- decostand(Gr1[ , 1], "hellinger", na.rm=T, MARGIN = 2) # Transform/Standardize
+Gr1.hell.daisy = daisy(Gr1.hell, "euclidean") # Dissimilarity
+attach(Gr1)
+anosim.group1 <- anosim(Gr1.hell.daisy, grouping = Group1)
+summary(anosim.group1)
+
+Gr2.hell <- decostand(Gr2[ , 1], "hellinger", na.rm=T, MARGIN = 2) # Transform/Standardize
+Gr2.hell.daisy = daisy(Gr2.hell, "euclidean") # Dissimilarity
+attach(Gr2)
+anosim.group2 <- anosim(Gr2.hell.daisy, grouping = Group2)
+summary(anosim.group2)
+
+Gr3.hell <- decostand(Gr3[ , 1], "hellinger", na.rm=T, MARGIN = 2) # Transform/Standardize
+Gr3.hell.daisy = daisy(Gr3.hell, "euclidean") # Dissimilarity
+attach(Gr3)
+anosim.group3 <- anosim(Gr3.hell.daisy, grouping = Group3)
+summary(anosim.group3)
+
+plot(anosim.group3)
 
 
-library(vegan)
-anosim.group1 <- anosim(mwsStatTest[, 3], grouping = Group1)
+# Simple ANOVA tests 
+# (high p-value indicates lack of difference)
+# Big P-value no significant difference
+boxplot(Gr1$value ~ Gr1$Group1)
+summary(aov(Gr1$value ~ Gr1$Group1))
+TukeyHSD(aov(Gr1$value ~ Gr1$Group1))
+
+boxplot(Gr3$value ~ Gr3$Group3)
+group3.aov <- aov(Gr3$value ~ Gr3$Group3)
+summary(group3.aov)
+
+res.grp3 <- TukeyHSD(group3.aov, ordered = T)
+library(xlsx)
+aov.res.grp3.df <- as.data.frame(res.grp3$`Gr3$Group3`)
+write.xlsx(aov.res.grp3.df, "aovResISOs.xlsx", row.names = T)
 ```
 
 

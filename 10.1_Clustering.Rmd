@@ -322,13 +322,13 @@ waterX <- waterXY[c("Events",
                      )]
 if ( class(waterX[, 1])== "factor") {
   # Hellinger
-  water.hell <- decostand(waterX[, 2:5], "hellinger", na.rm=T, MARGIN = 1)
+  water.hell <- decostand(waterX[, 2:5], "hellinger", na.rm=T, MARGIN = 2)
   # waterXY.hell.nona <- waterXY.hell[complete.cases(waterXY.hell),]
   
   # Normalize to 1
   # make margin sum of squares equal to one (default MARGIN = 1)
-  water.norm <- decostand(waterX[, 2:5], "norm", na.rm=T, MARGIN = 1) # Columns
-  water.normV <- decostand(waterX[, 2:5], "norm", na.rm=T, MARGIN = 2) 
+  water.norm <- decostand(waterX[, 2:5], "norm", na.rm=T, MARGIN = 2) # Columns
+  #water.normV <- decostand(waterX[, 2:5], "norm", na.rm=T, MARGIN = 2) 
 }
 
 
