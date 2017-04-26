@@ -52,6 +52,9 @@ library("MASS")
 
 library("zoo")
 
+# Melting data sets & changin axes
+library("reshape2")
+
 ```
 
 
@@ -86,7 +89,7 @@ colnames(waters)[colnames(waters) == "ti"] <- "Date.ti"
 waters$Events <- factor(waters$Events, levels = unique(waters$Events))
 waters$Event <- factor(waters$Event, levels = unique(waters$Event))
 
-colnames(waters)
+#colnames(waters)
 
 # Integrate Catchment's Bulk signature for normalization of discharge signatures
 # Soils
@@ -96,7 +99,7 @@ colnames(soils)[colnames(soils) == "ti"] <- "Date.ti"
 soils$Date.ti <- as.POSIXct(strptime(soils$Date.ti, 
                                           "%Y-%m-%d %H:%M", tz="EST")) # csv typos, option 1
 sum(is.na(soils$Date.ti)) == 0
-colnames(soils)
+#colnames(soils)
 
 keepSoil <- c("WeekSubWeek", "Event", 
               "comp.d13C.SE.North", "comp.d13C.SE.Talweg", "comp.d13C.SE.South", 
@@ -259,28 +262,28 @@ waterSmall$DD.diss.norm <- ifelse(is.na(waterSmall$DD13C.diss), NA, waterSmall$D
 
 # Lets reduce the data set even more to only response variables. 
 includeResponse <- c(
+  "Events",
   # Response variables
-  #"Conc.mug.L", "OXA_mean", "ESA_mean", 
-  # "SM.g.nrm", "MEL.g.nrm", 
+  "Conc.mug.L", "OXA_mean", "ESA_mean", 
+  "SM.g.nrm", "MEL.g.nrm", 
   "SM.g.nrm.prc", "MEL.g.nrm.prc",
   #"diss.d13C",
   "DD13C.diss", 
-  "DD.diss.norm"
-  #"TotSMout.g", "MELsm.g",
-  #"TPs.g", "DissOXA.g", "DissESA.g",
+  "DD.diss.norm",
+  "TotSMout.g", "MELsm.g",
+  "TPs.g", "DissOXA.g", "DissESA.g"
   # "Cl.mM", "NO3..mM",
   #"ExpMES.Kg"
   )
 
-respHydro <- c(
+hydro <- c(
   "Events",
   # Response variables
   #"Conc.mug.L", "OXA_mean", "ESA_mean", 
-  # "SM.g.nrm", "MEL.g.nrm", 
-  "SM.g.nrm.prc", "MEL.g.nrm.prc",
+  #"SM.g.nrm", "MEL.g.nrm", 
+  #"SM.g.nrm.prc", "MEL.g.nrm.prc",
   #"diss.d13C",
-  "DD13C.diss",
-  "DD.diss.norm",
+  #"DD13C.diss","DD.diss.norm",
   #"TotSMout.g", "MELsm.g",
   #"TPs.g", "DissOXA.g", "DissESA.g",
   # "Cl.mM", "NO3..mM",
@@ -290,7 +293,7 @@ respHydro <- c(
   "Duration.Hrs", "Volume.m3", "AveDischarge.m3.h")
 
 responseWater <- waterSmall[ , (names(waterSmall) %in% includeResponse)]
-waterXY <-  waterSmall[ , (names(waterSmall) %in% respHydro)]
+waterXY <-  waterSmall[ , (names(waterSmall) %in% hydro)]
 waterXY.nona <- waterXY[complete.cases(waterXY), ]
 
 ```
@@ -298,54 +301,88 @@ waterXY.nona <- waterXY[complete.cases(waterXY), ]
 
 ## Transformations
 
+Function: **decostand()**
+
+Methods to test: 
+
+- hellinger
+- normalization
+
 ```{r}
 
-responseWater.hell <- decostand(responseWater, "hellinger", na.rm=T)
+#responseWater.hell <- decostand(responseWater, "hellinger", na.rm=T)
 # responseWater.norm <- decostand(responseWater, "norm", na.rm=T)
 ncol(waterXY)
 
 # Re-arrange columns to have "Events" as Index
 colnames(waterXY)
-waterXY <- waterXY[c("Events", 
-                     "maxQ", "Duration.Hrs", "Volume.m3", "DIa",
-                     "DD13C.diss",  "DD.diss.norm", "SM.g.nrm.prc", "MEL.g.nrm.prc")]
-if ( class(waterXY[, 1])== "factor") {
+waterX <- waterXY[c("Events", 
+                     "maxQ", "Duration.Hrs", "Volume.m3", "DIa" #,
+                     #"DD13C.diss",  "DD.diss.norm", "SM.g.nrm.prc", "MEL.g.nrm.prc"
+                     )]
+if ( class(waterX[, 1])== "factor") {
   # Hellinger
-  waterXY.hell <- decostand(waterXY, "hellinger", na.rm=T, MARGIN = 2)
-  waterXY.hell.nona <- waterXY.hell[complete.cases(waterXY.hell),]
+  water.hell <- decostand(waterX[, 2:5], "hellinger", na.rm=T, MARGIN = 1)
+  # waterXY.hell.nona <- waterXY.hell[complete.cases(waterXY.hell),]
   
-  waterXY.norm <- decostand(waterXY, "norm", na.rm=T, MARGIN = 2) # make margin sum of squares equal to one (default MARGIN = 1)
+  # Normalize to 1
+  # make margin sum of squares equal to one (default MARGIN = 1)
+  water.norm <- decostand(waterX[, 2:5], "norm", na.rm=T, MARGIN = 1) # Columns
+  water.normV <- decostand(waterX[, 2:5], "norm", na.rm=T, MARGIN = 2) 
 }
 
-
-
-
-# Normalized response variables
-str(responseWater.hell)
-str(waterXY.hell)
 
 ```
 
 ## Clustering
 
+Will be using "eucledian" distances, which are the root sum-of-squares of differences and the defining clusters via hierarchical clustering (hclust) using the "Ward" agglomeration method. Ward's method (Ward, 1963) determines which clusters to merge by evaluating the 'cost' of such a merge against an objective function. Merges with the minimum cost are performed at each stage of the algorithm. Typically, this is implemented by evaluating the sum of squared deviations from cluster centroids. Every possible merge is evaluated at each stage of the algorithm and that which yields the smallest increase in the sum of squared deviations is selected. 
+
+### Dissimilarity 
+
 First compute the dissimilarity matrix of the normalized response variables, which are normalized loads and $\Delta \delta^{13} C$ values.
 
-### Hierarchical clustering and Ward agglomeration (minimum variance)
+Functions:
 
-We'll be using "eucledian" distances, which are the root sum-of-squares of differences and the defining clusters via hierarchical clustering (hclust) using the "Ward" agglomeration method. Ward's method (Ward, 1963) determines which clusters to merge by evaluating the 'cost' of such a merge against an objective function. Merges with the minimum cost are performed at each stage of the algorithm. Typically, this is implemented by evaluating the sum of squared deviations from cluster centroids. Every possible merge is evaluated at each stage of the algorithm and that which yields the smallest increase in the sum of squared deviations is selected. 
+- daisy()
+- vegdist()
+
+Methods:
+
+- euclidian
 
 ```{r}
 # Compute dissimilarity and distance matrices (Q mode)
 # resWater.dh = vegdist(responseWater.hell, "euclidean") # Hellinger
 # vegdist doesn't allow for NAs
-resWater.dh = daisy(responseWater.hell, "euclidean") # Hellinger
-waterXY.dh = daisy(waterXY.hell, "euclidean")
-waterXY.dh.nona = dist(waterXY.hell.nona, method = "euclidean")
+# resWater.dh = daisy(responseWater.hell, "euclidean") # Hellinger
+water.hell.daisy = daisy(water.hell, "euclidean")
+water.norm.daisy =  daisy(water.norm, "euclidean")
+# waterXY.dh.nona = dist(waterXY.hell.nona, method = "euclidean")
+```
 
+### Hierarchical clustering and Ward agglomeration (minimum variance)
+
+Function:
+
+- hclust()
+
+Method:
+
+- Ward
+
+```{r}
 # Clusterings based on the species/rows dataset
-resWater.hw = hclust(resWater.dh, "ward.D") # Minimum variance clustering
-waterXY.hw = hclust(waterXY.dh, "ward.D")
-waterXY.hw.nona = hclust(waterXY.dh.nona, "ward.D")
+# resWater.hw = hclust(resWater.dh, "ward.D") # Minimum variance clustering
+water.hell.clust = hclust(water.hell.daisy, "ward.D")
+water.norm.clust = hclust(water.norm.daisy, "ward.D")
+
+#waterXY.hw.nona = hclust(waterXY.dh.nona, "ward.D")
+```
+
+## Dendogram plots
+
+```{r}
 
 # Plot dendrograms of Hellinger distance based clusterings
 #windows(5,10)
@@ -356,35 +393,155 @@ waterXY.hw.nona = hclust(waterXY.dh.nona, "ward.D")
 par(mar=c(3,4,1,1)+.1)
 
 #plot(resWater.hw, method ="ward.D", xlab="", sub="")
-plot(waterXY.hw, labels = waterXY$Events, cex=0.6, 
-     method ="ward.D", xlab="With NAs", sub="")
-rect.hclust(waterXY.hw, 3)
+nrow(waterX) 
+nrow(water.norm)
 
-plot(waterXY.hw.nona, labels = waterXY.nona$Events, cex=0.7, 
-     method ="ward.D", xlab="Without NAs", sub="")
-rect.hclust(waterXY.hw.nona, 2)
+plot(water.hell.clust, labels = waterX$Events, cex=0.6, 
+     method ="ward.D", xlab="Hellinger", sub="")
+rect.hclust(water.hell.clust, 4)
 
+plot(water.norm.clust, labels = waterX$Events, cex=0.7, 
+     method ="ward.D", xlab="Normalization", sub="")
+rect.hclust(water.norm.clust, 3)
 
-clusterGroups = cutree(waterXY.hw.nona, k = 3)
-
-# No. of rows/observations
-length(clusterGroups) == lengths(waterXY.hell.nona)[1]
-  
-head(waterXY.hw.nona)
-
-head(waterXY.hell.nona)
-
-
-bindedGroups <- cbind2(clusterGroups, waterXY.hell.nona)
-View(bindedGroups)
-View(waterXY.hell.nona)
 ```
 
-## Extracting labels by group
+### Optimal number of clusters
+
+Method: 
+
+- Hellinger, yields 2 groups
+- Normalization, yields 3 (but lower silhouette value)
+
+```{r}
+# Average silhouette width (Rousseeuw internal quality index) 
+# Hellinger/Ward
+# windows(16,8)
+# par(mfrow=c(1,2))
+
+findOptimal <- function(x, x.hw, x.dh) {
+  # 1st arg: dataframe
+  # 2nd arg: clustered object
+  # 3rd arg: transformed (e.g. normalized) data frame
+  Si = numeric(nrow(x))
+  
+  for (k in 2:(nrow(x)-1)) {
+    sil = silhouette(cutree(x.hw, k=k), x.dh)
+    Si[k] = summary(sil)$avg.width
+  }
+  
+  k.best = which.max(Si)
+  plot(1:nrow(x), Si, type="h", main="Silhouette-optimal number of clusters - Hellinger/Ward",
+       xlab="k (number of groups)", ylab="Average silhouette width")
+  axis(1, k.best, paste("optimum",k.best,sep="\n"), col="red", col.axis="red")
+}
+par(mfrow=c(2,1))  
+
+# 
+findOptimal(waterX, water.hell.clust, water.hell.daisy)
+findOptimal(waterX, water.norm.clust, water.norm.daisy)
+#findOptimal(waterXY.nona, waterXY.hw.nona, waterXY.dh.nona)
+# par(mfrow=c(1,1)) 
+```
+
+## Extracting labels by group and merging with original data
+
+```{r}
+clusterGroups.hell = cutree(water.hell.clust, k = 2)
+clusterGroups.norm = cutree(water.norm.clust, k = 3)
+
+# No. of rows/observations
+length(clusterGroups.hell) == lengths(waterXY)[1]
+  
+bindedGroups.K2.X <- cbind2(clusterGroups.hell, waterXY)
+bindedGroups.K3.X <- cbind2(clusterGroups.norm, waterXY)
+
+bindedGroups.K2.X$x <- as.factor(bindedGroups.K2.X$x)
+
+# Melt & but remove "Events" variable first
+meltGroupK2 <- melt((bindedGroups.K2.X[ , !(names(bindedGroups.K2.X) %in% "Events")]), id=c("x"))
+
+ggplot(data = meltGroupK2, mapping = aes(x = x, y = value, fill = x)) +
+  facet_wrap(~variable, scales = "free") +
+  geom_boxplot()
+
+
+```
+
+## Testing significance between response variables
+
+Student t-test (more than 25 samples, parameteric) and Wilcoxon test (unpaired and 2-sided) (less than 25 samples, non-parameteric); test tends to be significant if the p-value is < 0.1 or better 0.05.
+
+$H_o$: Difference between means is zero
+$H_1$: Difference between means is not zero 
 
 ```{r}
 
+bindedGroups.K2.XY <- merge(bindedGroups.K2.X, responseWater, by = "Events", all = T)
+
+class(bindedGroups.K2.XY$x)
+group1 <- subset(bindedGroups.K2.XY, x == 1)
+group2 <- subset(bindedGroups.K2.XY, x == 2)
+
+x <- group1$DD13C.diss
+y <- group2$DD13C.diss
+
+# Parameteric
+
+### T.test
+t.test(x,y, alternative = c("two.sided"),  conf.level = 0.975)
+t.test(group1$SM.g.nrm , group2$SM.g.nrm, alternative = c("two.sided"),  conf.level = 0.975)
+t.test(group1$maxQ , group2$maxQ, alternative = c("two.sided"),  conf.level = 0.975)
+
+### MANOVA test
+### Raw response variables
+colnames(bindedGroups.K2.XY)
+res.man <- manova(cbind(DD13C.diss, TotSMout.g, MELsm.g, 
+                         Conc.mug.L, OXA_mean, ESA_mean) ~ x, data = bindedGroups.K2.XY)
+### Look to see which differ
+summary.aov(res.man)
+
+### Normalized responses
+res.man.nrm <- manova(cbind(DD.diss.norm, 
+                            SM.g.nrm, MEL.g.nrm, 
+                            SM.g.nrm.prc, MEL.g.nrm.prc) ~ x, data = bindedGroups.K2.XY)
+summary.aov(res.man.nrm)
+
+# Non parameteric
+# wilcox.test(x, y, paired = FALSE, alternative ="two.sided")
+
+
 ```
+
+Testing more than two groups at once.
+
+Kruskal-Wallis test: non-parametric ANOVA (min. 3 samples), test tends to be significant if the p-value is < 0.1 or better 0.05
+
+```{r}
+
+bindedGroups.K3.XY <- merge(bindedGroups.K3.X, responseWater, by = "Events", all = T)
+
+x<-c(600, 100, 1000, 2200, 2900, 2400, 700, 2000, 1700)
+y<-c(200, 100, 200, 800, 1000, 700, 1800, 1900, 2400)
+z<-c(0, 0, 3000, 0, 1000, 0, 3000, 1000, 0)
+
+# Non-parameteric
+kruskal.test(x, y, z)
+```
+
+## Plotting the stat tests
+
+```{r}
+library(proto)
+library(ggplot2)
+ggplot(bindedGroups.K2.XY) +
+  geom_point(aes(x=Conc.mug.L, y=TotSMout.g, color=factor(x)), size=5, shape=20) +
+  stat_ellipse(aes(x=Conc.mug.L,y=TotSMout.g,fill=factor(x)),
+               geom="polygon", level=0.95, alpha=0.2) +
+  guides(color=guide_legend("Cluster"),fill=guide_legend("Cluster")) +
+  theme_bw()
+```
+
 
 
 ## Plotting K-nodes vs. node height
@@ -401,37 +558,9 @@ whichDistPlot <- function(x, x.hw){
 }
 
 # whichDistPlot(responseWater, resWater.hw)
-# whichDistPlot(waterXY, waterXY.hw)
-whichDistPlot(waterXY.nona, waterXY.hw.nona)
+whichDistPlot(waterX, water.hell.clust)
+whichDistPlot(waterX, water.norm.clust)
 
-```
-
-
-### Optimal number of clusters
-
-```{r}
-# Average silhouette width (Rousseeuw internal quality index) 
-# Hellinger/Ward
-# windows(16,8)
-# par(mfrow=c(1,2))
-
-findOptimal <- function(x, x.hw, x.dh) {
-  Si = numeric(nrow(x))
-  
-  for (k in 2:(nrow(x)-1)) {
-    sil = silhouette(cutree(x.hw, k=k), x.dh)
-    Si[k] = summary(sil)$avg.width
-  }
-  
-  k.best = which.max(Si)
-  plot(1:nrow(x), Si, type="h", main="Silhouette-optimal number of clusters - Hellinger/Ward",
-       xlab="k (number of groups)", ylab="Average silhouette width")
-  axis(1, k.best, paste("optimum",k.best,sep="\n"), col="red", col.axis="red")
-}
-par(mfrow=c(2,1))  
-findOptimal(waterXY, waterXY.hw, waterXY.dh)
-findOptimal(waterXY.nona, waterXY.hw.nona, waterXY.dh.nona)
-# par(mfrow=c(1,1)) 
 ```
 
 ## PCA Eigenvalues
@@ -448,35 +577,57 @@ M2 == FALSE
 M3 == TRUE
 
 # The original data frame
-waterXY.nona <- waterXY[complete.cases(waterXY), ]
-head(waterXY.nona)
+#waterX.nona <- waterX[complete.cases(waterX), ]
+#head(waterX.nona)
 
 # The transformed data frame
-waterXY.hell.nona = waterXY.hell[complete.cases(waterXY.hell),]
+#waterX.hell.nona = waterX.hell[complete.cases(waterX.hell),]
 
 # PCA Methods
 
 # Method 1
 # PCA on a covariance matrix (default scale=FALSE)
-waterXY.pca = rda(waterXY.hell.nona)
+#waterX.pca = rda(waterX.hell.nona)
+#waterX.pca.H = rda(waterX.hell)
+#waterX.pca.nH = rda(waterX.normH)
 
 # Method 2
 # Automatic scaling with scale = "TRUE" (no need for earlier transformations/normalization)
-waterXY.pca2 <- rda(waterXY.nona[2:ncol(waterXY.nona)], scale = T)
-waterXY.pca2
+#waterX.pca2 <- rda(waterX.nona[2:ncol(waterX.nona)], scale = T)
+#waterX.pca2
 
 # Method 3
-waterXY.pca.prcomp <- prcomp(waterXY.nona[2:ncol(waterXY.nona)], retx=T, scale.=T) 
-scores <- waterXY.pca.prcomp$x[,1:3]
+#waterXY.pca.prcomp <- prcomp(waterXY.nona[2:ncol(waterXY.nona)], retx=T, scale.=T) 
+#scores <- waterXY.pca.prcomp$x[,1:3]
+
+water.hell.pca <- prcomp(water.hell[1:ncol(water.hell)], retx=T, scale.=F) 
+scores.hell <- water.hell.pca$x[,1:3]
+
+water.norm.pca <- prcomp(water.norm[1:ncol(water.norm)], retx=T, scale.=F) 
+scores.norm <- water.norm.pca$x[,1:3]
 
 # k-means clustering [assume 3 clusters]
-km     <- kmeans(scores, centers=3, nstart=10)
+km2     <- kmeans(scores.hell, centers=2, nstart=10)
+km3     <- kmeans(scores.norm, centers=3, nstart=10)
 ggdata <- data.frame(scores, Cluster=km$cluster, Species=waterXY.nona$Events)
 
-# stat_ellipse is not part of the base ggplot package
-source("https://raw.github.com/low-decarie/FAAV/master/r/stat-ellipse.R") 
+ggdata.hell <- data.frame(scores.hell, Cluster=km2$cluster, Species=waterX$Events)
+ggdata.norm <- data.frame(scores.norm, Cluster=km3$cluster, Species=waterX$Events)
 
-ggplot(ggdata) +
+
+# stat_ellipse is not part of the base ggplot package
+# source("https://raw.github.com/low-decarie/FAAV/master/r/stat-ellipse.R") 
+
+library(proto)
+library(ggplot2)
+ggplot(ggdata.hell) +
+  geom_point(aes(x=PC1, y=PC2, color=factor(Cluster)), size=5, shape=20) +
+  stat_ellipse(aes(x=PC1,y=PC2,fill=factor(Cluster)),
+               geom="polygon", level=0.95, alpha=0.2) +
+  guides(color=guide_legend("Cluster"),fill=guide_legend("Cluster")) +
+  theme_bw()
+
+ggplot(ggdata.norm) +
   geom_point(aes(x=PC1, y=PC2, color=factor(Cluster)), size=5, shape=20) +
   stat_ellipse(aes(x=PC1,y=PC2,fill=factor(Cluster)),
                geom="polygon", level=0.95, alpha=0.2) +

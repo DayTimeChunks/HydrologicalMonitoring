@@ -531,6 +531,46 @@ wsALL
 ```
 
 
+## Testing difference in $\Delta \delta$ between groups
+
+```{r}
+names(WaterSoils)
+keepDDtest <- c(
+  "Date.ti",
+  "diss.d13C.x", # "DD13C.diss",
+  "comp.d13C.North", "comp.d13C.Talweg", "comp.d13C.South" #,
+  #"DD13C.North", "DD13C.Talweg", "DD13C.South"
+)
+
+wsStatTest <- WaterSoils[, colnames(WaterSoils) %in% keepDDtest]
+mwsStatTest <- melt(wsStatTest, id="Date.ti")
+mwsStatTest$Group1 <- ifelse(mwsStatTest$variable == "diss.d13C.x", "Outlet", "Soil")
+mwsStatTest$Group2 <- ifelse(mwsStatTest$variable == "diss.d13C.x", "Outlet", 
+                             ifelse(mwsStatTest$variable == "comp.d13C.Talweg", "Valley", "Plateau"))
+mwsStatTest$Group3 <- ifelse(mwsStatTest$variable == "diss.d13C.x" & 
+                               mwsStatTest$Date.ti > as.POSIXct('2016-05-13 12:06:00', tz = 'EST'), "Outlet(Late)",
+                      ifelse(mwsStatTest$variable == "diss.d13C.x" & 
+                               mwsStatTest$Date.ti <= as.POSIXct('2016-05-13 12:06:00', tz = 'EST'), "Outlet(Early)",
+                      ifelse(mwsStatTest$variable == "comp.d13C.Talweg" & 
+                               mwsStatTest$Date.ti > as.POSIXct('2016-05-13 12:06:00', tz = 'EST'), "Valley(Late)",
+                      ifelse(mwsStatTest$variable == "comp.d13C.Talweg" & 
+                               mwsStatTest$Date.ti <= as.POSIXct('2016-05-13 12:06:00', tz = 'EST'), "Valley(Early)",
+                      ifelse( (mwsStatTest$variable == "comp.d13C.North" | mwsStatTest$variable == "comp.d13C.South") &
+                               mwsStatTest$Date.ti <= as.POSIXct('2016-05-13 12:06:00', tz = 'EST'), "Plateau(Early)", 
+                      ifelse( (mwsStatTest$variable == "comp.d13C.North" | mwsStatTest$variable == "comp.d13C.South") &
+                               mwsStatTest$Date.ti > as.POSIXct('2016-05-13 12:06:00', tz = 'EST'), "Plateau(Late)", NA
+                              ))))))
+
+mwsStatTest$Group1 <- as.factor(mwsStatTest$Group1)
+mwsStatTest$Group2 <- as.factor(mwsStatTest$Group2)
+
+
+library(vegan)
+anosim.group1 <- anosim(mwsStatTest[, 3], grouping = Group1)
+```
+
+
+
 ### Loadings
 
 ```{r}
