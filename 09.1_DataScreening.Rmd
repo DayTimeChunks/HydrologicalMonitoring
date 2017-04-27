@@ -40,6 +40,9 @@ library("scales")
 
 # Stats
 library("vegan")
+
+# Saving a xlxs file
+# library(xlsx)
 ```
 
 # Lab parameters
@@ -132,7 +135,7 @@ soilGrApp$Source <- ifelse(soilGrApp$Transect == "T", "Valley", "Plateau")
 soilGrApp$Source <- as.factor(soilGrApp$Source)
 
 p <- ggplot(data = subset(soilGrApp, !is.na(ngC.Label)), aes(x=Conc.mug.g.dry.soil, y=DD13C.comp))+
-  geom_point(aes(group = Source, size = timeSinceApp, colour = Source)) +  # , shape = ngC.Label)) +
+  geom_point(aes(group = Source, size = timeSinceApp)) + # , colour = Source)) +  # , shape = ngC.Label)) +
   theme_bw() +
   labs(size="Days post appl.", colour="Source" ) + #, shape = "Mass Carbon") +
   ylab(expression(paste({Delta~delta}^"13","C", ' (\u2030)'))) +
@@ -153,7 +156,7 @@ p <- ggplot(data = subset(soilGrApp, !is.na(ngC.Label)), aes(x=Conc.mug.g.dry.so
   #               max.iter = 2e3,
   #               nudge_x = .2)
 p
-#ggsave(p, filename = "DDvsConc_soils.png", width = 8, height = 5, units = "in", scale = 1)
+ggsave(p, filename = "DDvsConc_soils.png", width = 8, height = 5, units = "in", scale = 1)
 #ggplotly(p)
   #stat_smooth(method = "lm", formula = y ~ poly(x, 2)) +
   #stat_smooth(method = "lm", formula = y~x, se=F) 
@@ -200,7 +203,7 @@ mean(c(coef(modelSouth)[2]*1000 , coef(modelNorth)[2]*1000 , coef(modelTalweg)[2
 #summary(modelFull)  
 
 raleigh <- ggplot(data = subset(soilGrApp, ( Wnum > 0 & !is.na(ngC.Label) & !is.na(yRaleigh) )), aes(x=xRaleigh, y=yRaleigh))+
-  geom_point(aes(group = Source, size = timeSinceApp, colour = Source)) +  #, shape = ngC.Label)) +
+  geom_point(aes(group = Source, size = timeSinceApp ))+ #, colour = Source)) +  #, shape = ngC.Label)) +
   theme_bw() +
   scale_size_continuous(range = c(1, 3)) +
   labs(size="Days post appl.", colour="Source") + #, shape = "Mass Carbon") +
@@ -231,7 +234,7 @@ raleigh <- ggplot(data = subset(soilGrApp, ( Wnum > 0 & !is.na(ngC.Label) & !is.
       #           max.iter = 2e3,
        #          nudge_x = .2)
 raleigh
-#ggsave(raleigh, filename = "lnDDvslnConc_soils.png", width = 8, height = 5, units = "in", scale = 1)
+# ggsave(raleigh, filename = "lnDDvslnConc_soils.png", width = 8, height = 5, units = "in", scale = 1)
 ```
 
 
@@ -573,6 +576,44 @@ Gr1 <- na.omit(mwsStatTest[, colnames(mwsStatTest) %in% c("value", "Group1")])
 Gr2 <- na.omit(mwsStatTest[, colnames(mwsStatTest) %in% c("value", "Group2")])
 Gr3 <- na.omit(mwsStatTest[, colnames(mwsStatTest) %in% c("value", "Group3")])
 
+
+# Test for homogeneity of variance
+# Large p-value means no confirmation of homogeneity of variance
+bartlett.test(value ~ as.factor(Group3), data = Gr3)
+
+# Non-parameteric
+# Reject Ho that pop. means are the same if low p-value
+res.krs.Grp3 <- kruskal.test(value ~ as.factor(Group3), data = Gr3)
+res.krs.Grp3
+
+# Want a TukeyHSD function, but this only works with
+# parametric data. So, will pass the ranks of the data instead of the actual values
+Gr3.ranks <- rank( Gr3$value )
+Gr3.groups <- Gr3$Group3
+group3.aov <- aov(Gr3.ranks ~ Gr3.groups) 
+res.grp3 <- TukeyHSD(group3.aov, ordered = T)
+aov.res.grp3.df <- as.data.frame(res.grp3$Gr3.groups)
+write.csv(aov.res.grp3.df, "aovResISOs_ranked.csv", row.names = T)
+```
+
+## ANOVA and ANOSIM
+Not actually used, as Grouping 3 does not have homegenity of variance 
+
+```{r}
+
+# Simple ANOVA tests 
+# (high p-value indicates lack of difference)
+# Big P-value no significant difference
+boxplot(Gr1$value ~ Gr1$Group1)
+summary(aov(Gr1$value ~ Gr1$Group1))
+TukeyHSD(aov(Gr1$value ~ Gr1$Group1))
+
+boxplot(Gr3$value ~ Gr3$Group3)
+group3.aov <- aov(Gr3$value ~ Gr3$Group3)
+summary(group3.aov)
+
+
+
 # Transform data and compute dissimilarity
 Gr1.hell <- decostand(Gr1[ , 1], "hellinger", na.rm=T, MARGIN = 2) # Transform/Standardize
 Gr1.hell.daisy = daisy(Gr1.hell, "euclidean") # Dissimilarity
@@ -593,25 +634,7 @@ anosim.group3 <- anosim(Gr3.hell.daisy, grouping = Group3)
 summary(anosim.group3)
 
 plot(anosim.group3)
-
-
-# Simple ANOVA tests 
-# (high p-value indicates lack of difference)
-# Big P-value no significant difference
-boxplot(Gr1$value ~ Gr1$Group1)
-summary(aov(Gr1$value ~ Gr1$Group1))
-TukeyHSD(aov(Gr1$value ~ Gr1$Group1))
-
-boxplot(Gr3$value ~ Gr3$Group3)
-group3.aov <- aov(Gr3$value ~ Gr3$Group3)
-summary(group3.aov)
-
-res.grp3 <- TukeyHSD(group3.aov, ordered = T)
-library(xlsx)
-aov.res.grp3.df <- as.data.frame(res.grp3$`Gr3$Group3`)
-write.xlsx(aov.res.grp3.df, "aovResISOs.xlsx", row.names = T)
 ```
-
 
 
 ### Loadings
