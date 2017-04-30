@@ -23,6 +23,7 @@ Imports:
 Generates:
 
 - **WeekSoilHydroCont_R.csv**
+- **MassBalance_R.csv**
 
 ## Required R-packages:
 
@@ -92,30 +93,30 @@ str(soils)
 # North
 soils.N <- subset(soils, soils$Transect == "N")
 soils.N <- soils.N[, c("Date.ti", "B.mean.comp",  "B.max.comp",  "B.min.comp",  "MassSoil.g", 
-                       "comp.d13C", "comp.d13C.SD", "comp.d13C.SE", 
+                       "comp.d13C", "comp.d13C.SD", # "comp.d13C.SE", 
                        "ID", "Area.N", "Area.T", "Area.S" )]
 
 colnames(soils.N) <- c("ti",  "B.mean.comp.North", "B.max.comp.North", "B.min.comp.North", "MassSoil.g.North", 
-                       "comp.d13C.North", "comp.d13C.SD.North", "comp.d13C.SE.North",  
+                       "comp.d13C.North", "comp.d13C.SD.North", # "comp.d13C.SE.North",  
                        "ID.N", "Area.N", "Area.T", "Area.S" )
 
 # Talweg
 soils.T <- subset(soils, soils$Transect == "T")
 soils.T <- soils.T[, c("Date.ti", "B.mean.comp",  "B.max.comp",  "B.min.comp", "MassSoil.g", 
-                       "comp.d13C", "comp.d13C.SD", "comp.d13C.SE", 
+                       "comp.d13C", "comp.d13C.SD", # "comp.d13C.SE", 
                        "ID")]
 
 colnames(soils.T) <- c("ti",  "B.mean.comp.Talweg", "B.max.comp.Talweg", "B.min.comp.Talweg", "MassSoil.g.Talweg", 
-                       "comp.d13C.Talweg", "comp.d13C.SD.Talweg", "comp.d13C.SE.Talweg", 
+                       "comp.d13C.Talweg", "comp.d13C.SD.Talweg", # "comp.d13C.SE.Talweg", 
                        "ID.T" )
 
 # South
 soils.S <- subset(soils, soils$Transect == "S")
 soils.S <- soils.S[, c("Date.ti", "B.mean.comp",  "B.max.comp",  "B.min.comp", "MassSoil.g", 
-                       "comp.d13C", "comp.d13C.SD", "comp.d13C.SE", 
+                       "comp.d13C", "comp.d13C.SD", # "comp.d13C.SE", 
                        "ID" )]
 colnames(soils.S) <- c("ti",  "B.mean.comp.South", "B.max.comp.South", "B.min.comp.South", "MassSoil.g.South", 
-                       "comp.d13C.South", "comp.d13C.SD.South", "comp.d13C.SE.South",
+                       "comp.d13C.South", "comp.d13C.SD.South", # "comp.d13C.SE.South",
                        "ID.S" )
 
 ```
@@ -162,7 +163,6 @@ soilsOut$CatchMassSoil.g <-
 #                                        soilsOut$CatchMassSoil.g) 
 
 
-
 soilsOut$BulkMass.g <- 
   soilsOut$MassSoil.g.North*(soilsOut$Area.N/(soilsOut$Area.N+soilsOut$Area.T+soilsOut$Area.S)) +
   soilsOut$MassSoil.g.Talweg*(soilsOut$Area.T/(soilsOut$Area.N+soilsOut$Area.T+soilsOut$Area.S)) +
@@ -178,6 +178,8 @@ soilsOut$BulkCatch.d13.SD <-
   (soilsOut$MassSoil.g.North/soilsOut$CatchMassSoil.g)*soilsOut$comp.d13C.SD.North + 
   (soilsOut$MassSoil.g.Talweg/soilsOut$CatchMassSoil.g)*soilsOut$comp.d13C.SD.Talweg + 
   (soilsOut$MassSoil.g.South/soilsOut$CatchMassSoil.g)*soilsOut$comp.d13C.SD.South
+
+  
 
 # Lab epsilon (mean)
 epsilon_mean
@@ -293,7 +295,6 @@ massBal_MEL <- ggplot(pgSimple) +
         axis.text.x=element_blank(),
         axis.title.x=element_blank(),
         legend.position="top"
-        
         )+
   labs(color = "Estimated Mass") +
   guides(col = guide_legend(ncol = 3)) +  # Sets legend parameters

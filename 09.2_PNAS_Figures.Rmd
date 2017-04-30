@@ -359,7 +359,7 @@ deltaTime
 
 ```{r, fig.height=3, fig.width=3}
 
-limits_DdCsoil <- aes(ymin=comp.d13C-comp.d13C.SE-initialDelta, ymax=comp.d13C+comp.d13C.SE-initialDelta, colour = Transect)
+limits_DdCsoil <- aes(ymin=comp.d13C-comp.d13C.SD-initialDelta, ymax=comp.d13C+comp.d13C.SD-initialDelta, colour = Transect)
 
 weeklySoil$ngC.Label <- ifelse(weeklySoil$ngC.mean < 10, "< 10 ng", "> 10 ng")
                                
@@ -584,7 +584,7 @@ if (SHOW) {
     ylab("") +
     
     # Smooth linear models
-    stat_smooth(method = "lm", formula = y ~ poly(x, 2)) +
+      stat_smooth(method = "lm", formula = y ~ poly(x, 2)) +
     #geom_hline(yintercept = -31.21, color = "dodgerblue4", linetype = "dotted") +
     #geom_hline(yintercept = -30.71, color = "dodgerblue3", linetype = "dotted") +
     #geom_hline(yintercept = -31.71, color = "dodgerblue3", linetype = "dotted") +

@@ -134,23 +134,25 @@ colnames(weeklySoilIso)[colnames(weeklySoilIso) == "ng..C."] <- "ngC"
 colnames(weeklySoilIso)[colnames(weeklySoilIso) == "Filename"] <- "ID"
 
 weeklySoilIso <- weeklySoilIso[, c("ID",
-                                   "Repl",
+                                   # "Repl",
                                    "d.13C.12C",
                                    "DD13", 
                                    "ngC")]
 
-weeklySoilIso <- subset(weeklySoilIso, DD13 > 0 & DD13 < 10 & ngC > 5)
+weeklySoilIso <- weeklySoilIso[complete.cases(weeklySoilIso),]
+# weeklySoilIso <- subset(weeklySoilIso, DD13 < 10) # & ngC > 5)
 
 
 isoCompSummary = ddply(weeklySoilIso, c("ID"), summarise,
                          N_compsoil    = length(d.13C.12C),
                          comp.d13C = mean(d.13C.12C),
                          comp.d13C.SD = sd(d.13C.12C),
-                         comp.d13C.SE = comp.d13C.SD / sqrt(N_compsoil),
+                         # comp.d13C.SE = comp.d13C.SD / sqrt(N_compsoil),
                          N_ngC = length(ngC),
                          ngC.mean = mean(ngC),
-                         ngC.SD = sd(ngC),
-                         ngC.SE = ngC.SD/sqrt(N_ngC))
+                         ngC.SD = sd(ngC) #,
+                         # ngC.SE = ngC.SD/sqrt(N_ngC)
+                       )
 
 
 print("Soil Composites - Isotopes All")

@@ -235,6 +235,7 @@ watSoilMerged$MEL.g.nrm.prc <- watSoilMerged$MELsm.g/watSoilMerged$CumPrctMassOu
 # Main data frame -> "waterSmall"
 includeWater <- c(
   "Events",
+  "Peak",
   # Response variables
   "Conc.mug.L", "OXA_mean", "ESA_mean", 
   "SM.g.nrm", "MEL.g.nrm", "SM.g.nrm.prc", "MEL.g.nrm.prc",
@@ -245,8 +246,8 @@ includeWater <- c(
   # "Cl.mM", "NO3..mM",
   "ExpMES.Kg", 
   # Independent/event variables
-  "DIa", "DIb", "maxQ",
-  "Duration.Hrs", "Volume.m3" )#, "AveDischarge.m3.h")
+  "DIa", "DIb", "maxQ", "chExtreme" ,
+  "Duration.Hrs", "Volume.m3", "AveDischarge.m3.h")
 
 waterSmall <- watSoilMerged[ , (names(watSoilMerged) %in% includeWater)]
 
@@ -259,6 +260,8 @@ if (is.na(waterSmall$DD.diss.norm[1])) {
 }
 waterSmall$DD.diss.norm <- na.locf(waterSmall$DD.diss.norm)
 waterSmall$DD.diss.norm <- ifelse(is.na(waterSmall$DD13C.diss), NA, waterSmall$DD.diss.norm)
+waterSmall$Sequence <- ifelse(is.na(waterSmall$Peak), 2, 1)
+
 
 # Lets reduce the data set even more to only response variables. 
 includeResponse <- c(
@@ -278,18 +281,19 @@ includeResponse <- c(
 
 hydro <- c(
   "Events",
+  # "Peak", #"Sequence",
   # Response variables
   #"Conc.mug.L", "OXA_mean", "ESA_mean", 
   #"SM.g.nrm", "MEL.g.nrm", 
-  #"SM.g.nrm.prc", "MEL.g.nrm.prc",
+  # "SM.g.nrm.prc", "MEL.g.nrm.prc", 
   #"diss.d13C",
-  #"DD13C.diss","DD.diss.norm",
-  #"TotSMout.g", "MELsm.g",
+  "DD13C.diss", #"DD.diss.norm",
+  "TotSMout.g", "MELsm.g",
   #"TPs.g", "DissOXA.g", "DissESA.g",
   # "Cl.mM", "NO3..mM",
-  #"ExpMES.Kg"
+  "ExpMES.Kg",
   # Independent/event variables
-  "DIa", "maxQ",
+  "DIa", "maxQ", # "chExtreme", 
   "Duration.Hrs", "Volume.m3", "AveDischarge.m3.h")
 
 responseWater <- waterSmall[ , (names(waterSmall) %in% includeResponse)]
@@ -317,17 +321,19 @@ ncol(waterXY)
 # Re-arrange columns to have "Events" as Index
 colnames(waterXY)
 waterX <- waterXY[c("Events", 
-                     "maxQ", "Duration.Hrs", "Volume.m3", "DIa" #,
+                     "maxQ", "AveDischarge.m3.h", # "chExtreme",
+                    "Duration.Hrs", "Volume.m3" , "DIa", 
+                    "ExpMES.Kg" #, "Sequence"
                      #"DD13C.diss",  "DD.diss.norm", "SM.g.nrm.prc", "MEL.g.nrm.prc"
                      )]
 if ( class(waterX[, 1])== "factor") {
   # Hellinger
-  water.hell <- decostand(waterX[, 2:5], "hellinger", na.rm=T, MARGIN = 2)
+  water.hell <- decostand(waterX[, 2:7], "hellinger", na.rm=T, MARGIN = 2)
   # waterXY.hell.nona <- waterXY.hell[complete.cases(waterXY.hell),]
   
   # Normalize to 1
   # make margin sum of squares equal to one (default MARGIN = 1)
-  water.norm <- decostand(waterX[, 2:5], "norm", na.rm=T, MARGIN = 2) # Columns
+  water.norm <- decostand(waterX[, 2:7], "norm", na.rm=T, MARGIN = 2) # Columns
   #water.normV <- decostand(waterX[, 2:5], "norm", na.rm=T, MARGIN = 2) 
 }
 
@@ -448,23 +454,64 @@ findOptimal(waterX, water.norm.clust, water.norm.daisy)
 
 ```{r}
 clusterGroups.hell = cutree(water.hell.clust, k = 2)
-clusterGroups.norm = cutree(water.norm.clust, k = 3)
+clusterGroups.norm = cutree(water.norm.clust, k = 2)
 
 # No. of rows/observations
 length(clusterGroups.hell) == lengths(waterXY)[1]
   
 bindedGroups.K2.X <- cbind2(clusterGroups.hell, waterXY)
-bindedGroups.K3.X <- cbind2(clusterGroups.norm, waterXY)
+names(bindedGroups.K2.X)[names(bindedGroups.K2.X) == "x"] <- "Cluster"
+bindedGroups.K2.X$Cluster <- as.factor(bindedGroups.K2.X$Cluster)
 
-bindedGroups.K2.X$x <- as.factor(bindedGroups.K2.X$x)
+#bindedGroups.K3.X <- cbind2(clusterGroups.norm, waterXY)
+
+bindedGroups.K2.XY <- merge(bindedGroups.K2.X, responseWater, by = "Events", all = T)
+#class(bindedGroups.K2.XY$x)
+#group1 <- subset(bindedGroups.K2.XY, x == 1)
+#group2 <- subset(bindedGroups.K2.XY, x == 2)
+
+#x <- group1$DD13C.diss.x
+#y <- group2$DD13C.diss.x
+
+# Parameteric
+### T.test
+#t.test(x,y, alternative = c("two.sided"),  conf.level = 0.975)
+#t.test(group1$SM.g.nrm , group2$SM.g.nrm, alternative = c("two.sided"),  conf.level = 0.975)
+#t.test(group1$maxQ , group2$maxQ, alternative = c("two.sided"),  conf.level = 0.975)
+
+### MANOVA test
+### Raw response variables
+colnames(bindedGroups.K2.XY)
+res.man <- manova(cbind(DD13C.diss.x, TotSMout.g.x, MELsm.g.x, 
+                         Conc.mug.L, OXA_mean, ESA_mean) ~ Cluster, data = bindedGroups.K2.XY)
+### Look to see which differ
+summary.aov(res.man)
+
+plist <- c(summary.aov(res.man)[[1]][["Pr(>F)"]][1], 
+           summary.aov(res.man)[[2]][["Pr(>F)"]][1],
+           summary.aov(res.man)[[4]][["Pr(>F)"]][1])
 
 # Melt & but remove "Events" variable first
-meltGroupK2 <- melt((bindedGroups.K2.X[ , !(names(bindedGroups.K2.X) %in% "Events")]), id=c("x"))
+meltGroupK2 <- melt((bindedGroups.K2.X[ , !(names(bindedGroups.K2.X) %in% "Events")]), id=c("Cluster"))
 
-ggplot(data = meltGroupK2, mapping = aes(x = x, y = value, fill = x)) +
+subGroupK2 <- subset(meltGroupK2, 
+                     (variable == 'DD13C.diss' 
+                      | variable == 'TotSMout.g'
+                      | variable == 'MELsm.g'
+                      | variable == 'maxQ'
+                      | variable == 'Volume.m3'
+                      | variable == 'Duration.Hrs')
+                     )
+
+
+
+groupBoxPlot <- ggplot(data = subGroupK2, mapping = aes(x = Cluster, y = value, fill = Cluster)) +
   facet_wrap(~variable, scales = "free") +
-  geom_boxplot()
+  geom_boxplot() +
+  theme_bw()
 
+groupBoxPlot
+ggsave(groupBoxPlot, filename = "groupBoxPlot.png", width = 8, height = 5, units = "in", scale = 1)
 
 ```
 
@@ -477,35 +524,14 @@ $H_1$: Difference between means is not zero
 
 ```{r}
 
-bindedGroups.K2.XY <- merge(bindedGroups.K2.X, responseWater, by = "Events", all = T)
 
-class(bindedGroups.K2.XY$x)
-group1 <- subset(bindedGroups.K2.XY, x == 1)
-group2 <- subset(bindedGroups.K2.XY, x == 2)
 
-x <- group1$DD13C.diss
-y <- group2$DD13C.diss
-
-# Parameteric
-
-### T.test
-t.test(x,y, alternative = c("two.sided"),  conf.level = 0.975)
-t.test(group1$SM.g.nrm , group2$SM.g.nrm, alternative = c("two.sided"),  conf.level = 0.975)
-t.test(group1$maxQ , group2$maxQ, alternative = c("two.sided"),  conf.level = 0.975)
-
-### MANOVA test
-### Raw response variables
-colnames(bindedGroups.K2.XY)
-res.man <- manova(cbind(DD13C.diss, TotSMout.g, MELsm.g, 
-                         Conc.mug.L, OXA_mean, ESA_mean) ~ x, data = bindedGroups.K2.XY)
-### Look to see which differ
-summary.aov(res.man)
 
 ### Normalized responses
-res.man.nrm <- manova(cbind(DD.diss.norm, 
-                            SM.g.nrm, MEL.g.nrm, 
-                            SM.g.nrm.prc, MEL.g.nrm.prc) ~ x, data = bindedGroups.K2.XY)
-summary.aov(res.man.nrm)
+#res.man.nrm <- manova(cbind(DD.diss.norm, 
+#                            SM.g.nrm, MEL.g.nrm, 
+#                            SM.g.nrm.prc, MEL.g.nrm.prc) ~ x, data = bindedGroups.K2.XY)
+#summary.aov(res.man.nrm)
 
 # Non parameteric
 # wilcox.test(x, y, paired = FALSE, alternative ="two.sided")
@@ -528,20 +554,6 @@ z<-c(0, 0, 3000, 0, 1000, 0, 3000, 1000, 0)
 # Non-parameteric
 kruskal.test(x, y, z)
 ```
-
-## Plotting the stat tests
-
-```{r}
-library(proto)
-library(ggplot2)
-ggplot(bindedGroups.K2.XY) +
-  geom_point(aes(x=Conc.mug.L, y=TotSMout.g, color=factor(x)), size=5, shape=20) +
-  stat_ellipse(aes(x=Conc.mug.L,y=TotSMout.g,fill=factor(x)),
-               geom="polygon", level=0.95, alpha=0.2) +
-  guides(color=guide_legend("Cluster"),fill=guide_legend("Cluster")) +
-  theme_bw()
-```
-
 
 
 ## Plotting K-nodes vs. node height
@@ -572,9 +584,9 @@ Plot the eigen values for each component and a line depicting the mean eigen val
 ```{r}
 
 # Choose method:
-M1 == FALSE
-M2 == FALSE
-M3 == TRUE
+M1 = FALSE
+M2 = FALSE
+M3 = TRUE
 
 # The original data frame
 #waterX.nona <- waterX[complete.cases(waterX), ]
@@ -607,9 +619,9 @@ water.norm.pca <- prcomp(water.norm[1:ncol(water.norm)], retx=T, scale.=F)
 scores.norm <- water.norm.pca$x[,1:3]
 
 # k-means clustering [assume 3 clusters]
-km2     <- kmeans(scores.hell, centers=2, nstart=10)
-km3     <- kmeans(scores.norm, centers=3, nstart=10)
-ggdata <- data.frame(scores, Cluster=km$cluster, Species=waterXY.nona$Events)
+km2     <- kmeans(scores.hell, centers=4, nstart=10)
+km3     <- kmeans(scores.norm, centers=2, nstart=10)
+# ggdata <- data.frame(scores, Cluster=km$cluster, Species=waterXY.nona$Events)
 
 ggdata.hell <- data.frame(scores.hell, Cluster=km2$cluster, Species=waterX$Events)
 ggdata.norm <- data.frame(scores.norm, Cluster=km3$cluster, Species=waterX$Events)
@@ -623,7 +635,7 @@ library(ggplot2)
 ggplot(ggdata.hell) +
   geom_point(aes(x=PC1, y=PC2, color=factor(Cluster)), size=5, shape=20) +
   stat_ellipse(aes(x=PC1,y=PC2,fill=factor(Cluster)),
-               geom="polygon", level=0.95, alpha=0.2) +
+               geom="polygon", level=0.90, alpha=0.2) +
   guides(color=guide_legend("Cluster"),fill=guide_legend("Cluster")) +
   theme_bw()
 
