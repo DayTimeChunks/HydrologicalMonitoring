@@ -504,7 +504,6 @@ subGroupK2 <- subset(meltGroupK2,
                      )
 
 
-
 groupBoxPlot <- ggplot(data = subGroupK2, mapping = aes(x = Cluster, y = value, fill = Cluster)) +
   facet_wrap(~variable, scales = "free") +
   geom_boxplot() +

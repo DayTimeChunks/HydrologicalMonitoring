@@ -247,7 +247,9 @@ raleigh
 # ggsave(raleigh, filename = "lnDDvslnConc_soils.png", width = 8, height = 5, units = "in", scale = 1)
 ```
 
-Import water
+# Import waters
+
+## Compare mass balance, theoretical and CSIA
 
 ```{r}
 waters = read.csv2("Data/WeeklyHydroContam_R.csv")
@@ -259,7 +261,7 @@ waters$Event <- factor(waters$Event, levels = unique(waters$Event))
 dropWater <- c("N.x", "N.y", 
                "Markers" , "TimeDiff", 
                "se.d13C", "MES.mg.L", "MES.sd", "MO.mg.L", "filt.se.d13C", "f.diss", "f.filt",
-               "Appl.Mass.g", 
+               # "Appl.Mass.g", 
                "DissSmeto.mg", "DissSmeto.mg.SD", 
                "DissOXA.mg", "DissOXA.mg.SD", 
                "DissESA.mg", "DissESA.mg.SD",
@@ -267,6 +269,191 @@ dropWater <- c("N.x", "N.y",
                "TotSMout.mg", "TotSMout.mg.SD",
                "FracDiss", "FracFilt")
 waters <- waters[ , !(names(waters) %in% dropWater)]
+
+# Half-life calculations (days)
+median_half <- 29 
+max_half <- 12
+min_half <- 46
+
+
+waters$No_First <- ifelse(waters$Appl.Mass.g == 0, NA, waters$Appl.Mass.g)
+waters$No_Second <- waters$No_First
+waters$No_Second[1] <- 0
+waters$No_Third <- waters$No_Second
+waters$No_Second[which(!is.na(waters$No_Second))[3]] <- NA
+waters$No_Third[which(!is.na(waters$No_Second))[2]] <- NA
+
+waters$No_First <- na.locf( waters$No_First )
+waters$No_Second <- na.locf(waters$No_Second)
+waters$No_Third <- na.locf(waters$No_Third)
+
+# Compute cumulative time for first, second and third applications
+waters$CumDays_First <- cumsum(waters$Duration)/24
+
+waters$dt_Second <- ifelse(waters$No_Second == 0, 0, waters$Duration)
+waters$CumDays_Second <- cumsum(waters$dt_Second)/24
+waters$dt_Second <- NULL
+
+waters$dt_Third <- ifelse(waters$No_Third == 0, 0 , waters$Duration)
+waters$CumDays_Third <- cumsum(waters$dt_Third)/24
+waters$dt_Third <- NULL
+
+waters$remain_1st_29d <- waters$No_First*(0.5)^(waters$CumDays_First/median_half)
+waters$remain_2nd_29d <- waters$No_Second*(0.5)^(waters$CumDays_Second/median_half)
+waters$remain_3rd_29d <- waters$No_Third*(0.5)^(waters$CumDays_Third/median_half)
+
+waters$remain_1st_46d <- waters$No_First*(0.5)^(waters$CumDays_First/min_half)
+waters$remain_2nd_46d <- waters$No_Second*(0.5)^(waters$CumDays_Second/min_half)
+waters$remain_3rd_46d <- waters$No_Third*(0.5)^(waters$CumDays_Third/min_half)
+
+waters$remain_1st_12d <- waters$No_First*(0.5)^(waters$CumDays_First/max_half)
+waters$remain_2nd_12d <- waters$No_Second*(0.5)^(waters$CumDays_Second/max_half)
+waters$remain_3rd_12d <- waters$No_Third*(0.5)^(waters$CumDays_Third/max_half)
+
+waters$remainMedTheo_prc <- ((waters$remain_1st_29d + waters$remain_2nd_29d + waters$remain_3rd_29d)/waters$CumAppMass.g)*100
+waters$remainMinTheo_prc <- ((waters$remain_1st_46d + waters$remain_2nd_46d + waters$remain_3rd_46d)/waters$CumAppMass.g)*100
+waters$remainMaxTheo_prc <- ((waters$remain_1st_12d + waters$remain_2nd_12d + waters$remain_3rd_12d)/waters$CumAppMass.g)*100
+
+colnames(waters)
+dropWater2 <- c("No_First", "No_Second" ,"No_Third",
+                "CumDays_First", "CumDays_Second", "CumDays_Third", 
+                "remain_1st_29d", "remain_2nd_29d", "remain_3rd_29d", 
+                "remain_1st_46d", "remain_2nd_46d", "remain_3rd_46d",
+                "remain_1st_12d", "remain_2nd_12d", "remain_3rd_12d")
+
+waters <- waters[ , !(names(waters) %in% dropWater2)]
+
+keepWaterMB <- c("Date.ti", "CumAppMass.g",
+                 # MB
+                 "CumOutSmeto.g", "CumOutMELsm.g" ,
+                 "remainMedTheo_prc", "remainMinTheo_prc", "remainMaxTheo_prc",
+                 # CSIA
+                 "B.diss", "SD.d13C")
+
+# Get last 5 rows, omit NA's, will return rows only where B.diss was not NA
+watersMassBal <- na.omit(waters[ , (names(waters) %in% keepWaterMB)])
+watersMassBal <- subset(watersMassBal, SD.d13C < 1)
+
+watersMassBal$SMout_prc <- (watersMassBal$CumOutSmeto.g/watersMassBal$CumAppMass.g)*100
+watersMassBal$TPout_prc <- (watersMassBal$CumOutMELsm.g/watersMassBal$CumAppMass.g)*100
+watersMassBal$f <- 100 - (watersMassBal$B.diss + watersMassBal$SMout_prc)
+watersMassBal$SD.d13C <- NULL
+
+
+mayBal <- subset(watersMassBal, (Date.ti > as.POSIXct("2016-04-01 00:00:00", tz = "EST") 
+                 & Date.ti < as.POSIXct("2016-05-01 00:00:00", tz = "EST")) )
+juneBal <- subset(watersMassBal, (Date.ti > as.POSIXct("2016-06-07 00:00:00", tz = "EST") 
+                 & Date.ti <= as.POSIXct("2016-06-24 14:52:00", tz = "EST")) )
+
+B.mean.may <- mean(mayBal$B.diss)
+B.sd.may <- sd(mayBal$B.diss)
+f.mean.may <- mean(mayBal$f)
+f.sd.may <- sd(mayBal$f)
+
+B.mean.june <- mean(juneBal$B.diss)
+B.sd.june <- sd(juneBal$B.diss)
+f.mean.june <- mean(juneBal$f)
+f.sd.june <- sd(juneBal$f)
+
+mayBal <- tail(mayBal, n=1)
+mayBal$B.mean <- B.mean.may
+mayBal$B.sd <- B.sd.may
+mayBal$f.mean <- f.mean.may
+mayBal$f.sd <- f.sd.may
+mayBal$DegMed <- 100 - mayBal$remainMedTheo_prc
+mayBal$DegLow <- 100 - mayBal$remainMinTheo_prc
+mayBal$DegHigh <- 100 - mayBal$remainMaxTheo_prc
+mayBal$Month <- "April"
+
+juneBal <- tail(juneBal, n=1)
+juneBal$B.mean <- B.mean.june
+juneBal$B.sd <- B.sd.june
+juneBal$f.mean <- f.mean.june
+juneBal$f.sd <- f.sd.june
+juneBal$DegMed <- 100 - juneBal$remainMedTheo_prc
+juneBal$DegLow <- 100 - juneBal$remainMinTheo_prc
+juneBal$DegHigh <- 100 - juneBal$remainMaxTheo_prc
+juneBal$Month <- "June"
+
+
+bal <- rbind(mayBal, juneBal)
+bal$SMout.SD1 <- NA
+bal$SMout.SD2 <- NA
+bal$TPout.SD1 <- NA
+bal$TPout.SD2 <- NA
+
+bal$B.sd2 <- bal$B.sd
+bal$f.sd2 <- bal$f.sd
+
+bal$B.diss <- NULL
+bal$f <- NULL
+bal$Date.ti <- NULL
+bal$CumAppMass.g <- NULL
+bal$CumOutSmeto.g <- NULL
+bal$CumOutMELsm.g <- NULL
+
+
+names(bal)
+bal <- bal[c("Month", 
+             "B.mean" , "B.sd" ,  "B.sd2", 
+              "f.mean" , "f.sd" , "f.sd2", 
+             "DegMed", "DegLow", "DegHigh", 
+             "remainMedTheo_prc", "remainMinTheo_prc", "remainMaxTheo_prc",
+             "SMout_prc",  "SMout.SD1", "SMout.SD2",
+             "TPout_prc", "TPout.SD1", "TPout.SD2")]
+
+names(bal) <- c("Month", 
+             "B.measure" , "B.SD1" ,  "B.SD2", 
+              "f.measure" , "f.SD1" , "f.SD2", 
+             "Deg.measure", "Deg.SD1", "Deg.SD2", 
+             "Rem.measure", "Rem.SD1", "Rem.SD2",
+             "SMout.measure",  "SMout.SD1", "SMout.SD2",
+             "TPout.measure", "TPout.SD1", "TPout.SD2")
+
+balTidy <- bal %>%
+  gather(measure, value, -Month) %>% # Melts data frame
+  separate(measure, into = c("Sink", "temporary_var")) %>% # parses the sep = "." into...
+  spread(temporary_var, value) # Moves molten temporary variable to own column 
+
+type <- rep(c("CSIA", "Theoretical", "CSIA", "Theoretical", "MB", "MB"), 2)
+
+balTidyType <- cbind(balTidy, type)
+
+balTidyType$Sink <- as.factor(balTidyType$Sink)
+balTidyType$Sink <- factor(balTidyType$Sink, levels = c("B" , "TPout",  "Deg" ,"f" ,"SMout", "Rem"))
+levels(balTidyType$Sink)
+
+ggplot(data = balTidyType , aes(x=factor(Month), y=measure))+
+  geom_bar(stat = "identity", aes(fill = Sink), position = "dodge") +
+  geom_errorbar(data = balTidyType, aes(x=factor(Month), y=measure, ymin=SD1, ymax=SD2),
+                  width=.2 , # ) + #,                    # Width of the error bars
+                  position=position_dodge(.9)) + 
+  theme_bw() +
+  ylab("% S-MET") +
+  xlab("Month") +
+  facet_wrap(~type) +
+  scale_fill_manual(#values = c("#238b45", "#41ab5d", "#74c476", "#40004b", "#762a83", "#9970ab" ), # green-purple
+                    values = c("#238b45", "#41ab5d", "#74c476", "#ec7014", "#fe9929", "#fec44f" ), # green-orange
+                    #values = c("#80cdc1", "#018571", "#a6611a", "#dfc27d", "#80cdc1", "#018571"),
+                    name= element_blank(), #"Mass Balance", # \n
+                       breaks=c("B", "f" , 
+                                "TPout" , "SMout" , 
+                                "Deg", "Rem" 
+                                ),
+                       labels=c("Degr. (CSIA)", "Persist. (CSIA)", 
+                                "Degr. (MB)", "S-MET Loads (MB)", 
+                                "Degr. (DT50)" , "Persist. (DT50)"
+                                 )) 
+  
+
+```
+
+## Water Rayleigh plots
+
+```{r}
+
+#waters$remain_maxHalf
+#waters$remain_minHalf
 
 waterCo <- max(waters$Conc.mug.L)
 d13Co
@@ -337,11 +524,10 @@ waterIsoConc  <- ggplot(data = subset(waterClean, ngC.mean.diss > 5), aes(x=Conc
   annotate("text", x = 22, y = 2.3, label = water_p_label, parse = T, size = 3.5)
 
 waterIsoConc 
-ggsave(waterIsoConc , filename = "DDvsConc_water.png", width = 8, height = 5, units = "in", scale = 1)
-
-
+# ggsave(waterIsoConc , filename = "DDvsConc_water.png", width = 8, height = 5, units = "in", scale = 1)
 
 ```
+
 
 
 ### Correlations Waters
@@ -419,9 +605,9 @@ names(wsSmall) <- c("Date", "Event",
 #  paste0(names(wsSmall)[-1][seq(1, length(names(wsSmall)) - 1, 2)], "-measure")
 
 wstidier <- wsSmall %>%
-  gather(measure, value, -Date, -Event) %>%
-  separate(measure, into = c("Location", "temporary_var")) %>%
-  spread(temporary_var, value)
+  gather(measure, value, -Date, -Event) %>% # Melts data frame
+  separate(measure, into = c("Location", "temporary_var")) %>% # parses the sep = "." into...
+  spread(temporary_var, value) 
 
 wstidier$Type <- ifelse(wstidier$Location == "diss", "Dissolved", 
                   ifelse(wstidier$Location == "filt", "Sediment",
@@ -527,7 +713,7 @@ wsPlot <- ggplot(data = wsNoPlat, aes(x = Date, y = measure)) +
 
 wstidier2 = subset(wstidier, SD <= 1 ) #& Source != "Bulk"  ) #& Date < as.POSIXct('2016-06-14 08:04:00'))
 pd <- position_dodge(width = 0.4)
-wsALL <- ggplot(data = wstidier2, aes(x = Date, y = measure, group = Source) )+ 
+wsALL_lab <- ggplot(data = wstidier2, aes(x = Date, y = measure, group = Source) )+ 
   geom_errorbar(data=subset(wstidier2, Source == 'Bulk'), limits_DdC, size=0.2) +
   geom_errorbar(data=subset(wstidier2, Source == 'Valley' & 
                               Date > as.POSIXct('2016-05-14 08:04:00')), limits_DdC, size=0.2) +
@@ -578,8 +764,8 @@ wsALL <- ggplot(data = wstidier2, aes(x = Date, y = measure, group = Source) )+
   #ylab(expression(paste({Delta~delta}^"13","C", ' (\u2030)'))) +
   scale_y_continuous(
     expression(paste({Delta~delta}^"13","C", ' (\u2030)')),
-    sec.axis = sec_axis(trans = ~ (1-((1000 + d13Co + .)/(1000+d13Co))^(1000/cof))*100 , 
-                        name = "Degr (%)", breaks=c(20, 40, 60, 70, 80, 85, 90, 95) )# breaks=seq(20, 120, 15))
+    sec.axis = sec_axis(trans = ~ (1-((1000 + d13Co + .)/(1000+d13Co))^(1000/epsilon_lab))*100 , 
+                        name = element_blank(), breaks=c(20, 40, 60, 70, 80, 85, 90, 95) )# breaks=seq(20, 120, 15))
   )  + 
   scale_color_manual(name= "Source", 
                       values = c("#F8766D", "#00BFC4", "#00BA38", "#B79F00", "#619CFF", "#F564E3",
@@ -587,10 +773,96 @@ wsALL <- ggplot(data = wstidier2, aes(x = Date, y = measure, group = Source) )+
                      ) # +
   # scale_shape_manual(name= )
 
-wsALL
+wsALL_field <- ggplot(data = wstidier2, aes(x = Date, y = measure, group = Source) )+ 
+  geom_errorbar(data=subset(wstidier2, Source == 'Bulk'), limits_DdC, size=0.2) +
+  geom_errorbar(data=subset(wstidier2, Source == 'Valley' & 
+                              Date > as.POSIXct('2016-05-14 08:04:00')), limits_DdC, size=0.2) +
+  geom_errorbar(data=subset(wstidier2, Source == 'Outlet'), limits_DdC) +
+  geom_point(data=subset(wstidier2, Source == 'Bulk'), aes(shape = Type, colour = Source)) +
+  geom_point(data=subset(wstidier2, Source == 'Valley' & 
+                           Date > as.POSIXct('2016-05-14 08:04:00')), aes(shape = Type, colour = Source)) +
+  geom_point(data=subset(wstidier2, Source == 'Outlet'), aes(shape = Type, colour = Source)) +
+  #stat_smooth(data=subset(wstidier,
+  #                        (Source == "Valley" & Event > 8 )), 
+  #            method = "lm", formula = y ~ poly(x, 2), se = F, colour = 'darkgreen' , alpha = 0.1, size=0.2) +
+  #stat_smooth(data=subset(wstidier,
+  #                        (Source != "Outlet" & Source != "Valley" & Event < 20 )), 
+  #            method = "lm", formula = y ~  poly(x, 2), se = F, alpha = 0.1, size=0.2) +
+  
+  # Water
+  stat_smooth(data=subset(wstidier2,
+                          (Source == "Outlet" & Event > 1 & Type == "Dissolved")), 
+              method = "lm", formula = y ~ poly(x, 2), se = T, aes(colour = 'Outlet'), alpha = 0.2, size=0.2) +
+  # North
+  stat_smooth(data=subset(wstidier2,
+                          (Source == "Bulk" )), #| Source == "South" )), 
+              method = "lm", formula = y ~ poly(x, 2), se = T, aes(colour = 'Bulk'), alpha = 0.2, size=0.2) +
+  #stat_smooth(data=subset(wstidier2,
+  #                        (Source == "South")), 
+  #            method = "lm", formula = y ~ poly(x, 2), se = T, aes(colour = 'South'), alpha = 0.2, size=0.2) +
+  theme_bw() + 
+  # Applics
+  annotate("text", x = as.POSIXct('2016-03-28 08:04:00'), y = 0, 
+           label = as.character(expression(paste( "\u066D"))), parse = T, size = 6.0) +
+  annotate("text", x = as.POSIXct('2016-04-05 00:04:00'), y = 0, 
+           label = as.character(expression(paste( "\u066D"))), parse = T, size = 6.0) +
+  annotate("text", x = as.POSIXct('2016-04-13 08:04:00'), y = 0, 
+           label = as.character(expression(paste( "\u066D"))), parse = T, size = 6.0) +
+  annotate("text", x = as.POSIXct('2016-05-25 08:04:00'), y = 0, 
+           label = as.character(expression(paste( "\u066D"))), parse = T, size = 6.0) +
+  # Title applics
+  annotate("text", x = as.POSIXct('2016-04-05 08:04:00'), y = 4.5, 
+           label = as.character(expression(paste( "\u066D", " Applications"))), parse = T, size = 4.0) +
+  
+  scale_x_datetime(breaks = date_breaks("1 month"), labels = date_format("%b %d")) +
+  theme(legend.position="top"
+        # axis.title.x = element_blank()
+        # axis.text.x=element_text(angle = 45, hjust = 1)
+        ) +
+  # geom_smooth(data=subset(ws, Source != "Outlet"), method = "lm", formula = y ~ poly(x, 2)) +
+  xlab("Date") + 
+  #ylab(expression(paste({Delta~delta}^"13","C", ' (\u2030)'))) +
+  scale_y_continuous(
+    expression(paste({Delta~delta}^"13","C", ' (\u2030)')),
+    sec.axis = sec_axis(trans = ~ (1-((1000 + d13Co + .)/(1000+d13Co))^(1000/epsilon_field))*100 , 
+                        name = "Degradation (%)", breaks=c(20, 40, 60, 70, 80, 85, 90, 95) )# breaks=seq(20, 120, 15))
+  )  + 
+  scale_color_manual(name= "Source", 
+                      values = c("#F8766D", "#00BFC4", "#00BA38", "#B79F00", "#619CFF", "#F564E3",
+                                 "#D55E00", "darkgreen", "dodgerblue") 
+                     ) # +
+  # scale_shape_manual(name= )
+
+#wsALL_lab
+#wsALL_field
 #wsPlot
 # ggsave(wsALL, filename = "WaterSoilvsTime.png", width = 8, height = 5, units = "in", scale = 1)
 # ggsave(wsALL, filename = "WaterBulkvsTime.png", width = 8, height = 5, units = "in", scale = 1)
+
+wsALL_field_noLeg <- wsALL_field + theme(legend.position='none')
+wsALL_lab_noLeg <- wsALL_lab + theme(legend.position='none')
+wsAll__field_Leg  <- get_legend(wsALL_field)
+
+label <- substitute(paste(epsilon, " = ", epsilon_f, ", Field", epsilon, " = " , epsilon_l),
+                    list(epsilon_f = signif(epsilon_field, 2), epsilon_l = signif(epsilon_lab, 2) ))
+
+label2 <- substitute(paste(epsilon ["field"] , " = ", epsilon_f),
+                     list(epsilon_f = signif(epsilon_field, 3)))
+
+label3 <- substitute(paste(epsilon ["lab"] , " = ", epsilon_l),
+                     list(epsilon_l = signif(epsilon_lab, 3)))
+# adding label via ggdraw, in the ggdraw coordinates
+
+
+wsALL <- ggdraw() +
+  draw_plot(wsALL_field_noLeg, x=0, y=.2, width =  1, height = .8) + 
+  draw_plot(wsALL_lab_noLeg, x=0, y = 0.2, width = 0.935, height = 0.8) +
+  draw_label(label2, x= .89, y = .2, size = 8) +
+  draw_label(label3, x= .94, y = .15, size = 8) +
+  draw_plot(wsAll__field_Leg, x=0.2, y=0.0, width = 0.6, height = 0.2)
+  
+#ggsave(wsALL, filename = "WaterSoilvsTime.png", width = 8, height = 5, units = "in", scale = 1)
+
 ```
 
 
