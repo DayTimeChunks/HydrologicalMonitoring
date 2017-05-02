@@ -27,6 +27,7 @@ library(vioplot)
 
 library(dplyr)
 library(tidyr)
+library(zoo)
 library(reshape)
 library(ggplot2)
 library("ggrepel")
@@ -93,7 +94,7 @@ soils$DD13C.South <- (ifelse(!is.na(soils$comp.d13C.SD.South), soils$comp.d13C.S
 
 dropSoil <- c("WeekSubWeek", # "Event", 
               "B.diss", "B.filt", "CumOutDiss.g", "CumOutFilt.g", "CumOutAppMass.g",  "CumOutMELsm.g", 
-              "CumAppMass.g",
+              # "CumAppMass.g",
               "ID.N", "ID.T",  "Area.N", "Area.T", "Area.S",
               "comp.d13C.SE.North", "comp.d13C.SE.Talweg", "comp.d13C.SE.South", 
               "f.max.comp", "f.mean.comp", "f.min.comp", "ngC.SD","ngC.SE", "N_compsoil", "N_ngC")
@@ -357,9 +358,11 @@ f.sd.june <- sd(juneBal$f)
 
 mayBal <- tail(mayBal, n=1)
 mayBal$B.mean <- B.mean.may
-mayBal$B.sd <- B.sd.may
+mayBal$B.sd1 <- B.mean.may-B.sd.may
+mayBal$B.sd2 <- B.mean.may+B.sd.may
 mayBal$f.mean <- f.mean.may
-mayBal$f.sd <- f.sd.may
+mayBal$f.sd1 <- f.mean.may-f.sd.may
+mayBal$f.sd2 <- f.mean.may+f.sd.may
 mayBal$DegMed <- 100 - mayBal$remainMedTheo_prc
 mayBal$DegLow <- 100 - mayBal$remainMinTheo_prc
 mayBal$DegHigh <- 100 - mayBal$remainMaxTheo_prc
@@ -367,9 +370,11 @@ mayBal$Month <- "April"
 
 juneBal <- tail(juneBal, n=1)
 juneBal$B.mean <- B.mean.june
-juneBal$B.sd <- B.sd.june
+juneBal$B.sd1 <- B.mean.june-B.sd.june
+juneBal$B.sd2 <- B.mean.june+B.sd.june
 juneBal$f.mean <- f.mean.june
-juneBal$f.sd <- f.sd.june
+juneBal$f.sd1 <- f.mean.june-f.sd.june
+juneBal$f.sd2 <- f.mean.june+f.sd.june
 juneBal$DegMed <- 100 - juneBal$remainMedTheo_prc
 juneBal$DegLow <- 100 - juneBal$remainMinTheo_prc
 juneBal$DegHigh <- 100 - juneBal$remainMaxTheo_prc
@@ -382,9 +387,6 @@ bal$SMout.SD2 <- NA
 bal$TPout.SD1 <- NA
 bal$TPout.SD2 <- NA
 
-bal$B.sd2 <- bal$B.sd
-bal$f.sd2 <- bal$f.sd
-
 bal$B.diss <- NULL
 bal$f <- NULL
 bal$Date.ti <- NULL
@@ -395,8 +397,8 @@ bal$CumOutMELsm.g <- NULL
 
 names(bal)
 bal <- bal[c("Month", 
-             "B.mean" , "B.sd" ,  "B.sd2", 
-              "f.mean" , "f.sd" , "f.sd2", 
+             "B.mean" , "B.sd1" ,  "B.sd2", 
+              "f.mean" , "f.sd1" , "f.sd2", 
              "DegMed", "DegLow", "DegHigh", 
              "remainMedTheo_prc", "remainMinTheo_prc", "remainMaxTheo_prc",
              "SMout_prc",  "SMout.SD1", "SMout.SD2",
@@ -415,38 +417,180 @@ balTidy <- bal %>%
   separate(measure, into = c("Sink", "temporary_var")) %>% # parses the sep = "." into...
   spread(temporary_var, value) # Moves molten temporary variable to own column 
 
-type <- rep(c("CSIA", "Theoretical", "CSIA", "Theoretical", "MB", "MB"), 2)
+type <- rep(c("CSIA", "DT50", "CSIA", "DT50", "MB", "MB"), 2)
 
 balTidyType <- cbind(balTidy, type)
 
 balTidyType$Sink <- as.factor(balTidyType$Sink)
+balTidyType$Month <- as.factor(balTidyType$Month)
 balTidyType$Sink <- factor(balTidyType$Sink, levels = c("B" , "TPout",  "Deg" ,"f" ,"SMout", "Rem"))
+levels(balTidyType$type)
+balTidyType$type <- factor(balTidyType$type, levels = c("CSIA" , "MB", "DT50"))
 levels(balTidyType$Sink)
+levels(balTidyType$Month)
 
-ggplot(data = balTidyType , aes(x=factor(Month), y=measure))+
-  geom_bar(stat = "identity", aes(fill = Sink), position = "dodge") +
-  geom_errorbar(data = balTidyType, aes(x=factor(Month), y=measure, ymin=SD1, ymax=SD2),
-                  width=.2 , # ) + #,                    # Width of the error bars
-                  position=position_dodge(.9)) + 
+
+OutBars <- ggplot(data = balTidyType , aes(x=Month, y=measure, fill = Sink, ymin=SD1, ymax=SD2))+
+  geom_bar(stat = "identity", position = "dodge", width = 0.5) +
+  geom_errorbar(#aes(ymin=SD1, ymax=SD2),
+                  width=.3 , # ) + #,                    # Width of the error bars
+                  position=position_dodge(.5)) + 
   theme_bw() +
   ylab("% S-MET") +
-  xlab("Month") +
+  theme(axis.title.x = element_blank() ) +
+  #xlab("Month") +
   facet_wrap(~type) +
-  scale_fill_manual(#values = c("#238b45", "#41ab5d", "#74c476", "#40004b", "#762a83", "#9970ab" ), # green-purple
-                    values = c("#238b45", "#41ab5d", "#74c476", "#ec7014", "#fe9929", "#fec44f" ), # green-orange
+  scale_fill_manual(values = c("#01665e", "#35978f", "#80cdc1", "#ec7014", "#fe9929", "#fec44f" ), # blue-orange
+                    #values = c("#238b45", "#41ab5d", "#74c476", "#40004b", "#762a83", "#9970ab" ), # green-purple
+                    #values = c("#238b45", "#41ab5d", "#74c476", "#ec7014", "#fe9929", "#fec44f" ), # green-orange
                     #values = c("#80cdc1", "#018571", "#a6611a", "#dfc27d", "#80cdc1", "#018571"),
-                    name= element_blank(), #"Mass Balance", # \n
+                    name= "Outlet Monitoring" ,# element_blank(), #"Mass Balance", # \n
                        breaks=c("B", "f" , 
                                 "TPout" , "SMout" , 
                                 "Deg", "Rem" 
                                 ),
-                       labels=c("Degr. (CSIA)", "Persist. (CSIA)", 
-                                "Degr. (MB)", "S-MET Loads (MB)", 
-                                "Degr. (DT50)" , "Persist. (DT50)"
-                                 )) 
-  
+                       labels=c("Degr.", "Non-degr.", 
+                                "Degr.", "Loads", 
+                                "Degr." , "Persist."
+                                 )) +
+  guides(fill=guide_legend(ncol=3))
+
+OutBars
 
 ```
+
+## Compare to Catchment soils
+
+```{r}
+
+names(soils)
+keepMB <- c("Date.ti", "CumAppMass.g", "CatchMassSoil.g",
+            "f.mean.bulk", "B.mean.bulk")
+
+  
+soilsMB <- soils[, (names(soils) %in% keepMB)]
+
+soilsMB$Rem.measure <- (soilsMB$CatchMassSoil.g/soilsMB$CumAppMass.g)*100
+soilsMB$Unk.measure <- 100 - soilsMB$Rem.measure
+soilsMB$CatchMassSoil.g <- NULL
+soilsMB$CumAppMass.g <- NULL
+
+soils.April <- subset(soilsMB, (Date.ti > as.POSIXct("2016-04-01 00:00:00", tz = "EST") 
+                 & Date.ti < as.POSIXct("2016-05-01 00:00:00", tz = "EST"))) 
+soils.April <- na.omit(soils.April)
+
+soils.June <- subset(soilsMB, (Date.ti > as.POSIXct("2016-06-07 00:00:00", tz = "EST") 
+                 & Date.ti <= as.POSIXct("2016-06-28 14:52:00", tz = "EST")) )
+soils.June <- na.omit(soils.June)
+
+B.mean.maySol <- mean(soils.April$B.mean.bulk)
+B.sd.maySol <- sd(soils.April$B.mean.bulk)
+f.mean.maySol <- mean(soils.April$f.mean.bulk*100)
+f.sd.maySol <- sd(soils.April$f.mean.bulk*100)
+Rem.mean.maySol <- mean(soils.April$Rem.measure)
+Rem.sd.maySol <- sd(soils.April$Rem.measure)
+Unk.mean.maySol <- mean(soils.April$Unk.measure)
+Unk.sd.maySol <- sd(soils.April$Unk.measure)
+
+B.mean.juneSol <- mean(soils.June$B.mean.bulk)
+B.sd.juneSol <- sd(soils.June$B.mean.bulk)
+f.mean.juneSol <- mean(soils.June$f.mean.bulk*100)
+f.sd.juneSol <- sd(soils.June$f.mean.bulk*100)
+Unk.mean.juneSol <- mean(soils.June$Unk.measure)
+Unk.sd.juneSol <- sd(soils.June$Unk.measure)
+
+
+Month <- c("April", "June")
+balSol <- data.frame(Month)
+balSol$B.measure <- c(B.mean.maySol, B.mean.juneSol) 
+balSol$B.SD1 <- c(B.mean.maySol-B.sd.maySol , B.mean.juneSol-B.sd.juneSol)
+balSol$B.SD2 <- c(B.mean.maySol+B.sd.maySol , B.mean.juneSol+B.sd.juneSol)
+balSol$f.measure <- c(f.mean.maySol, f.mean.juneSol)
+balSol$f.SD1 <- c(f.mean.maySol-f.sd.maySol, f.mean.juneSol-f.sd.juneSol)
+balSol$f.SD2 <- c(f.mean.maySol+f.sd.maySol, f.mean.juneSol+f.sd.juneSol)
+
+balSol$Unk.measure <- c(Unk.mean.maySol, Unk.mean.juneSol)
+balSol$Unk.SD1 <- c(Unk.mean.maySol-Unk.sd.maySol, Unk.mean.juneSol-Unk.sd.juneSol)
+balSol$Unk.SD2 <- c(Unk.mean.maySol+Unk.sd.maySol, Unk.mean.juneSol+Unk.sd.juneSol)
+
+balSol$Rem.measure <- c(Rem.mean.maySol, Rem.mean.juneSol)
+balSol$Rem.SD1 <- c(Rem.mean.maySol-Rem.sd.maySol, Rem.mean.juneSol-Rem.sd.juneSol)
+balSol$Rem.SD2 <- c(Rem.mean.maySol+Rem.sd.maySol, Rem.mean.juneSol+Rem.sd.juneSol)
+
+solTidy <- balSol %>%
+  gather(measure, value, -Month) %>% # Melts data frame
+  separate(measure, into = c("Sink", "temporary_var")) %>% # parses the sep = "." into...
+  spread(temporary_var, value) # Moves molten temporary variable to own column 
+
+type <- rep(c("CSIA", "CSIA", "MB", "MB"), 2)
+
+balTidySol <- cbind(solTidy, type)
+balTidySol$Sink <- as.factor(balTidySol$Sink)
+
+levels(balTidySol$Sink)
+balTidySol$Sink <- factor(balTidySol$Sink, levels = c("B" , "f" ,"Unk", "Rem"))
+
+SoilBars <- ggplot(data = balTidySol , aes(x=Month, y=measure, fill = Sink, ymin=SD1, ymax=SD2))+
+  geom_bar(stat = "identity", position = "dodge", width = 0.5) +
+  geom_errorbar(#aes(ymin=SD1, ymax=SD2),
+                  width=.2 , # ) + #,                    # Width of the error bars
+                  position=position_dodge(.5)) + 
+  theme_bw() +
+  ylab("% S-MET") +
+  theme(axis.title.x = element_blank() ) +
+  xlab("Month") +
+  facet_wrap(~type) +
+  scale_y_continuous( breaks=c(25, 50, 75, 100), limits = c(0, 100) )+ #expand=c(0, 10, 0, 0)) + 
+  scale_fill_manual(#values = c("#6a51a3" , "#ec7014", "#807dba", "#fe9929"), # purple-orange
+                    values = c("#6a51a3" , "#ec7014", "#d9d9d9", "#fe9929"), # Unknown as grey
+                    name= "Top Soils" ,# element_blank(), #"Mass Balance", # \n
+                    breaks=c("B", "f" , 
+                                "Unk" , "Rem" 
+                                ),
+                    labels=c("Degr.", "Persist.", 
+                                "Unknown", "Persist." ))+
+  guides(fill=guide_legend(ncol=2))
+
+SoilBars
+
+
+```
+
+## Merge both Outlet and Soils - BARS
+
+```{r}
+
+
+
+#balAll <- rbind(balTidyType,  balTidySol)
+
+OutBars_noLeg <- OutBars + theme(legend.position = 'none')
+OutBars_Leg <- get_legend(OutBars)
+
+SoilBars_noLeg <- SoilBars + theme(legend.position = 'none')
+SoilBars_Leg <- get_legend(SoilBars)
+
+#plot_grid(OutBars_noLeg, SoilBars_noLeg,
+#                    ncol =1, nrow = 2, align ="v" )
+#,
+#                    labels = c("A", "C", "B", "D"))
+
+balAllplot <- ggdraw() +
+  draw_plot(OutBars_noLeg, x=0.01, y=.5, width =  0.86, height = .5) + 
+  draw_plot(SoilBars_noLeg, x=0.01, y = 0.0, width = 0.60, height = 0.5) +
+  draw_plot(OutBars_Leg, x=0.74, y = 0.3, width = 0.1, height = 0.1) +
+  draw_plot(SoilBars_Leg, x=0.70, y = 0.1, width = 0.1, height = 0.1) +
+  draw_label("A", x= 0.11, y = .9, size = 12, fontface = "bold") +
+  draw_label("D", x= 0.11, y = .39, size = 12, fontface = "bold") +
+  draw_label("B", x= 0.37, y = .9, size = 12, fontface = "bold") +
+  draw_label("E", x= 0.37, y = .39, size = 12, fontface = "bold") +
+  draw_label("C", x= 0.63, y = .9, size = 12, fontface = "bold") 
+
+ggsave(balAllplot, filename = "MB_CSIA_Bars.png", width = 8, height = 5, units = "in", scale = 1)
+
+```
+
+
 
 ## Water Rayleigh plots
 
