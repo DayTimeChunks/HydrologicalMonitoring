@@ -496,6 +496,8 @@ B.mean.juneSol <- mean(soils.June$B.mean.bulk)
 B.sd.juneSol <- sd(soils.June$B.mean.bulk)
 f.mean.juneSol <- mean(soils.June$f.mean.bulk*100)
 f.sd.juneSol <- sd(soils.June$f.mean.bulk*100)
+Rem.mean.juneSol <- mean(soils.June$Rem.measure)
+Rem.sd.juneSol <- sd(soils.June$Rem.measure)
 Unk.mean.juneSol <- mean(soils.June$Unk.measure)
 Unk.sd.juneSol <- sd(soils.June$Unk.measure)
 
@@ -586,6 +588,7 @@ balAllplot <- ggdraw() +
   draw_label("E", x= 0.37, y = .39, size = 12, fontface = "bold") +
   draw_label("C", x= 0.63, y = .9, size = 12, fontface = "bold") 
 
+balAllplot
 ggsave(balAllplot, filename = "MB_CSIA_Bars.png", width = 8, height = 5, units = "in", scale = 1)
 
 ```
@@ -789,8 +792,8 @@ wstidier$DegDiff <- (wstidier$DegField - wstidier$DegLab)
 
 wstidier$Location <- as.factor(wstidier$Location)
 
-library(dplyr)
-detach(package:plyr)
+#library(dplyr)
+#detach("package:plyr")
 sumary <- na.omit(wstidier) %>% 
   group_by(Type) %>%
   summarise(mean = mean(DegDiff))
@@ -1004,7 +1007,8 @@ wsALL <- ggdraw() +
   draw_label(label2, x= .89, y = .2, size = 8) +
   draw_label(label3, x= .94, y = .15, size = 8) +
   draw_plot(wsAll__field_Leg, x=0.2, y=0.0, width = 0.6, height = 0.2)
-  
+ 
+wsALL 
 #ggsave(wsALL, filename = "WaterSoilvsTime.png", width = 8, height = 5, units = "in", scale = 1)
 
 ```

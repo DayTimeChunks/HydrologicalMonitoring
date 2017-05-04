@@ -109,6 +109,10 @@ soils <- soils[ , !(names(soils) %in% keepSoil)]
 
 watSoilMerged <- merge(waters, soils, by = "Date.ti", all = T)
 
+d13obs <- waters$SD.d13C
+totd13obs <- length(d13obs) - sum(is.na(d13obs))
+
+
 # Remove duplicates
 dropDups <- c("Weeks", "N.x", "N.y", 
               "timeSinceApp.y", 
@@ -510,7 +514,7 @@ groupBoxPlot <- ggplot(data = subGroupK2, mapping = aes(x = Cluster, y = value, 
   theme_bw()
 
 groupBoxPlot
-ggsave(groupBoxPlot, filename = "groupBoxPlot.png", width = 8, height = 5, units = "in", scale = 1)
+# ggsave(groupBoxPlot, filename = "groupBoxPlot.png", width = 8, height = 5, units = "in", scale = 1)
 
 ```
 
@@ -618,7 +622,7 @@ water.norm.pca <- prcomp(water.norm[1:ncol(water.norm)], retx=T, scale.=F)
 scores.norm <- water.norm.pca$x[,1:3]
 
 # k-means clustering [assume 3 clusters]
-km2     <- kmeans(scores.hell, centers=4, nstart=10)
+km2     <- kmeans(scores.hell, centers=2, nstart=10)
 km3     <- kmeans(scores.norm, centers=2, nstart=10)
 # ggdata <- data.frame(scores, Cluster=km$cluster, Species=waterXY.nona$Events)
 

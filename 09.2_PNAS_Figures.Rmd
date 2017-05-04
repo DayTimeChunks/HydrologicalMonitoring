@@ -644,7 +644,14 @@ iso <- ggplot(AOdf, aes(x=ti, y=diss.d13C)) +
                   force = 0.5, 
                   point.padding = unit(0.5, 'lines'), 
                   max.iter = 2e3,
-                  nudge_x = .05, show.legend = F)
+                  nudge_x = .05, show.legend = F) +
+  geom_text_repel(aes(label=Events),
+                  size = 3,
+                  arrow = arrow(length = unit(0.01, 'npc'), type = "closed"),
+                  force = 0.5, 
+                  point.padding = unit(1.5, 'lines'), 
+                  max.iter = 2e3,
+                  nudge_x = .06, show.legend = F)
   #ylab(expression(paste({delta}^"13","C", ' \211')))
   #ylab(expression(paste({delta}^"13","C"))) 
  
