@@ -76,6 +76,7 @@ Adapted from: Gwena?l Imfeld, LyGeS,2009
 
 ## Import and merge water and soil data sets
 
+
 ```{r}
 
 # Check working directory
@@ -125,7 +126,6 @@ watSoilMerged <- watSoilMerged[ , !(names(watSoilMerged) %in% dropDups)]
 
 
 watSoilMerged$DD13.Bulk <- watSoilMerged$BulkCatch.d13-initialDelta 
-watSoilMerged$DD.diss.norm <- watSoilMerged$DD13C.diss/watSoilMerged$DD13.Bulk
 
 colnames(watSoilMerged)
 
@@ -215,7 +215,7 @@ watSoilMerged$DIa <- watSoilMerged$maxQ*watSoilMerged$Volume.m3/watSoilMerged$Du
 watSoilMerged$TPs.g <- watSoilMerged$MELsm.g-watSoilMerged$TotSMout.g
 ```
 
-## Normalization choice
+## Normalization choice - Masses
 
 ```{r}
 
@@ -229,6 +229,25 @@ watSoilMerged$MEL.g.nrm <- watSoilMerged$MELsm.g/watSoilMerged$BalMassDisch.g # 
 watSoilMerged$CumPrctMassOut <- cumsum(watSoilMerged$prctMassOut)
 watSoilMerged$SM.g.nrm.prc <- watSoilMerged$TotSMout.g/watSoilMerged$CumPrctMassOut # [-]
 watSoilMerged$MEL.g.nrm.prc <- watSoilMerged$MELsm.g/watSoilMerged$CumPrctMassOut # [-]
+
+
+
+
+watSoilMerged$DD.Bulk.imp <- watSoilMerged$DD13.Bulk
+if (is.na(watSoilMerged$DD.Bulk.imp[4])){
+  watSoilMerged$DD.Bulk.imp[1:4] <- 1
+} 
+if (is.na(watSoilMerged$DD.Bulk.imp[5])){
+  watSoilMerged$DD.Bulk.imp[5] <- 1
+} 
+watSoilMerged$DD.Bulk.imp[1:nrow(watSoilMerged)-1] <- na.approx(watSoilMerged$DD.Bulk.imp)
+
+watSoilMerged$DD.diss.norm <-  watSoilMerged$DD13C.diss/watSoilMerged$DD.Bulk.imp # Losses values where no BULK was obtained
+watSoilMerged$DD.diff.prc <- ifelse( is.na(watSoilMerged$DD13C.diss) , NA,
+                                    ((watSoilMerged$DD13C.diss-watSoilMerged$DD.Bulk.imp)/watSoilMerged$DD.Bulk.imp)*100)
+
+names(watSoilMerged)
+#View(watSoilMerged[, c( 1, 32 , 73, 81:83 )])
 
 ```
 
@@ -244,7 +263,8 @@ includeWater <- c(
   "Conc.mug.L", "OXA_mean", "ESA_mean", 
   "SM.g.nrm", "MEL.g.nrm", "SM.g.nrm.prc", "MEL.g.nrm.prc",
   "DD13C.diss", # "diss.d13C",
-  "DD.diss.norm", "DD13.Bulk",
+  "DD13.Bulk", # "DD.Bulk.imp",
+  "DD.diss.norm",  "DD.diff.prc",
   "TotSMout.g", "MELsm.g",
   "TPs.g", "DissOXA.g", "DissESA.g",
   # "Cl.mM", "NO3..mM",
@@ -259,14 +279,6 @@ waterSmall <- watSoilMerged[ , (names(watSoilMerged) %in% includeWater)]
 # bulk DD non-existent & DD13-dissolved is not NA.
 waterSmall <- subset(waterSmall, maxQ > 2)
 
-if (is.na(waterSmall$DD.diss.norm[1])) {
-  waterSmall$DD.diss.norm[1] <- waterSmall$DD.diss.norm[4]
-}
-waterSmall$DD.diss.norm <- na.locf(waterSmall$DD.diss.norm)
-waterSmall$DD.diss.norm <- ifelse(is.na(waterSmall$DD13C.diss), NA, waterSmall$DD.diss.norm)
-waterSmall$Sequence <- ifelse(is.na(waterSmall$Peak), 2, 1)
-
-
 # Lets reduce the data set even more to only response variables. 
 includeResponse <- c(
   "Events",
@@ -276,7 +288,7 @@ includeResponse <- c(
   "SM.g.nrm.prc", "MEL.g.nrm.prc",
   #"diss.d13C",
   "DD13C.diss", 
-  "DD.diss.norm",
+  "DD.diss.norm", "DD.diff.prc",
   "TotSMout.g", "MELsm.g",
   "TPs.g", "DissOXA.g", "DissESA.g"
   # "Cl.mM", "NO3..mM",
@@ -486,27 +498,46 @@ bindedGroups.K2.XY <- merge(bindedGroups.K2.X, responseWater, by = "Events", all
 ### MANOVA test
 ### Raw response variables
 colnames(bindedGroups.K2.XY)
-res.man <- manova(cbind(DD13C.diss.x, TotSMout.g.x, MELsm.g.x, 
-                         Conc.mug.L, OXA_mean, ESA_mean) ~ Cluster, data = bindedGroups.K2.XY)
+
+res.man <- manova(cbind(DD13C.diss.x, DD.diss.norm, # Percent is exactly the same: DD.diff.prc,
+                        TotSMout.g.x, MELsm.g.x,  Conc.mug.L, OXA_mean, ESA_mean,
+                        # responses
+                        maxQ, Duration.Hrs, AveDischarge.m3.h, Volume.m3, DIa
+                        ) 
+                  ~ Cluster, data = bindedGroups.K2.XY)
 ### Look to see which differ
 summary.aov(res.man)
 
-plist <- c(summary.aov(res.man)[[1]][["Pr(>F)"]][1], 
-           summary.aov(res.man)[[2]][["Pr(>F)"]][1],
-           summary.aov(res.man)[[4]][["Pr(>F)"]][1])
+plist <- c()
+for (i in 1:length(summary.aov(res.man))) {
+  name <- paste("Response:", i, sep = " ")
+  tmp <- summary.aov(res.man)[[i]][["Pr(>F)"]][1]
+  plist[[name]] <- tmp 
+}
+
+dropBox <- c("Events")
 
 # Melt & but remove "Events" variable first
-meltGroupK2 <- melt((bindedGroups.K2.X[ , !(names(bindedGroups.K2.X) %in% "Events")]), id=c("Cluster"))
+meltGroupK2 <- melt((bindedGroups.K2.XY[ , !(names(bindedGroups.K2.XY) %in% dropBox)]), id=c("Cluster"))
 
 subGroupK2 <- subset(meltGroupK2, 
-                     (variable == 'DD13C.diss' 
-                      | variable == 'TotSMout.g'
-                      | variable == 'MELsm.g'
+                     (variable == 'DD13C.diss.x' 
+                      | variable == 'DD.diss.norm'
+                      | variable == 'Conc.mug.L'
+                      | variable == 'TotSMout.g.x'
+                      # | variable == 'MELsm.g.x'
+                      | variable == 'OXA_mean'
+                      | variable == 'ESA_mean'
                       | variable == 'maxQ'
+                      | variable == 'AveDischarge.m3.h'
                       | variable == 'Volume.m3'
-                      | variable == 'Duration.Hrs')
+                      | variable == 'Duration.Hrs' 
+                      | variable == "ExpMES.Kg" 
+                
+                      )
                      )
-
+# Get p-values for graph
+DD.diss_p <- plist[[1]]
 
 groupBoxPlot <- ggplot(data = subGroupK2, mapping = aes(x = Cluster, y = value, fill = Cluster)) +
   facet_wrap(~variable, scales = "free") +
