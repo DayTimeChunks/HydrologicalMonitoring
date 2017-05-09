@@ -259,10 +259,12 @@ head(grpAlteck)
 
 ```{r}
 
+library(plyr)
 library(dplyr)
 library(gridExtra)
 library("scales")
 
+detach("package:plyr", unload=TRUE) 
 Q1change <- mutate(grpAlteck, Row = 1:n()) %>%
   mutate(PercentChange = (Q.HW1-lag(Q.HW1))/lag(Q.HW1) * 100)
 Q1change$PercentChange[1] <- 0
@@ -326,11 +328,41 @@ resTime$Q.HW1 <- NULL
 
 grpAlteck <- merge(grpAlteck, resTime, by= "Date", all = T)
 
+
+grpAlteck$numNoEvent <- ifelse(grpAlteck$Q.HW1 < 18, 1, 0)
+noEventVect <- grpAlteck$numNoEvent
+aux <- split(noEventVect, cumsum(noEventVect == 0))
+v <- unlist(sapply(aux, cumsum))
+grpAlteck$dryhrs <- v/60
+
+
+
+
+#grpAlteck$minSinceEvent <- NA
+#cumDuration <- 0
+# if Q.HW1 < 10m3h: cumDuration += 3 min
+# else cumDuration = 0
+# for every cell in Date, assign cumDuration to timeSinceEvent
+#for (i in 1:length(grpAlteck$Date)) {
+#  if (grpAlteck[i,]['Q.HW1'] < 17){
+#    grpAlteck[i,]['minSinceEvent'] = cumDuration
+#    cumDuration <- cumDuration + 3.0
+#  } else {
+#    cumDuration <- 0
+#    grpAlteck[i,]['minSinceEvent'] = cumDuration
+#  }
+#}
+
+
 # (Sub)Event markers
 ggplot() +
   geom_line(data = grpAlteck, aes(x= Date, y = Q.HW1), color = "blue") +
   geom_point(data = grpAlteck, aes(x= Date, y = Markers), color = "forestgreen") +
   scale_y_continuous(trans=log_trans(), breaks=c(1,5,8, 10,25, 50, 80, 100,1000))
+
+ggplot() +
+  geom_line(data = grpAlteck, aes(x= Date, y = dryhrs), color = "blue")
+  
 ```
 
 
@@ -364,14 +396,17 @@ The data frame produced will include, for each sub-week, the:
 dflux = grpAlteck %>% 
   group_by(SubWeeks) %>% 
   # filter(Type == 'Sample') %>%
-  select(Date, Q.HW1, SubWeeks) %>%
+  select(Date, Q.HW1, SubWeeks, dryhrs) %>%
   summarise(ti= Date[1], 
             tf = Date[length(Date)], 
             iflux = Q.HW1[1], 
             fflux = Q.HW1[length(Q.HW1)], 
             changeflux = (Q.HW1[length(Q.HW1)] - Q.HW1[1]), 
             maxQ = max(Q.HW1), 
-            minQ = min(Q.HW1)) 
+            minQ = min(Q.HW1)  ,
+            dryHrs = dryhrs[1]
+            )
+
 
 # Time elapsed within sub-week in hrs (sampled and non-sampled)
 dflux$Duration.Hrs = 

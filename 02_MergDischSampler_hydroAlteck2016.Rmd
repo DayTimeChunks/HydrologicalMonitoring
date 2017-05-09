@@ -11,16 +11,21 @@ Sys.setlocale("LC_ALL", "English")
 
 ## Purpose
 
-This document merges corrected flowmeter data and automatic sampler data. 
+A. This document merges corrected flowmeter data and automatic sampler data. 
+B. Converts 6 min rainfall to monthly statistics with visualizations comparing discharge. 
 
 Used files:
 
 1. **hydroAlteck2016_smooth_R.csv**
 2. **prelev_20160713.csv**
 
+3. **sixMinutePluvioAlteck2016.csv**
+
 Produced file:
 
 1. **hydroAlteck2016_R.csv** (Used for plotting Sample and Discharge data together).
+2. **RainAprJune2016_R.csv** 
+
 
 ## Required R-packages:
 
@@ -30,6 +35,9 @@ Produced file:
 library("ggplot2")
 library("scales")
 library("tidyr")
+library("dplyr")
+library("reshape")
+library("ggrepel")
 
 ```
 
@@ -45,10 +53,11 @@ getwd()
 ```
 
 
-## Import inputted discharge data 
+## Import imputed discharge and rainfall data 
 
 ```{r, message=FALSE}
 
+# Discharge
 dischargeAlteck = read.csv2("Data/hydroAlteck2016_smooth_R.csv")
 head(dischargeAlteck)
 
@@ -56,13 +65,187 @@ dischargeAlteck$Date = as.POSIXct(strptime(dischargeAlteck$DateCheck,
                                            "%d/%m/%Y %H:%M"
                                            , tz="EST")
                                   )
+
+dischargeAlteck$DayMoYr = as.POSIXct(strptime(dischargeAlteck$DateCheck, 
+                                           "%d/%m/%Y"
+                                           , tz="EST")
+                                  )
+
 sum(is.na(dischargeAlteck$Date))
 naDates = dischargeAlteck[is.na(dischargeAlteck$Date == TRUE),]
 
 duplicateAlteck <- dischargeAlteck[duplicated(dischargeAlteck$DateCheck),]
 head(duplicateAlteck)
 
+## Convert m3.h -> m3
+dischargeAlteck$Vol2min <- dischargeAlteck$Q.HW1*2/60
+
+# Rainfall
+rain = read.csv2("Data/sixMinutePluvioAlteck2016.csv", header = F)
+head(rain)
+
+rain$Date = as.POSIXct(strptime(rain$V1,
+                                "%d/%m/%Y %H:%M", tz="EST") )
+
+rain$DayMoYr = as.POSIXct(strptime(rain$V1,
+                                   "%d/%m/%Y", tz="EST")  )
+
+sum(is.na(rain$Date))
+naDates = rain[is.na(rain$Date == TRUE),]
+
 ```
+
+## Compare discharge to rainfall
+
+```{r}
+
+dischDay <- dischargeAlteck %>%
+  group_by(DayMoYr) %>%
+  summarize(Disch.mm = (sum(Vol2min)/(47*10000))*10^3 ) # Discharge in mm 
+
+rainDay <- rain %>%
+  group_by(DayMoYr) %>%
+  summarize(Rain.mm = sum(V2))
+
+waterDay <- merge(rainDay, dischDay, by = "DayMoYr")
+
+waterDay$Month <- 
+  ifelse(waterDay$DayMoYr >= as.POSIXct("2016-03-24 00:30:00", tz = "EST") &
+           waterDay$DayMoYr < as.POSIXct("2016-04-01 00:00:00", tz = "EST"), "March",
+         ifelse(waterDay$DayMoYr >= as.POSIXct("2016-04-01 00:00:00", tz = "EST") &
+                  waterDay$DayMoYr < as.POSIXct("2016-05-01 00:00:00", tz = "EST"), "April",
+                ifelse(waterDay$DayMoYr >= as.POSIXct("2016-05-01 00:00:00", tz = "EST") &
+                         waterDay$DayMoYr < as.POSIXct("2016-06-01 00:00:00", tz = "EST"), "May",
+                       ifelse(waterDay$DayMoYr >= as.POSIXct("2016-06-01 00:00:00", tz = "EST") & 
+                                waterDay$DayMoYr < as.POSIXct("2016-07-01 00:00:00", tz = "EST"), "June", "July" )
+                            )
+                     )
+         )
+waterDay$CumRain.mm <- cumsum(waterDay$Rain.mm)
+
+waterDay <- subset(waterDay, Month != "March" & Month != "July")
+waterDay$Month <- factor(waterDay$Month, levels = c("April" , "May", "June" ))
+levels(waterDay$Month)
+
+meltWaterDay <- melt(waterDay, id=c("DayMoYr", "Month"))
+
+split <- strsplit(as.character(meltWaterDay$DayMoYr), "2016-", fixed = TRUE)
+meltWaterDay$Day <- sapply(split, "[", 2)
+
+meltWaterDay <- subset(meltWaterDay, variable != 'CumRain.mm')
+
+# Test function
+#g_param = 1.5
+# g_param = 2.2  #  (Hoaglin et al.,1986; Hoaglin & Iglewicz, 1987) 
+g_param = 4  #  Just to capture XXX events 
+is_outlier <- function(x) {
+  return(x < quantile(x, 0.25) - g_param * IQR(x) | x > quantile(x, 0.75) + g_param * IQR(x))
+}
+
+meltWaterDay2 <- meltWaterDay %>%
+  group_by(Month) %>%
+  #mutate(outlier = ifelse(is_outlier(value) & variable == "Disch.mm", as.character(Day), NA))
+  mutate(outlier = ifelse(is_outlier(value), as.character(Day), NA))
+
+hydroBox <- ggplot(meltWaterDay2, aes(x = factor(Month), y = value, fill = variable)) +
+  geom_boxplot() + 
+  theme_bw() +
+  ylab("mm.day") +
+  theme(axis.title.x = element_blank() ) +
+  geom_text_repel(aes(label = outlier), 
+                  size = 3,
+                  arrow = arrow(length = unit(0.005, 'npc'), type = "closed"),
+                  force = 0.5, 
+                  point.padding = unit(0.9, 'lines'), 
+                  max.iter = 2e3,
+                  nudge_x = .05,
+                  na.rm = TRUE) 
+hydroBox
+#ggsave(hydroBox, filename = "RainDischBox.png", width = 8, height = 5, units = "in", scale = 1)
+```
+
+## As Bar Plots
+
+```{r}
+
+dischDay$Month <- 
+  ifelse(dischDay$DayMoYr >= as.POSIXct("2016-03-24 00:30:00", tz = "EST") &
+           dischDay$DayMoYr < as.POSIXct("2016-04-01 00:00:00", tz = "EST"), "March",
+         ifelse(dischDay$DayMoYr >= as.POSIXct("2016-04-01 00:00:00", tz = "EST") &
+                  dischDay$DayMoYr < as.POSIXct("2016-05-01 00:00:00", tz = "EST"), "April",
+                ifelse(dischDay$DayMoYr >= as.POSIXct("2016-05-01 00:00:00", tz = "EST") &
+                         dischDay$DayMoYr < as.POSIXct("2016-06-01 00:00:00", tz = "EST"), "May",
+                       ifelse(dischDay$DayMoYr >= as.POSIXct("2016-06-01 00:00:00", tz = "EST") &
+                                dischDay$DayMoYr < as.POSIXct("2016-07-01 00:00:00", tz = "EST"), "June", "July" )
+                       )
+                )
+         )
+
+dischSumm <- dischDay %>%
+  group_by(Month) %>%
+  summarize(Qtot.measure = sum(Disch.mm),
+            Qmedian.measure = median(Disch.mm),
+            Qmean.measure = mean(Disch.mm), 
+            Qmean.SD = sd(Disch.mm))
+  
+rainDay$Month <- 
+  ifelse(rainDay$DayMoYr >= as.POSIXct("2016-03-24 00:30:00", tz = "EST") &
+           rainDay$DayMoYr < as.POSIXct("2016-04-01 00:00:00", tz = "EST"), "March",
+         ifelse(rainDay$DayMoYr >= as.POSIXct("2016-04-01 00:00:00", tz = "EST") &
+                  rainDay$DayMoYr < as.POSIXct("2016-05-01 00:00:00", tz = "EST"), "April",
+                ifelse(rainDay$DayMoYr >= as.POSIXct("2016-05-01 00:00:00", tz = "EST") &
+                         rainDay$DayMoYr < as.POSIXct("2016-06-01 00:00:00", tz = "EST"), "May",
+                       ifelse(rainDay$DayMoYr >= as.POSIXct("2016-06-01 00:00:00", tz = "EST") &
+                                rainDay$DayMoYr < as.POSIXct("2016-07-01 00:00:00", tz = "EST"), "June", "July" )
+                       )
+                )
+         )
+
+rainSumm <- rainDay %>%
+  group_by(Month) %>%
+  summarize(Rtot.measure = sum(Rain.mm), 
+            Rmedian.measure = median(Rain.mm),
+            Rmean.measure = mean(Rain.mm),
+            Rmean.SD = sd(Rain.mm))
+
+MonthSumm <- merge(rainSumm, dischSumm, by = "Month")
+#MonthSumm$Rest.measure <- (MonthSumm$Qtot.measure/MonthSumm$Rtot.measure)*100
+
+MonthSumm <- subset(MonthSumm, Month != "March" & Month != "July")
+
+
+monthTidy <- MonthSumm %>%
+  gather(measure, value, -Month) %>% # Melts data frame
+  separate(measure, into = c("Source", "temporary_var")) %>% # parses the sep = "." into...
+  spread(temporary_var, value) # Moves molten temporary variable to own column 
+
+monthTidy$Type <- ifelse(monthTidy$Source == "Rtot" | monthTidy$Source == "Qtot", "Total", "Summary")
+monthTidy <- subset(monthTidy, Source != "Qmedian" & Source != "Rmedian")
+
+monthTidy$Month <- as.factor(monthTidy$Month)
+levels(monthTidy$Month)
+monthTidy$Month <- factor(monthTidy$Month, levels = c("April" , "May", "June" ))
+monthTidy$Source <- factor(monthTidy$Source, levels = c("Rmean", "Qmean", "Rtot",  "Qtot"))
+levels(monthTidy$Source)
+
+ggplot(data = monthTidy,  aes(x=Month, y=measure, fill = Source )) +
+  geom_bar(stat = "identity", position = "dodge", width = 0.5) + #, ymin=measure-SD, ymax=measure+SD) +
+  facet_wrap(~Type, scale="free") +
+  theme_bw() +
+  geom_linerange(aes(ymin = measure, ymax = measure+SD),
+                 width=.2 , # ) + #,                    # Width of the error bars
+                  position=position_dodge(.5)) +
+  ylab("mm") +
+  theme(axis.title.x = element_blank() )
+  # xlab("Month") #+
+  #scale_fill_manual(#values = c("#6a51a3" , "#ec7014", "#807dba", "#fe9929"), # purple-orange
+  #                  # values = c("#6a51a3" , "#ec7014", "#d9d9d9", "#fe9929"), # Unknown as grey
+  #                  name= element_blank(), #"Mass Balance", # \n
+  #                 breaks=c("Qmean", "Qtot" , "Rmean" , "Rtot"),
+  #                  labels=c("Qmean", "Qtot" , "Rmean" , "Rtot")) +
+  # guides(fill=guide_legend(ncol=2))
+```
+
 
 
 ## Import raw sampler data (March 25th to Jul 12th)

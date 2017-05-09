@@ -41,6 +41,7 @@ library("scales")
 
 # Stats
 library("vegan")
+library("cluster")
 
 # Saving a xlxs file
 # library(xlsx)
@@ -141,7 +142,7 @@ soilGrApp$Source <- as.factor(soilGrApp$Source)
 p <- ggplot(data = subset(soilGrApp, !is.na(ngC.Label)), aes(x=Conc.mug.g.dry.soil, y=DD13C.comp))+
   stat_smooth(data = subset(soilGrApp, !is.na(ngC.Label)), 
               aes(x=Conc.mug.g.dry.soil, y=DD13C.comp), method = "lm", formula = y ~ poly(x, 2), se=F) +
-  geom_point(aes(group = Source, size = timeSinceApp)) + # , colour = Source)) +  # , shape = ngC.Label)) +
+  geom_point(aes(group = ID, size = timeSinceApp)) + # , colour = Source)) +  # , shape = ngC.Label)) +
   theme_bw() +
   labs(size="Days post appl.", colour="Source" ) + #, shape = "Mass Carbon") +
   ylab(expression(paste({Delta~delta}^"13","C", ' (\u2030)'))) +
@@ -165,7 +166,7 @@ p <- ggplot(data = subset(soilGrApp, !is.na(ngC.Label)), aes(x=Conc.mug.g.dry.so
 p
 #ggsave(p, filename = "DDvsConc_soils.png", width = 8, height = 5, units = "in", scale = 1)
 
-#ggplotly(p)
+ggplotly(p)
   #stat_smooth(method = "lm", formula = y ~ poly(x, 2)) +
   #stat_smooth(method = "lm", formula = y~x, se=F) 
 ```
@@ -182,6 +183,8 @@ $$ f = \frac{C_t}{C_0} $$
 soilGrApp$iniCo <- ifelse(soilGrApp$Transect == "N", 4.82, 
                           ifelse(soilGrApp$Transect == "T", 5.32, 
                                  ifelse(soilGrApp$Transect == "S", 6.53, NA)))
+#soilGrApp$iniCo <- 8
+
 soilGrApp$yRaleigh <- log((1000+d13Co+soilGrApp$DD13C.comp)/(1000+d13Co))
 soilGrApp$xRaleigh <- log(soilGrApp$Conc.mug.g.dry.soil/soilGrApp$iniCo)
 
@@ -214,7 +217,7 @@ mean(c(coef(modelSouth)[2]*1000 , coef(modelNorth)[2]*1000 , coef(modelTalweg)[2
 #summary(modelFull)  
 
 raleigh <- ggplot(data = subset(soilGrApp, ( Wnum > 0 & !is.na(ngC.Label) & !is.na(yRaleigh) )), aes(x=xRaleigh, y=yRaleigh))+
-  geom_point(aes(group = Source, size = timeSinceApp ))+ #, colour = Source)) +  #, shape = ngC.Label)) +
+  geom_point(aes(group = ID, size = timeSinceApp ))+ #, colour = Source)) +  #, shape = ngC.Label)) +
   theme_bw() +
   scale_size_continuous(range = c(1, 5)) +
   labs(size="Days post appl.", colour="Source") + #, shape = "Mass Carbon") +
@@ -244,7 +247,9 @@ raleigh <- ggplot(data = subset(soilGrApp, ( Wnum > 0 & !is.na(ngC.Label) & !is.
      #            point.padding = unit(1.0, 'lines'), 
       #           max.iter = 2e3,
        #          nudge_x = .2)
+
 raleigh
+#ggplotly(raleigh)
 # ggsave(raleigh, filename = "lnDDvslnConc_soils.png", width = 8, height = 5, units = "in", scale = 1)
 ```
 
@@ -712,7 +717,7 @@ WaterSoils <- merge(waterClean_ng, soils, by = "Date.ti", all = T)
 
 str(WaterSoils)
 names(WaterSoils)
-keepWS <- c("Date.ti", 
+keepWS <- c("Date.ti", "WeekSubWeek", "maxQ", "AveDischarge.m3.h",
             "DD13C.diss", "SD.d13C.x",
             "DD13C.filt", "filt.SD.d13C",
             "DD13C.Talweg", "comp.d13C.SD.Talweg", 
@@ -726,7 +731,7 @@ wsSmall <- WaterSoils[ , (names(WaterSoils) %in% keepWS)]
 wsSmall$DD13.Bulk <- wsSmall$BulkCatch.d13-initialDelta 
 
 names(wsSmall)
-wsSmall <- wsSmall[c("Date.ti", "Event.x",
+wsSmall <- wsSmall[c("Date.ti", "Event.x", "WeekSubWeek", "maxQ", "AveDischarge.m3.h",
             "DD13C.diss", "SD.d13C.x",
             "DD13C.filt", "filt.SD.d13C" ,
             "DD13C.Talweg", "comp.d13C.SD.Talweg", 
@@ -734,7 +739,7 @@ wsSmall <- wsSmall[c("Date.ti", "Event.x",
             "DD13C.North", "comp.d13C.SD.North",
             "DD13.Bulk", "BulkCatch.d13.SD")]
 
-names(wsSmall) <- c("Date", "Event",
+names(wsSmall) <- c("Date", "Event", "Week", "Qmax", "Qmean",
             "diss.measure", "diss.SD",
             "filt.measure", "filt.SD",
             "Talweg.measure", "Talweg.SD", 
@@ -752,7 +757,7 @@ names(wsSmall) <- c("Date", "Event",
 #  paste0(names(wsSmall)[-1][seq(1, length(names(wsSmall)) - 1, 2)], "-measure")
 
 wstidier <- wsSmall %>%
-  gather(measure, value, -Date, -Event) %>% # Melts data frame
+  gather(measure, value, -Date, -Event, -Week, -Qmax, -Qmean) %>% # Melts data frame
   separate(measure, into = c("Location", "temporary_var")) %>% # parses the sep = "." into...
   spread(temporary_var, value) 
 
@@ -791,6 +796,7 @@ wstidier$DegLab <- (1-((1000 + d13Co + wstidier$measure)/(1000+d13Co))^(1000/eps
 wstidier$DegDiff <- (wstidier$DegField - wstidier$DegLab) 
 
 wstidier$Location <- as.factor(wstidier$Location)
+#wstidier$Week <- as.factor(wstidier$Week)
 
 #library(dplyr)
 #detach("package:plyr")
@@ -798,13 +804,212 @@ sumary <- na.omit(wstidier) %>%
   group_by(Type) %>%
   summarise(mean = mean(DegDiff))
 
+limits_DdC <- aes(ymin=measure-SD, ymax=measure+SD, colour = Source)
+
+
+
+wstidier2 = subset(wstidier, SD <= 1 ) #& Source != "Bulk"  ) #& Date < as.POSIXct('2016-06-14 08:04:00'))
+NoBASE <- subset(wstidier2, Week != "W6-1" ) 
+
+pd <- position_dodge(width = 0.4)
+wsALL_lab <- ggplot(data = wstidier2, aes(x = Date, y = measure, group = Source) )+ 
+  geom_errorbar(data=subset(wstidier2, Source == 'Bulk'), limits_DdC, size=0.2) +
+  geom_errorbar(data=subset(wstidier2, Source == 'Valley' & 
+                              Date > as.POSIXct('2016-05-14 08:04:00')), limits_DdC, size=0.2) +
+  geom_errorbar(data=subset(wstidier2, Source == 'Outlet'), limits_DdC) +
+  geom_point(data=subset(wstidier2, Source == 'Outlet'), aes(shape = Type, colour = Source, size = Qmax)) +
+  #geom_point(data=subset(wstidier2, Source == 'Outlet'), aes(shape = Type, colour = Source, size = Qmean)) +
+  geom_point(data=subset(wstidier2, Source == 'Bulk'), aes(shape = Type, colour = Source)) +
+  geom_point(data=subset(wstidier2, Source == 'Valley' & 
+                           Date > as.POSIXct('2016-05-14 08:04:00')), aes(shape = Type, colour = Source)) +
+  
+  #stat_smooth(data=subset(wstidier,
+  #                        (Source == "Valley" & Event > 8 )), 
+  #            method = "lm", formula = y ~ poly(x, 2), se = F, colour = 'darkgreen' , alpha = 0.1, size=0.2) +
+  #stat_smooth(data=subset(wstidier,
+  #                        (Source != "Outlet" & Source != "Valley" & Event < 20 )), 
+  #            method = "lm", formula = y ~  poly(x, 2), se = F, alpha = 0.1, size=0.2) +
+  
+  # Water
+  stat_smooth(data=subset(NoBASE,
+                          (Source == "Outlet" & Event > 1 & Type == "Dissolved")), 
+              method = "lm", formula = y ~ poly(x, 2), se = T, aes(colour = 'Outlet'), alpha = 0.2, size=0.2) +
+  # North
+  stat_smooth(data=subset(wstidier2,
+                          (Source == "Bulk" )), #| Source == "South" )), 
+              method = "lm", formula = y ~ poly(x, 2), se = T, aes(colour = 'Bulk'), alpha = 0.2, size=0.2) +
+  #stat_smooth(data=subset(wstidier2,
+  #                        (Source == "South")), 
+  #            method = "lm", formula = y ~ poly(x, 2), se = T, aes(colour = 'South'), alpha = 0.2, size=0.2) +
+  theme_bw() + 
+  # Applics
+  annotate("text", x = as.POSIXct('2016-03-28 08:04:00'), y = 0, 
+           label = as.character(expression(paste( "\u066D"))), parse = T, size = 6.0) +
+  annotate("text", x = as.POSIXct('2016-04-05 00:04:00'), y = 0, 
+           label = as.character(expression(paste( "\u066D"))), parse = T, size = 6.0) +
+  annotate("text", x = as.POSIXct('2016-04-13 08:04:00'), y = 0, 
+           label = as.character(expression(paste( "\u066D"))), parse = T, size = 6.0) +
+  annotate("text", x = as.POSIXct('2016-05-25 08:04:00'), y = 0, 
+           label = as.character(expression(paste( "\u066D"))), parse = T, size = 6.0) +
+  # Title applics
+  annotate("text", x = as.POSIXct('2016-04-05 08:04:00'), y = 4.5, 
+           label = as.character(expression(paste( "\u066D", " Applications"))), parse = T, size = 4.0) +
+  
+  scale_x_datetime(breaks = date_breaks("2 weeks"), labels = date_format("%b %d")) +
+  theme(legend.position="top"
+        # axis.title.x = element_blank(),
+        # axis.text.x=element_text(angle = 45, hjust = 1)
+        ) +
+  # geom_smooth(data=subset(ws, Source != "Outlet"), method = "lm", formula = y ~ poly(x, 2)) +
+  xlab("Date") + 
+  #ylab(expression(paste({Delta~delta}^"13","C", ' (\u2030)'))) +
+  scale_y_continuous(
+    expression(paste({Delta~delta}^"13","C", ' (\u2030)')),
+    sec.axis = sec_axis(trans = ~ (1-((1000 + d13Co + .)/(1000+d13Co))^(1000/epsilon_lab))*100 , 
+                        name = element_blank(), breaks=c(20, 40, 60, 70, 80, 85, 90, 95) )# breaks=seq(20, 120, 15))
+  )  + 
+  scale_color_manual(name= "Source", 
+                      values = c("#F8766D", "#00BFC4", "#00BA38", "#B79F00", "#619CFF", "#F564E3",
+                                 "#D55E00", "darkgreen", "dodgerblue") 
+                     ) +
+  scale_size_continuous(range = c(1, 3)) # +
+  # scale_shape_manual(name= )
+
+
+wsALL_field <- ggplot(data = wstidier2, aes(x = Date, y = measure, group = Source) )+ 
+  geom_errorbar(data=subset(wstidier2, Source == 'Bulk'), limits_DdC, size=0.2) +
+  geom_errorbar(data=subset(wstidier2, Source == 'Valley' & 
+                              Date > as.POSIXct('2016-05-14 08:04:00')), limits_DdC, size=0.2) +
+  geom_errorbar(data=subset(wstidier2, Source == 'Outlet'), limits_DdC) +
+  geom_point(data=subset(wstidier2, Source == 'Outlet'), aes(shape = Type, colour = Source, size = Qmax)) +
+  # geom_point(data=subset(wstidier2, Source == 'Outlet'), aes(shape = Type, colour = Source, size = Qmean)) +
+  geom_point(data=subset(wstidier2, Source == 'Bulk'), aes(shape = Type, colour = Source)) +
+  geom_point(data=subset(wstidier2, Source == 'Valley' & 
+                           Date > as.POSIXct('2016-05-14 08:04:00')), aes(shape = Type, colour = Source)) +
+  
+  #stat_smooth(data=subset(wstidier,
+  #                        (Source == "Valley" & Event > 8 )), 
+  #            method = "lm", formula = y ~ poly(x, 2), se = F, colour = 'darkgreen' , alpha = 0.1, size=0.2) +
+  #stat_smooth(data=subset(wstidier,
+  #                        (Source != "Outlet" & Source != "Valley" & Event < 20 )), 
+  #            method = "lm", formula = y ~  poly(x, 2), se = F, alpha = 0.1, size=0.2) +
+  
+  # Water
+  stat_smooth(data=subset(wstidier2, #NoBASE,
+                          (Source == "Outlet" & Event > 1 & Type == "Dissolved")), 
+              method = "lm", formula = y ~ poly(x, 2), se = T, aes(colour = 'Outlet'), alpha = 0.2, size=0.2) +
+  # North
+  stat_smooth(data=subset(wstidier2,
+                          (Source == "Bulk" )), #| Source == "South" )), 
+              method = "lm", formula = y ~ poly(x, 2), se = T, aes(colour = 'Bulk'), alpha = 0.2, size=0.2) +
+  #stat_smooth(data=subset(wstidier2,
+  #                        (Source == "South")), 
+  #            method = "lm", formula = y ~ poly(x, 2), se = T, aes(colour = 'South'), alpha = 0.2, size=0.2) +
+  theme_bw() + 
+  # Applics
+  annotate("text", x = as.POSIXct('2016-03-28 08:04:00'), y = 0, 
+           label = as.character(expression(paste( "\u066D"))), parse = T, size = 6.0) +
+  annotate("text", x = as.POSIXct('2016-04-05 00:04:00'), y = 0, 
+           label = as.character(expression(paste( "\u066D"))), parse = T, size = 6.0) +
+  annotate("text", x = as.POSIXct('2016-04-13 08:04:00'), y = 0, 
+           label = as.character(expression(paste( "\u066D"))), parse = T, size = 6.0) +
+  annotate("text", x = as.POSIXct('2016-05-25 08:04:00'), y = 0, 
+           label = as.character(expression(paste( "\u066D"))), parse = T, size = 6.0) +
+  # Title applics
+  annotate("text", x = as.POSIXct('2016-04-05 08:04:00'), y = 4.5, 
+           label = as.character(expression(paste( "\u066D", " Applications"))), parse = T, size = 4.0) +
+  
+  scale_x_datetime(breaks = date_breaks("1 month"), labels = date_format("%b %d")) +
+  theme(legend.position="top"
+        # axis.title.x = element_blank()
+        # axis.text.x=element_text(angle = 45, hjust = 1)
+        ) +
+  # geom_smooth(data=subset(ws, Source != "Outlet"), method = "lm", formula = y ~ poly(x, 2)) +
+  xlab("Date") + 
+  #ylab(expression(paste({Delta~delta}^"13","C", ' (\u2030)'))) +
+  scale_y_continuous(
+    expression(paste({Delta~delta}^"13","C", ' (\u2030)')),
+    sec.axis = sec_axis(trans = ~ (1-((1000 + d13Co + .)/(1000+d13Co))^(1000/epsilon_field))*100 , 
+                        name = "Degradation (%)", breaks=c(20, 40, 60, 70, 80, 85, 90, 95) )# breaks=seq(20, 120, 15))
+  )  + 
+  scale_color_manual(name= "Source", 
+                      values = c("#F8766D", "#00BFC4", "#00BA38", "#B79F00", "#619CFF", "#F564E3",
+                                 "#D55E00", "darkgreen", "dodgerblue") 
+                     ) +
+  scale_size_continuous(range = c(1, 3)) + 
+  guides(col = guide_legend(nrow =  3), shape=guide_legend(nrow=2), size = guide_legend(nrow=3))# +
+  # scale_shape_manual(name= )
+ggplotly(wsALL_field)
+
+# May 12th event
+# Two samples from 2 very close (t = +3hrs) peaks
+mean(c( 1.70, 0.94))
+sd(c( 1.70, 0.94))
+
+# May 29th event 
+# 2 samples from second peak
+mean(c( 2.65, 2.56))
+sd(c( 2.65, 2.56))
+
+# 2 samples from end event (9-4 and 10-1)
+mean(c(2.507, 2.772))
+sd(c(2.507, 2.772))
+
+# June 2-3 event
+# 2 samples from 1st peak
+mean(c( 1.23, 1.44 ))
+sd(c( 1.23, 1.44 ))
+
+```
+
+## Join all figures
+```{r}
+#wsALL_lab
+#wsALL_field
+#wsPlot
+# ggsave(wsALL, filename = "WaterSoilvsTime.png", width = 8, height = 5, units = "in", scale = 1)
+# ggsave(wsALL, filename = "WaterBulkvsTime.png", width = 8, height = 5, units = "in", scale = 1)
+
+wsALL_field_noLeg <- wsALL_field + theme(legend.position='none')
+wsALL_lab_noLeg <- wsALL_lab + theme(legend.position='none')
+wsAll_field_Leg  <- get_legend(wsALL_field)
+
+
+
+label <- substitute(paste(epsilon, " = ", epsilon_f, ", Field", epsilon, " = " , epsilon_l),
+                    list(epsilon_f = signif(epsilon_field, 2), epsilon_l = signif(epsilon_lab, 2) ))
+
+label2 <- substitute(paste(epsilon ["field"] , " = ", epsilon_f),
+                     list(epsilon_f = signif(epsilon_field, 3)))
+
+label3 <- substitute(paste(epsilon ["lab"] , " = ", epsilon_l),
+                     list(epsilon_l = signif(epsilon_lab, 3)))
+# adding label via ggdraw, in the ggdraw coordinates
+
+
+wsALL <- ggdraw() +
+  draw_plot(wsALL_field_noLeg, x=0, y=.2, width = 1, height = .8) + 
+  draw_plot(wsALL_lab_noLeg, x=0, y = 0.2, width = 0.935, height = 0.8) +
+  draw_label(label2, x= .89, y = .2, size = 8) +
+  draw_label(label3, x= .94, y = .15, size = 8) +
+  draw_plot(wsAll_field_Leg, x=0.2, y=0.0, width = 0.55, height = 0.15)
+ 
+wsALL 
+
+#ggsave(wsALL, filename = "WaterSoilvsTime.png", width = 8, height = 5, units = "in", scale = 1)
+```
+
+
+# Soils and Water with labels (inspection)
+```{r}
 # Data without the Plateau
-wsNoPlat <- subset(wstidierAll, Source != "Plateau")
-wsNoPlat$Source <- factor(wsNoPlat$Source, levels = c("Bulk", "Valley", "Outlet"))
-levels(wsNoPlat$Source)
+#wsNoPlat <- subset(wstidierAll, Source != "Plateau")
+wsNoPlat <- subset(wstidier, SD < 4)
+#wsNoPlat$Source <- factor(wsNoPlat$Source, levels = c("Bulk", "Valley", "Outlet"))
+#levels(wsNoPlat$Source)
 
 # Subset the data to values with SD < 1
-wsNoPlat2 = subset(wsNoPlat, SD < 1.50)
+#wsNoPlat2 = subset(wsNoPlat, SD < 1.50)
 
 
 limits_DdC <- aes(ymin=measure-SD, ymax=measure+SD, colour = Source)
@@ -850,168 +1055,24 @@ wsPlot <- ggplot(data = wsNoPlat, aes(x = Date, y = measure)) +
     expression(paste({Delta~delta}^"13","C", ' (\u2030)')), 
     sec.axis = sec_axis(trans = ~ (1-((1000 + d13Co + .)/(1000+d13Co))^(1000/epsilon_field))*100 , 
                         name = "Degr (%)", breaks=c(20, 40, 60, 80, 95) )# breaks=seq(20, 120, 15))
-  ) # + 
+  ) +
+  geom_text_repel(aes(label=as.factor(Week)),
+                 size = 3,
+                  arrow = arrow(length = unit(0.005, 'npc'), type = "closed"),
+                  force = 0.5, 
+                  point.padding = unit(0.5, 'lines'), 
+                 max.iter = 2e3,
+                nudge_x = .05) 
+
+# + 
   #scale_color_manual(name= "Source", 
   #                    values = c("black", "dodgerblue", "green", "red")
   #                   ) +
   # scale_shape_manual(name= )
 
-
-
-wstidier2 = subset(wstidier, SD <= 1 ) #& Source != "Bulk"  ) #& Date < as.POSIXct('2016-06-14 08:04:00'))
-pd <- position_dodge(width = 0.4)
-wsALL_lab <- ggplot(data = wstidier2, aes(x = Date, y = measure, group = Source) )+ 
-  geom_errorbar(data=subset(wstidier2, Source == 'Bulk'), limits_DdC, size=0.2) +
-  geom_errorbar(data=subset(wstidier2, Source == 'Valley' & 
-                              Date > as.POSIXct('2016-05-14 08:04:00')), limits_DdC, size=0.2) +
-  geom_errorbar(data=subset(wstidier2, Source == 'Outlet'), limits_DdC) +
-  geom_point(data=subset(wstidier2, Source == 'Bulk'), aes(shape = Type, colour = Source)) +
-  geom_point(data=subset(wstidier2, Source == 'Valley' & 
-                           Date > as.POSIXct('2016-05-14 08:04:00')), aes(shape = Type, colour = Source)) +
-  geom_point(data=subset(wstidier2, Source == 'Outlet'), aes(shape = Type, colour = Source)) +
-  #stat_smooth(data=subset(wstidier,
-  #                        (Source == "Valley" & Event > 8 )), 
-  #            method = "lm", formula = y ~ poly(x, 2), se = F, colour = 'darkgreen' , alpha = 0.1, size=0.2) +
-  #stat_smooth(data=subset(wstidier,
-  #                        (Source != "Outlet" & Source != "Valley" & Event < 20 )), 
-  #            method = "lm", formula = y ~  poly(x, 2), se = F, alpha = 0.1, size=0.2) +
-  
-  # Water
-  stat_smooth(data=subset(wstidier2,
-                          (Source == "Outlet" & Event > 1 & Type == "Dissolved")), 
-              method = "lm", formula = y ~ poly(x, 2), se = T, aes(colour = 'Outlet'), alpha = 0.2, size=0.2) +
-  # North
-  stat_smooth(data=subset(wstidier2,
-                          (Source == "Bulk" )), #| Source == "South" )), 
-              method = "lm", formula = y ~ poly(x, 2), se = T, aes(colour = 'Bulk'), alpha = 0.2, size=0.2) +
-  #stat_smooth(data=subset(wstidier2,
-  #                        (Source == "South")), 
-  #            method = "lm", formula = y ~ poly(x, 2), se = T, aes(colour = 'South'), alpha = 0.2, size=0.2) +
-  theme_bw() + 
-  # Applics
-  annotate("text", x = as.POSIXct('2016-03-28 08:04:00'), y = 0, 
-           label = as.character(expression(paste( "\u066D"))), parse = T, size = 6.0) +
-  annotate("text", x = as.POSIXct('2016-04-05 00:04:00'), y = 0, 
-           label = as.character(expression(paste( "\u066D"))), parse = T, size = 6.0) +
-  annotate("text", x = as.POSIXct('2016-04-13 08:04:00'), y = 0, 
-           label = as.character(expression(paste( "\u066D"))), parse = T, size = 6.0) +
-  annotate("text", x = as.POSIXct('2016-05-25 08:04:00'), y = 0, 
-           label = as.character(expression(paste( "\u066D"))), parse = T, size = 6.0) +
-  # Title applics
-  annotate("text", x = as.POSIXct('2016-04-05 08:04:00'), y = 4.5, 
-           label = as.character(expression(paste( "\u066D", " Applications"))), parse = T, size = 4.0) +
-  
-  scale_x_datetime(breaks = date_breaks("2 weeks"), labels = date_format("%b %d")) +
-  theme(legend.position="top"
-        # axis.title.x = element_blank(),
-        # axis.text.x=element_text(angle = 45, hjust = 1)
-        ) +
-  # geom_smooth(data=subset(ws, Source != "Outlet"), method = "lm", formula = y ~ poly(x, 2)) +
-  xlab("Date") + 
-  #ylab(expression(paste({Delta~delta}^"13","C", ' (\u2030)'))) +
-  scale_y_continuous(
-    expression(paste({Delta~delta}^"13","C", ' (\u2030)')),
-    sec.axis = sec_axis(trans = ~ (1-((1000 + d13Co + .)/(1000+d13Co))^(1000/epsilon_lab))*100 , 
-                        name = element_blank(), breaks=c(20, 40, 60, 70, 80, 85, 90, 95) )# breaks=seq(20, 120, 15))
-  )  + 
-  scale_color_manual(name= "Source", 
-                      values = c("#F8766D", "#00BFC4", "#00BA38", "#B79F00", "#619CFF", "#F564E3",
-                                 "#D55E00", "darkgreen", "dodgerblue") 
-                     ) # +
-  # scale_shape_manual(name= )
-
-wsALL_field <- ggplot(data = wstidier2, aes(x = Date, y = measure, group = Source) )+ 
-  geom_errorbar(data=subset(wstidier2, Source == 'Bulk'), limits_DdC, size=0.2) +
-  geom_errorbar(data=subset(wstidier2, Source == 'Valley' & 
-                              Date > as.POSIXct('2016-05-14 08:04:00')), limits_DdC, size=0.2) +
-  geom_errorbar(data=subset(wstidier2, Source == 'Outlet'), limits_DdC) +
-  geom_point(data=subset(wstidier2, Source == 'Bulk'), aes(shape = Type, colour = Source)) +
-  geom_point(data=subset(wstidier2, Source == 'Valley' & 
-                           Date > as.POSIXct('2016-05-14 08:04:00')), aes(shape = Type, colour = Source)) +
-  geom_point(data=subset(wstidier2, Source == 'Outlet'), aes(shape = Type, colour = Source)) +
-  #stat_smooth(data=subset(wstidier,
-  #                        (Source == "Valley" & Event > 8 )), 
-  #            method = "lm", formula = y ~ poly(x, 2), se = F, colour = 'darkgreen' , alpha = 0.1, size=0.2) +
-  #stat_smooth(data=subset(wstidier,
-  #                        (Source != "Outlet" & Source != "Valley" & Event < 20 )), 
-  #            method = "lm", formula = y ~  poly(x, 2), se = F, alpha = 0.1, size=0.2) +
-  
-  # Water
-  stat_smooth(data=subset(wstidier2,
-                          (Source == "Outlet" & Event > 1 & Type == "Dissolved")), 
-              method = "lm", formula = y ~ poly(x, 2), se = T, aes(colour = 'Outlet'), alpha = 0.2, size=0.2) +
-  # North
-  stat_smooth(data=subset(wstidier2,
-                          (Source == "Bulk" )), #| Source == "South" )), 
-              method = "lm", formula = y ~ poly(x, 2), se = T, aes(colour = 'Bulk'), alpha = 0.2, size=0.2) +
-  #stat_smooth(data=subset(wstidier2,
-  #                        (Source == "South")), 
-  #            method = "lm", formula = y ~ poly(x, 2), se = T, aes(colour = 'South'), alpha = 0.2, size=0.2) +
-  theme_bw() + 
-  # Applics
-  annotate("text", x = as.POSIXct('2016-03-28 08:04:00'), y = 0, 
-           label = as.character(expression(paste( "\u066D"))), parse = T, size = 6.0) +
-  annotate("text", x = as.POSIXct('2016-04-05 00:04:00'), y = 0, 
-           label = as.character(expression(paste( "\u066D"))), parse = T, size = 6.0) +
-  annotate("text", x = as.POSIXct('2016-04-13 08:04:00'), y = 0, 
-           label = as.character(expression(paste( "\u066D"))), parse = T, size = 6.0) +
-  annotate("text", x = as.POSIXct('2016-05-25 08:04:00'), y = 0, 
-           label = as.character(expression(paste( "\u066D"))), parse = T, size = 6.0) +
-  # Title applics
-  annotate("text", x = as.POSIXct('2016-04-05 08:04:00'), y = 4.5, 
-           label = as.character(expression(paste( "\u066D", " Applications"))), parse = T, size = 4.0) +
-  
-  scale_x_datetime(breaks = date_breaks("1 month"), labels = date_format("%b %d")) +
-  theme(legend.position="top"
-        # axis.title.x = element_blank()
-        # axis.text.x=element_text(angle = 45, hjust = 1)
-        ) +
-  # geom_smooth(data=subset(ws, Source != "Outlet"), method = "lm", formula = y ~ poly(x, 2)) +
-  xlab("Date") + 
-  #ylab(expression(paste({Delta~delta}^"13","C", ' (\u2030)'))) +
-  scale_y_continuous(
-    expression(paste({Delta~delta}^"13","C", ' (\u2030)')),
-    sec.axis = sec_axis(trans = ~ (1-((1000 + d13Co + .)/(1000+d13Co))^(1000/epsilon_field))*100 , 
-                        name = "Degradation (%)", breaks=c(20, 40, 60, 70, 80, 85, 90, 95) )# breaks=seq(20, 120, 15))
-  )  + 
-  scale_color_manual(name= "Source", 
-                      values = c("#F8766D", "#00BFC4", "#00BA38", "#B79F00", "#619CFF", "#F564E3",
-                                 "#D55E00", "darkgreen", "dodgerblue") 
-                     ) # +
-  # scale_shape_manual(name= )
-
-#wsALL_lab
-#wsALL_field
-#wsPlot
-# ggsave(wsALL, filename = "WaterSoilvsTime.png", width = 8, height = 5, units = "in", scale = 1)
-# ggsave(wsALL, filename = "WaterBulkvsTime.png", width = 8, height = 5, units = "in", scale = 1)
-
-wsALL_field_noLeg <- wsALL_field + theme(legend.position='none')
-wsALL_lab_noLeg <- wsALL_lab + theme(legend.position='none')
-wsAll__field_Leg  <- get_legend(wsALL_field)
-
-label <- substitute(paste(epsilon, " = ", epsilon_f, ", Field", epsilon, " = " , epsilon_l),
-                    list(epsilon_f = signif(epsilon_field, 2), epsilon_l = signif(epsilon_lab, 2) ))
-
-label2 <- substitute(paste(epsilon ["field"] , " = ", epsilon_f),
-                     list(epsilon_f = signif(epsilon_field, 3)))
-
-label3 <- substitute(paste(epsilon ["lab"] , " = ", epsilon_l),
-                     list(epsilon_l = signif(epsilon_lab, 3)))
-# adding label via ggdraw, in the ggdraw coordinates
-
-
-wsALL <- ggdraw() +
-  draw_plot(wsALL_field_noLeg, x=0, y=.2, width =  1, height = .8) + 
-  draw_plot(wsALL_lab_noLeg, x=0, y = 0.2, width = 0.935, height = 0.8) +
-  draw_label(label2, x= .89, y = .2, size = 8) +
-  draw_label(label3, x= .94, y = .15, size = 8) +
-  draw_plot(wsAll__field_Leg, x=0.2, y=0.0, width = 0.6, height = 0.2)
- 
-wsALL 
-#ggsave(wsALL, filename = "WaterSoilvsTime.png", width = 8, height = 5, units = "in", scale = 1)
-
+wsPlot
 ```
+
 
 
 ## Testing difference in $\Delta \delta$ between groups

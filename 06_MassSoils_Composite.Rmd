@@ -103,8 +103,11 @@ c) Nanograms of carbon > 5.0.
 
 ```{r, message=FALSE}
 
-weeklySoilConc = read.csv2("Data/SoilCompConc_W1toW15.csv", header = TRUE)
-weeklySoilConc$Date.ti <- as.POSIXct(strptime(weeklySoilConc$Date.Soil, "%d/%m/%Y %H:%M", tz="EST")) # stopped working
+#weeklySoilConc = read.csv2("Data/SoilCompConc_W1toW15.csv", header = TRUE)
+# Date format stopped working in CSV
+# Convert in CSV via  "=TEXT(CELL.ID, "dd/mm/yyyy hh:mm")" based on xls-file date
+weeklySoilConc = read.csv("Data/SoilCompConc_W1toW15.csv", header = TRUE)
+weeklySoilConc$Date.ti <- as.POSIXct(strptime(weeklySoilConc$Date.Soil, "%d/%m/%Y %H:%M", tz="EST")) 
 sum(is.na(weeklySoilConc$Date.ti))
 # View(weeklySoilConc)
 weeklySoilConc <- weeklySoilConc[,c("Filename",

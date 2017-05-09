@@ -259,6 +259,7 @@ names(watSoilMerged)
 includeWater <- c(
   "Events",
   "Peak",
+  "dryHrs",
   # Response variables
   "Conc.mug.L", "OXA_mean", "ESA_mean", 
   "SM.g.nrm", "MEL.g.nrm", "SM.g.nrm.prc", "MEL.g.nrm.prc",
@@ -296,7 +297,7 @@ includeResponse <- c(
   )
 
 hydro <- c(
-  "Events",
+  "Events", "dryHrs",
   # "Peak", #"Sequence",
   # Response variables
   #"Conc.mug.L", "OXA_mean", "ESA_mean", 
@@ -337,19 +338,21 @@ ncol(waterXY)
 # Re-arrange columns to have "Events" as Index
 colnames(waterXY)
 waterX <- waterXY[c("Events", 
-                     "maxQ", "AveDischarge.m3.h", # "chExtreme",
-                    "Duration.Hrs", "Volume.m3" , "DIa", 
-                    "ExpMES.Kg" #, "Sequence"
+                   # "dryHrs",
+                   "maxQ", "AveDischarge.m3.h", # "chExtreme",
+                   "Duration.Hrs", 
+                   "Volume.m3" #, "DIa", 
+                    #"ExpMES.Kg" #, "Sequence"
                      #"DD13C.diss",  "DD.diss.norm", "SM.g.nrm.prc", "MEL.g.nrm.prc"
                      )]
 if ( class(waterX[, 1])== "factor") {
   # Hellinger
-  water.hell <- decostand(waterX[, 2:7], "hellinger", na.rm=T, MARGIN = 2)
+  water.hell <- decostand(waterX[, 2:ncol(waterX)], "hellinger", na.rm=T, MARGIN = 2)
   # waterXY.hell.nona <- waterXY.hell[complete.cases(waterXY.hell),]
   
   # Normalize to 1
   # make margin sum of squares equal to one (default MARGIN = 1)
-  water.norm <- decostand(waterX[, 2:7], "norm", na.rm=T, MARGIN = 2) # Columns
+  water.norm <- decostand(waterX[, 2:ncol(waterX)], "norm", na.rm=T, MARGIN = 2) # Columns
   #water.normV <- decostand(waterX[, 2:5], "norm", na.rm=T, MARGIN = 2) 
 }
 
@@ -474,14 +477,24 @@ clusterGroups.norm = cutree(water.norm.clust, k = 2)
 
 # No. of rows/observations
 length(clusterGroups.hell) == lengths(waterXY)[1]
+#length(clusterGroups.norm) == lengths(waterXY)[1]
+
+length(clusterGroups.hell[clusterGroups.hell == 1])
+length(clusterGroups.hell[clusterGroups.hell == 2])
   
 bindedGroups.K2.X <- cbind2(clusterGroups.hell, waterXY)
+bindedGroups.K2.X.norm <- cbind2(clusterGroups.norm, waterXY)
+
 names(bindedGroups.K2.X)[names(bindedGroups.K2.X) == "x"] <- "Cluster"
+names(bindedGroups.K2.X.norm)[names(bindedGroups.K2.X.norm) == "x"] <- "Cluster"
+
 bindedGroups.K2.X$Cluster <- as.factor(bindedGroups.K2.X$Cluster)
+bindedGroups.K2.X.norm$Cluster <- as.factor(bindedGroups.K2.X.norm$Cluster)
 
 #bindedGroups.K3.X <- cbind2(clusterGroups.norm, waterXY)
+bindedGroups.K2.XY <- merge(bindedGroups.K2.X, responseWater, by = "Events")
+bindedGroups.K2.XY.norm <- merge(bindedGroups.K2.X.norm, responseWater, by = "Events")
 
-bindedGroups.K2.XY <- merge(bindedGroups.K2.X, responseWater, by = "Events", all = T)
 #class(bindedGroups.K2.XY$x)
 #group1 <- subset(bindedGroups.K2.XY, x == 1)
 #group2 <- subset(bindedGroups.K2.XY, x == 2)
@@ -498,13 +511,32 @@ bindedGroups.K2.XY <- merge(bindedGroups.K2.X, responseWater, by = "Events", all
 ### MANOVA test
 ### Raw response variables
 colnames(bindedGroups.K2.XY)
+colnames(bindedGroups.K2.XY.norm)
 
 res.man <- manova(cbind(DD13C.diss.x, DD.diss.norm, # Percent is exactly the same: DD.diff.prc,
-                        TotSMout.g.x, MELsm.g.x,  Conc.mug.L, OXA_mean, ESA_mean,
+                        TotSMout.g.x, MELsm.g.x,  Conc.mug.L, OXA_mean, ESA_mean, 
+                        ExpMES.Kg,
                         # responses
                         maxQ, Duration.Hrs, AveDischarge.m3.h, Volume.m3, DIa
                         ) 
                   ~ Cluster, data = bindedGroups.K2.XY)
+                  #~ Cluster, data = bindedGroups.K2.XY.norm)
+
+# Test for normality
+shapiro.test(bindedGroups.K2.XY$Conc.mug.L)
+shapiro.test(bindedGroups.K2.XY$TotSMout.g.x)
+shapiro.test(bindedGroups.K2.XY$OXA_mean)
+shapiro.test(bindedGroups.K2.XY$DD.diss.norm)
+shapiro.test(bindedGroups.K2.XY$DD13C.diss.x) # Not significant
+
+n1 <- lengths(subset(bindedGroups.K2.XY, !is.na(DD.diss.norm) & Cluster == 1))[[1]]
+n2 <- lengths(subset(bindedGroups.K2.XY, !is.na(DD.diss.norm) & Cluster == 2))[[1]]
+#n3 <- lengths(subset(bindedGroups.K2.XY, !is.na(DD.diss.norm) & Cluster == 3))[[1]]
+#n4 <- lengths(subset(bindedGroups.K2.XY, !is.na(DD.diss.norm) & Cluster == 4))[[1]]
+
+
+# boxplot(bindedGroups.K2.XY$DD.diss.norm)
+
 ### Look to see which differ
 summary.aov(res.man)
 
@@ -533,7 +565,6 @@ subGroupK2 <- subset(meltGroupK2,
                       | variable == 'Volume.m3'
                       | variable == 'Duration.Hrs' 
                       | variable == "ExpMES.Kg" 
-                
                       )
                      )
 # Get p-values for graph
@@ -653,7 +684,7 @@ water.norm.pca <- prcomp(water.norm[1:ncol(water.norm)], retx=T, scale.=F)
 scores.norm <- water.norm.pca$x[,1:3]
 
 # k-means clustering [assume 3 clusters]
-km2     <- kmeans(scores.hell, centers=2, nstart=10)
+km2     <- kmeans(scores.hell, centers=4, nstart=10)
 km3     <- kmeans(scores.norm, centers=2, nstart=10)
 # ggdata <- data.frame(scores, Cluster=km$cluster, Species=waterXY.nona$Events)
 
