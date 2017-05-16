@@ -157,6 +157,11 @@ isoCompSummary = ddply(weeklySoilIso, c("ID"), summarise,
                          # ngC.SE = ngC.SD/sqrt(N_ngC)
                        )
 
+isoCompSummary$prctError <- (isoCompSummary$comp.d13C.SD/isoCompSummary$comp.d13C)*-100
+mean(!is.na(isoCompSummary$prctError))
+
+sum(isoCompSummary$N_ngC == 2)
+sum(isoCompSummary$N_ngC == 3)
 
 print("Soil Composites - Isotopes All")
 str(weeklySoilIso)

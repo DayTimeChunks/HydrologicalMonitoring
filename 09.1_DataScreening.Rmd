@@ -3,6 +3,7 @@ title: "Data Screening"
 author: "PAZ"
 date: "06/04/2017"
 output: pdf_document
+bibliography: library.bib
 ---
 
 ```{r setup, include=FALSE}
@@ -39,6 +40,8 @@ library("Cairo")
 library("GGally")
 library("scales")
 
+library("plotKML")
+
 # Stats
 library("vegan")
 library("cluster")
@@ -56,6 +59,7 @@ initialDelta = d13Co = -31.2144
 # Define initial concentration (for Raleigh plots)
 #Co <- 8 # ug/g dry soil (based on Corn applications)
 Co <- 6.53 # ug/g dry soil (based on Max conc. measured in soils)
+# Note: Each transect now has individual starting concentration
 
 epsilon_lab = -1.75
 ```
@@ -101,7 +105,7 @@ dropSoil <- c("WeekSubWeek", # "Event",
               "f.max.comp", "f.mean.comp", "f.min.comp", "ngC.SD","ngC.SE", "N_compsoil", "N_ngC")
 soils <- soils[ , !(names(soils) %in% dropSoil)]
 
-timeApps <- soils[ , c("Date.ti", "timeSinceApp", "Event")]
+timeApps <- soils[ , c("Date.ti", "timeSinceApp", "timeSinceApp.NoSo", "Event")]
 
 # Quasi-Molten SOILS
 soilGroups = read.csv2("Data/WeeklySoils_Rng.csv", 
@@ -140,16 +144,20 @@ soilGrApp$Source <- ifelse(soilGrApp$Transect == "T", "Valley", "Plateau")
 soilGrApp$Source <- as.factor(soilGrApp$Source)
 
 p <- ggplot(data = subset(soilGrApp, !is.na(ngC.Label)), aes(x=Conc.mug.g.dry.soil, y=DD13C.comp))+
+  geom_errorbar(aes(ymin = DD13C.comp - comp.d13C.SD, ymax = DD13C.comp + comp.d13C.SD)) +
+  geom_errorbarh(aes(xmin = Conc.mug.g.dry.soil - Conc.ComSoil.SD, xmax = Conc.mug.g.dry.soil + Conc.ComSoil.SD)) +
   stat_smooth(data = subset(soilGrApp, !is.na(ngC.Label)), 
               aes(x=Conc.mug.g.dry.soil, y=DD13C.comp), method = "lm", formula = y ~ poly(x, 2), se=F) +
-  geom_point(aes(group = ID, size = timeSinceApp)) + # , colour = Source)) +  # , shape = ngC.Label)) +
+  geom_point(aes(group = ID, size = timeSinceApp.NoSo)) + # , colour = Source)) +  # , shape = ngC.Label)) +
   theme_bw() +
-  labs(size="Days post appl.", colour="Source" ) + #, shape = "Mass Carbon") +
+  theme(legend.position = "bottom") +
+  labs(size="   Days after application", colour="Source" ) + #, shape = "Mass Carbon") +
   ylab(expression(paste({Delta~delta}^"13","C", ' (\u2030)'))) +
-  xlab(expression(paste("Conc. S-Meto.  ", {({mu}*g / g.soil.dry)}))) +
-  annotate("text", x = 5, y = 5, label = as.character(r_label), parse = T, size = 3.5) +
-  annotate("text", x = 5, y = 4.5, label = p_label, parse = T, size = 3.5) +
-  scale_size_continuous(range = c(1, 5)) 
+  xlab(expression(paste("S-MET Soil Concentration  ", {({mu}*g / g~dry~wt.)}))) +
+  annotate("text", x = 5.5, y = 3.7, label = as.character(r_label), parse = T, size = 3.5) +
+  annotate("text", x = 5.5, y = 3.2, label = p_label, parse = T, size = 3.5) +
+  scale_size_continuous(range = c(1, 5)) +
+  guides(size=guide_legend(nrow=1))
   
   #scale_color_hue("Group") +
   #scale_fill_manual(
@@ -171,7 +179,7 @@ ggplotly(p)
   #stat_smooth(method = "lm", formula = y~x, se=F) 
 ```
 
-## Raleigh plot
+## Rayleigh plot (no dilution accounted for)
 
 
 $$ ln (\frac{1000 + \delta ^{13}C_0 + \Delta\delta^{13}C }{1000 + \delta^{13} C_0 }) = (\alpha - 1) \cdot ln f = \frac{\epsilon}{1000} \cdot ln f $$
@@ -201,6 +209,9 @@ lab1 <- paste(lab, labSE3)
 
 summary(model)
 
+model2<-lm(yRaleigh~xRaleigh, data= soilGrApp, subset=(!is.na(ngC.Label) & DD13C.comp < 4)) # & ngC.mean >= 5)) 
+summary(model2)
+
 # Compre to each transect
 modelTalweg<-lm(yRaleigh~xRaleigh, data=soilGrApp, subset=(Wnum < 12 & !is.na(ngC.Label) & Transect == "T"))
 eT <- coef(modelTalweg)[2]*1000
@@ -216,15 +227,19 @@ mean(c(coef(modelSouth)[2]*1000 , coef(modelNorth)[2]*1000 , coef(modelTalweg)[2
 #modelFull<-lm(yRaleigh~xRaleigh, data=soilGroups, subset=(Wnum < 16)) 
 #summary(modelFull)  
 
-raleigh <- ggplot(data = subset(soilGrApp, ( Wnum > 0 & !is.na(ngC.Label) & !is.na(yRaleigh) )), aes(x=xRaleigh, y=yRaleigh))+
-  geom_point(aes(group = ID, size = timeSinceApp ))+ #, colour = Source)) +  #, shape = ngC.Label)) +
+rayleigh <- 
+  ggplot(data = subset(soilGrApp, ( Wnum > 0 & !is.na(ngC.Label) & !is.na(yRaleigh) )), 
+         aes(x=xRaleigh, y=yRaleigh)) +
+  geom_point(aes(group = ID, size = timeSinceApp.NoSo ))+ #, colour = Source)) +  #, shape = ngC.Label)) +
   theme_bw() +
   scale_size_continuous(range = c(1, 5)) +
   labs(size="Days post appl.", colour="Source") + #, shape = "Mass Carbon") +
   xlab("ln f") +
   ylab("ln R/Ro") +
   ylab(expression(paste("ln  ",  R / R['0'] ))) +
-  stat_smooth(data= subset(soilGrApp , ( Wnum > 0 & !is.na(ngC.Label) & !is.na(yRaleigh) )) , method = "lm", formula = y~x, se=T) +
+  stat_smooth(data= subset(soilGrApp , 
+                           ( Wnum > 0 & !is.na(ngC.Label) & !is.na(yRaleigh) )) , 
+              method = "lm", formula = y~x, se=T) +
   annotate("text", x = -0.5, y = 0.005, 
            # label = as.character(expression(paste( "\u0190", " \u2030", " = ", cof))), parse = T, size = 3.0) +
            label = lab, parse = T, size = 3.0) +
@@ -248,10 +263,56 @@ raleigh <- ggplot(data = subset(soilGrApp, ( Wnum > 0 & !is.na(ngC.Label) & !is.
       #           max.iter = 2e3,
        #          nudge_x = .2)
 
-raleigh
-#ggplotly(raleigh)
-# ggsave(raleigh, filename = "lnDDvslnConc_soils.png", width = 8, height = 5, units = "in", scale = 1)
+rayleigh
+ggplotly(rayleigh)
+#ggsave(rayleigh, filename = "lnDDvslnConc_soils.png", width = 8, height = 5, units = "in", scale = 1)
 ```
+
+# Accounting for dilution
+
+The Rayleigh equation above assumes that $f$ reflects solely reduction in concentrations due to degradation and should thus be expressed as $f_{degradation}$. Accounting for dilution processes, the remaining fraction that is measured in the field sample becomes then $f_{total}$, where:
+
+$$f_{total} = f_{degradation} \cdot f_{dilution} $$
+Following Van Breukelen [-@VanBreukelen2007],
+
+$$ f_{degradation} = f_{total} \cdot F $$
+where the dilution factor $F$ (i.e. the number of times the source volume has become diluted at the observation location) can be calculated if $\epsilon_{lab}$ is known:
+
+$$F = e^{(\Delta/\epsilon_{lab})-lnf_{total}} $$
+
+```{r}
+soilGrApp$Fdil = 
+  exp( (log((1000+d13Co+soilGrApp$DD13C.comp)/(1000+d13Co))/epsilon_lab) -
+         log(soilGrApp$Conc.mug.g.dry.soil/soilGrApp$iniCo)  )
+
+soilGrApp$Fdil <- ifelse(soilGrApp$Fdil < 1, NA, soilGrApp$Fdil)
+
+
+```
+
+We can now obtain $f_{dilution}$ and $f_{degradation}$:
+
+```{r}
+
+soilGrApp$fdil <- 1/soilGrApp$Fdil
+soilGrApp$ftot <- soilGrApp$Conc.mug.g.dry.soil/soilGrApp$iniCo
+soilGrApp$fdeg <- soilGrApp$ftot * soilGrApp$Fdil 
+```
+
+The relationship $D*/B*$ can be obtained by:
+
+```{r}
+DBmodel<-lm(log(fdeg)~log(fdil), data= soilGrApp, subset=(!is.na(fdil))) # & ngC.mean >= 5)) 
+cof_DB <- as.numeric(coef(DBmodel)[2]*1000)
+se_DB <- summary(DBmodel)$coef[[4]]*1000
+summary(DBmodel)
+```
+
+
+
+Alternatively, Van Breukelen gives the following equation to estimate the field enrichment:
+
+$$ \epsilon_{filed} = B^* \cdot \epsilon_{true} = \frac{\Delta}{ln f_{total}} $$
 
 # Import waters
 
@@ -263,6 +324,7 @@ waters$ti <- as.POSIXct(strptime(waters$ti, "%Y-%m-%d %H:%M", tz="EST"))
 colnames(waters)[colnames(waters) == "ti"] <- "Date.ti"
 waters$Events <- factor(waters$Events, levels = unique(waters$Events))
 waters$Event <- factor(waters$Event, levels = unique(waters$Event))
+
 
 dropWater <- c("N.x", "N.y", 
                "Markers" , "TimeDiff", 
@@ -329,19 +391,34 @@ dropWater2 <- c("No_First", "No_Second" ,"No_Third",
 
 waters <- waters[ , !(names(waters) %in% dropWater2)]
 
+# Get cummualtive SD
+library("TTR")
+waters$CumOutSmeto.g.SD <- runSD(waters$TotSMout.g.SD, n=1, cumulative=TRUE)
+waters$CumOutMELsm.g.SD <- runSD(waters$MELsm.g.SD, n=1, cumulative=TRUE)
+
+
 keepWaterMB <- c("Date.ti", "CumAppMass.g",
                  # MB
                  "CumOutSmeto.g", "CumOutMELsm.g" ,
+                 "CumOutSmeto.g.SD", "CumOutMELsm.g.SD",
                  "remainMedTheo_prc", "remainMinTheo_prc", "remainMaxTheo_prc",
                  # CSIA
                  "B.diss", "SD.d13C")
+
+waters <- waters[ , (names(waters) %in% keepWaterMB)]
 
 # Get last 5 rows, omit NA's, will return rows only where B.diss was not NA
 watersMassBal <- na.omit(waters[ , (names(waters) %in% keepWaterMB)])
 watersMassBal <- subset(watersMassBal, SD.d13C < 1)
 
 watersMassBal$SMout_prc <- (watersMassBal$CumOutSmeto.g/watersMassBal$CumAppMass.g)*100
+watersMassBal$SMout.SD1 <- watersMassBal$SMout_prc + (watersMassBal$CumOutSmeto.g.SD/watersMassBal$CumAppMass.g)*100
+watersMassBal$SMout.SD2 <- watersMassBal$SMout_prc - (watersMassBal$CumOutSmeto.g.SD/watersMassBal$CumAppMass.g)*100
+
 watersMassBal$TPout_prc <- (watersMassBal$CumOutMELsm.g/watersMassBal$CumAppMass.g)*100
+watersMassBal$TPout.SD1 <- watersMassBal$TPout_prc + (watersMassBal$CumOutMELsm.g.SD/watersMassBal$CumAppMass.g)*100
+watersMassBal$TPout.SD2 <- watersMassBal$TPout_prc - (watersMassBal$CumOutMELsm.g.SD/watersMassBal$CumAppMass.g)*100
+
 watersMassBal$f <- 100 - (watersMassBal$B.diss + watersMassBal$SMout_prc)
 watersMassBal$SD.d13C <- NULL
 
@@ -387,10 +464,7 @@ juneBal$Month <- "June"
 
 
 bal <- rbind(mayBal, juneBal)
-bal$SMout.SD1 <- NA
-bal$SMout.SD2 <- NA
-bal$TPout.SD1 <- NA
-bal$TPout.SD2 <- NA
+
 
 bal$B.diss <- NULL
 bal$f <- NULL
@@ -422,7 +496,7 @@ balTidy <- bal %>%
   separate(measure, into = c("Sink", "temporary_var")) %>% # parses the sep = "." into...
   spread(temporary_var, value) # Moves molten temporary variable to own column 
 
-type <- rep(c("CSIA", "DT50", "CSIA", "DT50", "MB", "MB"), 2)
+type <- rep(c("CSIA", "Predicted (half-life)", "CSIA", "Predicted (half-life)", "Mass Balance", "Mass Balance"), 2)
 
 balTidyType <- cbind(balTidy, type)
 
@@ -430,39 +504,78 @@ balTidyType$Sink <- as.factor(balTidyType$Sink)
 balTidyType$Month <- as.factor(balTidyType$Month)
 balTidyType$Sink <- factor(balTidyType$Sink, levels = c("B" , "TPout",  "Deg" ,"f" ,"SMout", "Rem"))
 levels(balTidyType$type)
-balTidyType$type <- factor(balTidyType$type, levels = c("CSIA" , "MB", "DT50"))
+balTidyType$type <- factor(balTidyType$type, levels = c("CSIA" , "Mass Balance", "Predicted (half-life)"))
 levels(balTidyType$Sink)
 levels(balTidyType$Month)
 
 
-OutBars <- ggplot(data = balTidyType , aes(x=Month, y=measure, fill = Sink, ymin=SD1, ymax=SD2))+
+OutBars <- ggplot(data = subset(balTidyType, type != 'Predicted (half-life)') , 
+                  aes(x=Month, y=measure, fill = Sink, ymin=SD1, ymax=SD2))+
   geom_bar(stat = "identity", position = "dodge", width = 0.5) +
   geom_errorbar(#aes(ymin=SD1, ymax=SD2),
                   width=.3 , # ) + #,                    # Width of the error bars
                   position=position_dodge(.5)) + 
   theme_bw() +
-  ylab("% S-MET") +
+  ylab("% S-MET Applied") +
   theme(axis.title.x = element_blank() ) +
+  scale_y_continuous( breaks=c(25, 50, 75, 100), limits = c(0, 100) )+ #expand=c(0, 10, 0, 0)) + 
   #xlab("Month") +
   facet_wrap(~type) +
-  scale_fill_manual(values = c("#01665e", "#35978f", "#80cdc1", "#ec7014", "#fe9929", "#fec44f" ), # blue-orange
+  scale_fill_manual(#values = c("#01665e",  "#ec7014",   "#35978f",  "#fe9929", "#80cdc1", "#fec44f"), # blue-orange
+                    values = c("#01665e",  "#35978f", "#ec7014" ,  "#fe9929"), # blue-orange
                     #values = c("#238b45", "#41ab5d", "#74c476", "#40004b", "#762a83", "#9970ab" ), # green-purple
                     #values = c("#238b45", "#41ab5d", "#74c476", "#ec7014", "#fe9929", "#fec44f" ), # green-orange
                     #values = c("#80cdc1", "#018571", "#a6611a", "#dfc27d", "#80cdc1", "#018571"),
                     name= "Outlet Monitoring" ,# element_blank(), #"Mass Balance", # \n
                        breaks=c("B", "f" , 
-                                "TPout" , "SMout" , 
-                                "Deg", "Rem" 
+                                "TPout" , "SMout" #, 
+                                #"Deg", "Rem" 
                                 ),
                        labels=c("Degr.", "Non-degr.", 
-                                "Degr.", "Loads", 
-                                "Degr." , "Persist."
+                                "Degr.", "Loads" #, 
+                                #"Degr." , "Persist."
                                  )) +
   guides(fill=guide_legend(ncol=3))
 
 OutBars
 
+#pal = c("#01665e",  "#ec7014",   "#35978f",  "#fe9929", "#80cdc1", "#fec44f")
+#display.pal(pal, sel=1:length(pal), names=F)
+
 ```
+
+## Predicted (half-life) only
+
+```{r}
+theoBars <- ggplot(data = subset(balTidyType, type == 'Predicted (half-life)') , 
+                  aes(x=Month, y=measure, fill = Sink, ymin=SD1, ymax=SD2))+
+  geom_bar(stat = "identity", position = "dodge", width = 0.5) +
+  geom_errorbar(#aes(ymin=SD1, ymax=SD2),
+                  width=.3 , # ) + #,                    # Width of the error bars
+                  position=position_dodge(.5)) + 
+  theme_bw() +
+  ylab("% S-MET Applied") +
+  theme(axis.title.x = element_blank() ) +
+  scale_y_continuous( breaks=c(25, 50, 75, 100), limits = c(0, 100) )+ #expand=c(0, 10, 0, 0)) + 
+  #xlab("Month") +
+  facet_wrap(~type) +
+  scale_fill_manual(values = c( "#80cdc1", "#fec44f"), # blue-orange
+                    #values = c("#238b45", "#41ab5d", "#74c476", "#40004b", "#762a83", "#9970ab" ), # green-purple
+                    #values = c("#238b45", "#41ab5d", "#74c476", "#ec7014", "#fe9929", "#fec44f" ), # green-orange
+                    #values = c("#80cdc1", "#018571", "#a6611a", "#dfc27d", "#80cdc1", "#018571"),
+                    name= "Predicted",# element_blank(), #"Mass Balance", # \n
+                       breaks=c("Deg", "Rem" 
+                                ),
+                       labels=c("Degr." , "Persist."
+                                 )) +
+  guides(fill=guide_legend(ncol=1))
+
+#pal = c( "#35978f", "#fe9929", "#fec44f", "#01665e", "#80cdc1", "#ec7014" )
+#display.pal(pal, sel=1:length(pal), names=F)
+
+theoBars
+```
+
 
 ## Compare to Catchment soils
 
@@ -529,7 +642,7 @@ solTidy <- balSol %>%
   separate(measure, into = c("Sink", "temporary_var")) %>% # parses the sep = "." into...
   spread(temporary_var, value) # Moves molten temporary variable to own column 
 
-type <- rep(c("CSIA", "CSIA", "MB", "MB"), 2)
+type <- rep(c("CSIA", "CSIA", "Mass Balance", "Mass Balance"), 2)
 
 balTidySol <- cbind(solTidy, type)
 balTidySol$Sink <- as.factor(balTidySol$Sink)
@@ -543,7 +656,7 @@ SoilBars <- ggplot(data = balTidySol , aes(x=Month, y=measure, fill = Sink, ymin
                   width=.2 , # ) + #,                    # Width of the error bars
                   position=position_dodge(.5)) + 
   theme_bw() +
-  ylab("% S-MET") +
+  ylab("% S-MET Applied") +
   theme(axis.title.x = element_blank() ) +
   xlab("Month") +
   facet_wrap(~type) +
@@ -567,8 +680,6 @@ SoilBars
 
 ```{r}
 
-
-
 #balAll <- rbind(balTidyType,  balTidySol)
 
 OutBars_noLeg <- OutBars + theme(legend.position = 'none')
@@ -577,24 +688,29 @@ OutBars_Leg <- get_legend(OutBars)
 SoilBars_noLeg <- SoilBars + theme(legend.position = 'none')
 SoilBars_Leg <- get_legend(SoilBars)
 
+TheoBars_noLeg <- theoBars + theme(legend.position = 'none')
+TheoBars_Leg <- get_legend(theoBars)
+
 #plot_grid(OutBars_noLeg, SoilBars_noLeg,
 #                    ncol =1, nrow = 2, align ="v" )
 #,
 #                    labels = c("A", "C", "B", "D"))
 
 balAllplot <- ggdraw() +
-  draw_plot(OutBars_noLeg, x=0.01, y=.5, width =  0.86, height = .5) + 
-  draw_plot(SoilBars_noLeg, x=0.01, y = 0.0, width = 0.60, height = 0.5) +
-  draw_plot(OutBars_Leg, x=0.74, y = 0.3, width = 0.1, height = 0.1) +
-  draw_plot(SoilBars_Leg, x=0.70, y = 0.1, width = 0.1, height = 0.1) +
+  draw_plot(SoilBars_noLeg, x=0.01, y = 0.5, width = 0.60, height = 0.5) +
+  draw_plot(TheoBars_noLeg, x=0.65, y=.5, width =  0.33, height = .5) + 
+  draw_plot(OutBars_noLeg, x=0.01, y=.0, width =  0.60, height = .5) + 
+  draw_plot(SoilBars_Leg, x=0.67, y = 0.3, width = 0.1, height = 0.1) +
+  draw_plot(OutBars_Leg, x=0.69, y = 0.1, width = 0.1, height = 0.1) +
+  draw_plot(TheoBars_Leg, x=0.89, y = 0.3, width = 0.05, height = 0.1) +
   draw_label("A", x= 0.11, y = .9, size = 12, fontface = "bold") +
-  draw_label("D", x= 0.11, y = .39, size = 12, fontface = "bold") +
+  draw_label("C", x= 0.11, y = .39, size = 12, fontface = "bold") +
   draw_label("B", x= 0.37, y = .9, size = 12, fontface = "bold") +
-  draw_label("E", x= 0.37, y = .39, size = 12, fontface = "bold") +
-  draw_label("C", x= 0.63, y = .9, size = 12, fontface = "bold") 
+  draw_label("D", x= 0.37, y = .39, size = 12, fontface = "bold") +
+  draw_label("E", x= 0.75, y = .9, size = 12, fontface = "bold") 
 
 balAllplot
-ggsave(balAllplot, filename = "MB_CSIA_Bars.png", width = 8, height = 5, units = "in", scale = 1)
+#ggsave(balAllplot, filename = "MB_CSIA_Bars.png", width = 8, height = 5, units = "in", scale = 1)
 
 ```
 
@@ -661,23 +777,53 @@ ggplot(waterClean, aes(x=TotSMout.g, y=DD13C.diss))+
 pearson_water_r <- cor.test(waterClean$Conc.mug.L, waterClean$DD13C.diss)[4]
 water_r_label <- sprintf("Pearson~r == %0.2f", pearson_water_r)
 water_p_value <- cor.test(waterClean$Conc.mug.L, waterClean$DD13C.diss)[3]
-water_p_label <- sprintf("(p == %0.2f)", water_p_value)
+water_p_label <- sprintf("p == %0.2f", water_p_value)
 
 waterIsoConc  <- ggplot(data = subset(waterClean, ngC.mean.diss > 5), aes(x=Conc.mug.L, y=DD13C.diss))+
   stat_smooth(data = subset(waterClean, ngC.mean.diss > 5), 
               aes(x=Conc.mug.L, y=DD13C.diss), method = "lm", formula = y~x, se=F) +
+  geom_errorbar(aes(ymin = DD13C.diss - SD.d13C, ymax = DD13C.diss + SD.d13C)) +
+  geom_errorbarh(aes(xmin = Conc.mug.L - Conc.SD, xmax = Conc.mug.L + Conc.SD)) +
   geom_point(aes(size = timeSinceApp)) +
   theme_bw() +
-  scale_size_continuous(range = c(1, 6)) +
+  scale_size_continuous(range = c(1, 4)) +
   labs(size="Days post appl.") +
-  ylab(expression(paste({Delta~delta}^"13","C", ' (\u2030)'))) +
-  xlab(expression(paste("Conc. S-Meto.  ", {({mu}*g / L)}))) +
-  annotate("text", x = 22, y = 2.5, label = as.character(water_r_label), parse = T, size = 3.5) +
+  theme(axis.title.y = element_blank()) +
+  #ylab(expression(paste({Delta~delta}^"13","C", ' (\u2030)'))) +
+  xlab(expression(paste("S-MET Outlet Concentration ", {({mu}*g / L)}))) +
+  annotate("text", x = 22, y = 2.7, label = as.character(water_r_label), parse = T, size = 3.5) +
   annotate("text", x = 22, y = 2.3, label = water_p_label, parse = T, size = 3.5)
 
 waterIsoConc 
-# ggsave(waterIsoConc , filename = "DDvsConc_water.png", width = 8, height = 5, units = "in", scale = 1)
+#ggsave(waterIsoConc , filename = "DDvsConc_water.png", width = 8, height = 5, units = "in", scale = 1)
 
+```
+
+
+## Join XY waters and soils
+
+```{r}
+
+p_noLeg <- p + theme(legend.position = 'none')
+p_Leg <- get_legend(p)
+  
+water_noLeg <- waterIsoConc + theme(legend.position = 'none')  
+water_Leg <- get_legend(waterIsoConc)  
+
+grid_xyConIso <- plot_grid(p_noLeg, water_noLeg, 
+                    ncol =2, nrow = 1, align ="v" #,
+                    #labels = c("A", "B")
+                    )
+
+xyConcIso <- ggdraw() +
+  draw_plot(grid_xyConIso, x=0., y=0.1, width =  1, height = .90) + 
+  #draw_plot(water_noLeg, x=0.5, y = 0.0, width = 0.4, height = 1) +
+  draw_plot(p_Leg, x=0.48, y = 0.0, width = 0.1, height = 0.1) +
+  draw_label("A", x= 0.47, y = .95, size = 12, fontface = "bold") +
+  draw_label("B", x= 0.97, y = .95, size = 12, fontface = "bold")
+
+xyConcIso
+#ggsave(xyConcIso , filename = "waterSoil_DDvsConc.png", width = 8, height = 5, units = "in", scale = 1)
 ```
 
 
@@ -712,7 +858,6 @@ Or this: https://github.com/tidyverse/ggplot2/wiki/Align-two-plots-on-a-page
 ```{r}
 waterClean_ng <- subset(waterClean, ngC.mean.diss > 0)
 WaterSoils <- merge(waterClean_ng, soils, by = "Date.ti", all = T)
-
 
 
 str(WaterSoils)
@@ -817,8 +962,8 @@ wsALL_lab <- ggplot(data = wstidier2, aes(x = Date, y = measure, group = Source)
   geom_errorbar(data=subset(wstidier2, Source == 'Valley' & 
                               Date > as.POSIXct('2016-05-14 08:04:00')), limits_DdC, size=0.2) +
   geom_errorbar(data=subset(wstidier2, Source == 'Outlet'), limits_DdC) +
-  geom_point(data=subset(wstidier2, Source == 'Outlet'), aes(shape = Type, colour = Source, size = Qmax)) +
-  #geom_point(data=subset(wstidier2, Source == 'Outlet'), aes(shape = Type, colour = Source, size = Qmean)) +
+  #geom_point(data=subset(wstidier2, Source == 'Outlet'), aes(shape = Type, colour = Source, size = Qmax)) +
+  geom_point(data=subset(wstidier2, Source == 'Outlet'), aes(shape = Type, colour = Source, size = Qmean)) +
   geom_point(data=subset(wstidier2, Source == 'Bulk'), aes(shape = Type, colour = Source)) +
   geom_point(data=subset(wstidier2, Source == 'Valley' & 
                            Date > as.POSIXct('2016-05-14 08:04:00')), aes(shape = Type, colour = Source)) +
@@ -854,8 +999,8 @@ wsALL_lab <- ggplot(data = wstidier2, aes(x = Date, y = measure, group = Source)
   # Title applics
   annotate("text", x = as.POSIXct('2016-04-05 08:04:00'), y = 4.5, 
            label = as.character(expression(paste( "\u066D", " Applications"))), parse = T, size = 4.0) +
-  
-  scale_x_datetime(breaks = date_breaks("2 weeks"), labels = date_format("%b %d")) +
+  scale_x_datetime(breaks = date_breaks("1 month"), labels = date_format("%b %d")) +
+  #scale_x_datetime(breaks = date_breaks("2 weeks"), labels = date_format("%b %d")) +
   theme(legend.position="top"
         # axis.title.x = element_blank(),
         # axis.text.x=element_text(angle = 45, hjust = 1)
@@ -866,7 +1011,9 @@ wsALL_lab <- ggplot(data = wstidier2, aes(x = Date, y = measure, group = Source)
   scale_y_continuous(
     expression(paste({Delta~delta}^"13","C", ' (\u2030)')),
     sec.axis = sec_axis(trans = ~ (1-((1000 + d13Co + .)/(1000+d13Co))^(1000/epsilon_lab))*100 , 
-                        name = element_blank(), breaks=c(20, 40, 60, 70, 80, 85, 90, 95) )# breaks=seq(20, 120, 15))
+                        name = "Degradation (%)", 
+                        #name = element_blank(), 
+                        breaks=c(20, 40, 60, 70, 80, 85, 90, 95) )# breaks=seq(20, 120, 15))
   )  + 
   scale_color_manual(name= "Source", 
                       values = c("#F8766D", "#00BFC4", "#00BA38", "#B79F00", "#619CFF", "#F564E3",
@@ -881,8 +1028,8 @@ wsALL_field <- ggplot(data = wstidier2, aes(x = Date, y = measure, group = Sourc
   geom_errorbar(data=subset(wstidier2, Source == 'Valley' & 
                               Date > as.POSIXct('2016-05-14 08:04:00')), limits_DdC, size=0.2) +
   geom_errorbar(data=subset(wstidier2, Source == 'Outlet'), limits_DdC) +
-  geom_point(data=subset(wstidier2, Source == 'Outlet'), aes(shape = Type, colour = Source, size = Qmax)) +
-  # geom_point(data=subset(wstidier2, Source == 'Outlet'), aes(shape = Type, colour = Source, size = Qmean)) +
+  #geom_point(data=subset(wstidier2, Source == 'Outlet'), aes(shape = Type, colour = Source, size = Qmax)) +
+  geom_point(data=subset(wstidier2, Source == 'Outlet'), aes(shape = Type, colour = Source, size = Qmean)) +
   geom_point(data=subset(wstidier2, Source == 'Bulk'), aes(shape = Type, colour = Source)) +
   geom_point(data=subset(wstidier2, Source == 'Valley' & 
                            Date > as.POSIXct('2016-05-14 08:04:00')), aes(shape = Type, colour = Source)) +
@@ -918,8 +1065,8 @@ wsALL_field <- ggplot(data = wstidier2, aes(x = Date, y = measure, group = Sourc
   # Title applics
   annotate("text", x = as.POSIXct('2016-04-05 08:04:00'), y = 4.5, 
            label = as.character(expression(paste( "\u066D", " Applications"))), parse = T, size = 4.0) +
-  
-  scale_x_datetime(breaks = date_breaks("1 month"), labels = date_format("%b %d")) +
+  scale_x_datetime(breaks = date_breaks("2 weeks"), labels = date_format("%b %d")) +
+  #scale_x_datetime(breaks = date_breaks("1 month"), labels = date_format("%b %d")) +
   theme(legend.position="top"
         # axis.title.x = element_blank()
         # axis.text.x=element_text(angle = 45, hjust = 1)
@@ -930,14 +1077,30 @@ wsALL_field <- ggplot(data = wstidier2, aes(x = Date, y = measure, group = Sourc
   scale_y_continuous(
     expression(paste({Delta~delta}^"13","C", ' (\u2030)')),
     sec.axis = sec_axis(trans = ~ (1-((1000 + d13Co + .)/(1000+d13Co))^(1000/epsilon_field))*100 , 
-                        name = "Degradation (%)", breaks=c(20, 40, 60, 70, 80, 85, 90, 95) )# breaks=seq(20, 120, 15))
+                        name = element_blank(),
+                        #name = "Degradation (%)", 
+                        breaks=c(20, 40, 60, 70, 80, 85, 90, 95) )# breaks=seq(20, 120, 15))
   )  + 
   scale_color_manual(name= "Source", 
                       values = c("#F8766D", "#00BFC4", "#00BA38", "#B79F00", "#619CFF", "#F564E3",
                                  "#D55E00", "darkgreen", "dodgerblue") 
                      ) +
   scale_size_continuous(range = c(1, 3)) + 
-  guides(col = guide_legend(nrow =  3), shape=guide_legend(nrow=2), size = guide_legend(nrow=3))# +
+  guides(col = guide_legend(order = 1,
+                            #title=expression("Source"),
+                            #title.vjust = -1,
+                            nrow = 2, 
+                            title.position = "left"
+                            ), 
+         shape=guide_legend(#title=expression("Type"), 
+                            order = 2,
+                            nrow=2, 
+                            title.position = "left", 
+                            keyheight = NULL, title.vjust = NULL, label.vjust = NULL), 
+         size = guide_legend(order = 3, 
+                             title=expression("Mean\nDischarge " ~ (m^3 / h) ), 
+                             nrow=2, title.position = "left", title.vjust = .26
+                              ))# +
   # scale_shape_manual(name= )
 
 #ggplotly(wsALL_field)
@@ -989,15 +1152,15 @@ label3 <- substitute(paste(epsilon ["lab"] , " = ", epsilon_l),
 
 
 wsALL <- ggdraw() +
-  draw_plot(wsALL_field_noLeg, x=0, y=.2, width = 1, height = .8) + 
-  draw_plot(wsALL_lab_noLeg, x=0, y = 0.2, width = 0.935, height = 0.8) +
+  draw_plot(wsALL_lab_noLeg, x=0, y = 0.2, width = 1, height = 0.8) + # bottom
+  draw_plot(wsALL_field_noLeg, x=0, y=.2, width = 0.935, height = .8) + # top
   draw_label(label2, x= .89, y = .2, size = 8) +
   draw_label(label3, x= .94, y = .15, size = 8) +
-  draw_plot(wsAll_field_Leg, x=0.2, y=0.0, width = 0.55, height = 0.15)
+  draw_plot(wsAll_field_Leg, x=0.2, y=0.0, width = 0.50, height = 0.15)
  
 wsALL 
 
-#ggsave(wsALL, filename = "WaterSoilvsTime.png", width = 8, height = 5, units = "in", scale = 1)
+ggsave(wsALL, filename = "WaterSoilvsTime.png", width = 8, height = 5, units = "in", scale = 1)
 ```
 
 ## Comparison to Lutz et al. (2013)

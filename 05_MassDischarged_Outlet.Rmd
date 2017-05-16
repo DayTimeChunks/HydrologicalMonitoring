@@ -192,6 +192,9 @@ isoOutSummary = ddply(outletIso, c("WeekSubWeek"), summarise,
 
 head(isoOutSummary)
 
+sum(isoOutSummary$N_ngC.diss == 2)
+sum(isoOutSummary$N_ngC.diss > 2)
+sum(isoOutSummary$N_ngC.diss == 2) /(sum(isoOutSummary$N_ngC.diss == 2) + sum(isoOutSummary$N_ngC.diss > 2))
 
 isoFiltSummary = ddply(filtersIso, c("WeekSubWeek"), summarise,
                          N    = length(d.13C.12C),
@@ -361,7 +364,7 @@ So the total applied mass mass is merged at the nearest sampling time marker ava
 ti = c(as.POSIXct('2016-03-25 00:04:00' , tz="EST"),
 #       as.POSIXct('2016-04-05 15:08:00' , tz="EST"),
        as.POSIXct('2016-04-14 13:52:00' , tz="EST"),
-       as.POSIXct('2016-05-10 00:06:00' , tz="EST"))
+       as.POSIXct('2016-05-23 18:02:00' , tz="EST"))
 
 Appl.Mass.g = c(9497.87, 4744.571, 4982.038)
 
@@ -380,7 +383,20 @@ for (i in 1:length(out.CoIs$Duration.Hrs)){
   }
 }
 
-out.CoIs$timeSinceApp <- round(out.CoIs$timeSinceApp/24, 1) 
+out.CoIs$Appl.Mass.g.NoSo <- out.CoIs$Appl.Mass.g
+out.CoIs$Appl.Mass.g.NoSo[which(out.CoIs$ti == as.POSIXct('2016-05-23 18:02:00' , tz="EST"))] <- 0
+out.CoIs$timeSinceApp.NoSo <- NA
+for (i in 1:length(out.CoIs$Duration.Hrs)){
+  if (out.CoIs[i, ]['Appl.Mass.g.NoSo'] != 0){
+    out.CoIs[i,]['timeSinceApp.NoSo'] = out.CoIs[i, ]['Duration.Hrs']
+  } else {
+    out.CoIs[i, ]['timeSinceApp.NoSo'] = out.CoIs[i ,]['Duration.Hrs'] + out.CoIs[i-1,]['timeSinceApp.NoSo']
+  }
+}
+
+
+out.CoIs$timeSinceApp <- round(out.CoIs$timeSinceApp/24, 1) # Convert to days
+out.CoIs$timeSinceApp.NoSo <- round(out.CoIs$timeSinceApp.NoSo/24, 1)
 
 # Cumulative (Continous)
 out.CoIs$CumAppMass.g = cumsum(out.CoIs$Appl.Mass.g)

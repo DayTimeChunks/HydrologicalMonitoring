@@ -70,7 +70,7 @@ outlet$ti <- as.POSIXct(outlet$ti, "%Y-%m-%d %H:%M", tz = "EST")
 sum(is.na(outlet$ti))
 
 # Select variables from Water dataset
-outlet <- outlet[, c("ti", "WeekSubWeek", "Event", "timeSinceApp",
+outlet <- outlet[, c("ti", "WeekSubWeek", "Event", "timeSinceApp", "timeSinceApp.NoSo",
                      "diss.d13C", "SD.d13C", 
                      "B.diss", "B.filt", "CumOutDiss.g", "CumOutFilt.g", "CumAppMass.g", "CumOutMELsm.g")]
 print("Water")
