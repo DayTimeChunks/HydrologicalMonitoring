@@ -1188,7 +1188,7 @@ ggplot(data = wstidier2, aes(x = Date, y = measure, group = Source) )+
   #                            Date > as.POSIXct('2016-05-14 08:04:00')), limits_DdC, size=0.2) +
   #geom_errorbar(data=subset(wstidier2, Source == 'Outlet'), limits_DdC) +
   #geom_point(data=subset(wstidier2, Source == 'Outlet'), aes(shape = Type, colour = Source, size = Qmax)) +
-  #geom_point(data=subset(wstidier2, Type == 'Outlet'), aes(shape = Type, colour = Source, size = Qmean)) +
+  geom_point(data=subset(wstidier2, Type == 'Dissolved'), aes(shape = Type, colour = Source, size = Qmean)) +
   stat_smooth(data=subset(wstidier2,
                           (Source == "North" )), #| Source == "South" )), 
               method = "lm", formula = y ~ poly(x, 2), se = F, aes(colour = Source), alpha = 0.2, size=0.2) +
@@ -1201,7 +1201,13 @@ ggplot(data = wstidier2, aes(x = Date, y = measure, group = Source) )+
   geom_point(data=subset(wstidier2, Source == 'Bulk'), aes(shape = Type, colour = Source)) +
   #geom_point(data=subset(wstidier2, Source == 'Valley' & 
   #                         Date > as.POSIXct('2016-05-14 08:04:00')), aes(shape = Type, colour = Source))
-  geom_text_repel(data=subset(wstidier2, Source == 'Bulk'), aes(label=Soil.ID),
+  #geom_text_repel(data=subset(wstidier2, Source == 'Bulk'), aes(label=Soil.ID),
+  #               arrow = arrow(length = unit(0.005, 'npc'), type = "closed"),
+  #               force = 1, 
+  #               point.padding = unit(1.0, 'lines'), 
+  #               max.iter = 2e3,
+  #              nudge_x = .2) +
+  geom_text_repel(data=subset(wstidier2, Source == 'Outlet'), aes(label=Week),
                  arrow = arrow(length = unit(0.005, 'npc'), type = "closed"),
                  force = 1, 
                  point.padding = unit(1.0, 'lines'), 
