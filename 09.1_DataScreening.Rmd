@@ -100,10 +100,13 @@ soils$DD13C.South <- (ifelse(!is.na(soils$comp.d13C.SD.South), soils$comp.d13C.S
 dropSoil <- c("WeekSubWeek", # "Event", 
               "B.diss", "B.filt", "CumOutDiss.g", "CumOutFilt.g", "CumOutAppMass.g",  "CumOutMELsm.g", 
               # "CumAppMass.g",
-              "ID.N", "ID.T",  "Area.N", "Area.T", "Area.S",
+              # "ID.N",  
+              "ID.T",  "Area.N", "Area.T", "Area.S",
               "comp.d13C.SE.North", "comp.d13C.SE.Talweg", "comp.d13C.SE.South", 
-              "f.max.comp", "f.mean.comp", "f.min.comp", "ngC.SD","ngC.SE", "N_compsoil", "N_ngC")
+              "f.max.comp", "f.mean.comp", "f.min.comp", "ngC.SD","ngC.SE", "N_compsoil" )#, "N_ngC")
 soils <- soils[ , !(names(soils) %in% dropSoil)]
+
+soilsCheck <- soils[complete.cases(soils[ , "ID.N"]),]
 
 timeApps <- soils[ , c("Date.ti", "timeSinceApp", "timeSinceApp.NoSo", "Event")]
 
@@ -405,10 +408,10 @@ keepWaterMB <- c("Date.ti", "CumAppMass.g",
                  # CSIA
                  "B.diss", "SD.d13C")
 
-waters <- waters[ , (names(waters) %in% keepWaterMB)]
+watersMassBal <- waters[ , (names(waters) %in% keepWaterMB)]
 
 # Get last 5 rows, omit NA's, will return rows only where B.diss was not NA
-watersMassBal <- na.omit(waters[ , (names(waters) %in% keepWaterMB)])
+watersMassBal <- na.omit(watersMassBal[ , (names(watersMassBal) %in% keepWaterMB)])
 watersMassBal <- subset(watersMassBal, SD.d13C < 1)
 
 watersMassBal$SMout_prc <- (watersMassBal$CumOutSmeto.g/watersMassBal$CumAppMass.g)*100
@@ -862,13 +865,15 @@ WaterSoils <- merge(waterClean_ng, soils, by = "Date.ti", all = T)
 
 str(WaterSoils)
 names(WaterSoils)
-keepWS <- c("Date.ti", "WeekSubWeek", "maxQ", "AveDischarge.m3.h",
+keepWS <- c("Date.ti", "WeekSubWeek", "ID.N", "Event.x",
+            "maxQ", "AveDischarge.m3.h", 
             "DD13C.diss", "SD.d13C.x",
             "DD13C.filt", "filt.SD.d13C",
             "DD13C.Talweg", "comp.d13C.SD.Talweg", 
             "DD13C.South", "comp.d13C.SD.South", 
             "DD13C.North", "comp.d13C.SD.North",
-            "Event.x", "BulkCatch.d13", "BulkCatch.d13.SD" 
+            
+            "BulkCatch.d13", "BulkCatch.d13.SD" 
             #"timeSinceApp.x", "Event.x", "Events"
             )
 wsSmall <- WaterSoils[ , (names(WaterSoils) %in% keepWS)]
@@ -876,7 +881,8 @@ wsSmall <- WaterSoils[ , (names(WaterSoils) %in% keepWS)]
 wsSmall$DD13.Bulk <- wsSmall$BulkCatch.d13-initialDelta 
 
 names(wsSmall)
-wsSmall <- wsSmall[c("Date.ti", "Event.x", "WeekSubWeek", "maxQ", "AveDischarge.m3.h",
+wsSmall <- wsSmall[c("Date.ti", "WeekSubWeek", "ID.N", "Event.x",  
+                     "maxQ", "AveDischarge.m3.h",
             "DD13C.diss", "SD.d13C.x",
             "DD13C.filt", "filt.SD.d13C" ,
             "DD13C.Talweg", "comp.d13C.SD.Talweg", 
@@ -884,7 +890,8 @@ wsSmall <- wsSmall[c("Date.ti", "Event.x", "WeekSubWeek", "maxQ", "AveDischarge.
             "DD13C.North", "comp.d13C.SD.North",
             "DD13.Bulk", "BulkCatch.d13.SD")]
 
-names(wsSmall) <- c("Date", "Event", "Week", "Qmax", "Qmean",
+names(wsSmall) <- c("Date", "Week", "IDSoil", "Event", 
+                    "Qmax", "Qmean",
             "diss.measure", "diss.SD",
             "filt.measure", "filt.SD",
             "Talweg.measure", "Talweg.SD", 
@@ -902,7 +909,7 @@ names(wsSmall) <- c("Date", "Event", "Week", "Qmax", "Qmean",
 #  paste0(names(wsSmall)[-1][seq(1, length(names(wsSmall)) - 1, 2)], "-measure")
 
 wstidier <- wsSmall %>%
-  gather(measure, value, -Date, -Event, -Week, -Qmax, -Qmean) %>% # Melts data frame
+  gather(measure, value, -Date, -IDSoil, -Event, -Week, -Qmax, -Qmean) %>% # Melts data frame
   separate(measure, into = c("Location", "temporary_var")) %>% # parses the sep = "." into...
   spread(temporary_var, value) 
 
@@ -919,6 +926,7 @@ wstidier$Source <- ifelse(wstidier$Location == "diss", "Outlet",
 
 wstidier$Source <- as.factor(wstidier$Source)
 wstidier$Type <- as.factor(wstidier$Type)
+wstidier$IDSoil <- as.factor(wstidier$IDSoil)
 wstidier$Event <- as.numeric(wstidier$Event)
 
 # Copy all data
@@ -1019,8 +1027,9 @@ wsALL_lab <- ggplot(data = wstidier2, aes(x = Date, y = measure, group = Source)
                       values = c("#F8766D", "#00BFC4", "#00BA38", "#B79F00", "#619CFF", "#F564E3",
                                  "#D55E00", "darkgreen", "dodgerblue") 
                      ) +
-  scale_size_continuous(range = c(1, 3)) # +
-  # scale_shape_manual(name= )
+  scale_size_continuous(range = c(1, 3)) #
+
+
 
 
 wsALL_field <- ggplot(data = wstidier2, aes(x = Date, y = measure, group = Source) )+ 
@@ -1162,6 +1171,52 @@ wsALL
 
 ggsave(wsALL, filename = "WaterSoilvsTime.png", width = 8, height = 5, units = "in", scale = 1)
 ```
+
+## Check SOils
+
+```{r}
+wstidier2$IDSoil <- as.character(wstidier2$IDSoil)
+split <- strsplit(wstidier2$IDSoil, "-", fixed = TRUE)
+wstidier2$Soil.ID <- sapply(split, "[", 3)
+wstidier2$Soil.ID <- as.factor(wstidier2$Soil.ID)
+
+ggplot(data = wstidier2, aes(x = Date, y = measure, group = Source) )+ 
+  theme_bw() +
+  #geom_errorbar(data=subset(wstidier2, Type == 'Top Soil'), limits_DdC, size=0.2) +
+  
+  #geom_errorbar(data=subset(wstidier2, Source == 'Valley' & 
+  #                            Date > as.POSIXct('2016-05-14 08:04:00')), limits_DdC, size=0.2) +
+  #geom_errorbar(data=subset(wstidier2, Source == 'Outlet'), limits_DdC) +
+  #geom_point(data=subset(wstidier2, Source == 'Outlet'), aes(shape = Type, colour = Source, size = Qmax)) +
+  #geom_point(data=subset(wstidier2, Type == 'Outlet'), aes(shape = Type, colour = Source, size = Qmean)) +
+  stat_smooth(data=subset(wstidier2,
+                          (Source == "North" )), #| Source == "South" )), 
+              method = "lm", formula = y ~ poly(x, 2), se = F, aes(colour = Source), alpha = 0.2, size=0.2) +
+  stat_smooth(data=subset(wstidier2,
+                          (Source == "Valley" )), #| Source == "South" )), 
+              method = "lm", formula = y ~ poly(x, 2), se = F, aes(colour = Source), alpha = 0.2, size=0.2) +
+  stat_smooth(data=subset(wstidier2,
+                          (Source == "South" )), #| Source == "South" )), 
+              method = "lm", formula = y ~ poly(x, 2), se = F, aes(colour = Source), alpha = 0.2, size=0.2) +
+  geom_point(data=subset(wstidier2, Source == 'Bulk'), aes(shape = Type, colour = Source)) +
+  #geom_point(data=subset(wstidier2, Source == 'Valley' & 
+  #                         Date > as.POSIXct('2016-05-14 08:04:00')), aes(shape = Type, colour = Source))
+  geom_text_repel(data=subset(wstidier2, Source == 'Bulk'), aes(label=Soil.ID),
+                 arrow = arrow(length = unit(0.005, 'npc'), type = "closed"),
+                 force = 1, 
+                 point.padding = unit(1.0, 'lines'), 
+                 max.iter = 2e3,
+                 nudge_x = .2)
+
+sum(wstidier2$Location == "North")  # 10
+sum(wstidier2$Location == "South")  # 12
+sum(wstidier2$Location == "Talweg")  # 12
+sum(wstidier2$Source == "Bulk")  # 9
+
+
+
+```
+
 
 ## Comparison to Lutz et al. (2013)
 
