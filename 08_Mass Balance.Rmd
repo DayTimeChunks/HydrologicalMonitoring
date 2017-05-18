@@ -119,6 +119,7 @@ $$
 \delta_{tot_{app}} =  \sum_n^N \frac{ M_{(n)_{app}} }{M_{tot_{app}} } \delta_{(n)_{app}}
 \stepcounter{equation}\tag{\theequation}\label{deltaResid}
 $$
+* Correct isotope measurement to calibrated value
 
 | Farmer  | Crop | Plot ID | Area [m2] | Date     | Prod.   | Prod. Conc.[g/L] | Area [Ha] | Dose [L/Ha] | App. Mass.[g] | $\delta$ [\textperthousand ]|
 |---------|------|---------|-----------:|:----------:|---------|-----------------:|----------:|-------------:|--------------:|----------:|

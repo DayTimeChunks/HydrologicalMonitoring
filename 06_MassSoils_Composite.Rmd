@@ -50,7 +50,7 @@ getwd()
 
 ```{r}
 # Pure and cuve isotope average
-d13Co = -31.2144
+d13Co = -32.253
 
 # Lab enrichment: Alteck
 epsilon_max = -1.5 # +/- 0.3 (@ 20C, 20% vwc)
@@ -106,7 +106,13 @@ c) Nanograms of carbon > 5.0.
 #weeklySoilConc = read.csv2("Data/SoilCompConc_W1toW15.csv", header = TRUE)
 # Date format stopped working in CSV
 # Convert in CSV via  "=TEXT(CELL.ID, "dd/mm/yyyy hh:mm")" based on xls-file date
-weeklySoilConc = read.csv("Data/SoilCompConc_W1toW15.csv", header = TRUE)
+
+weeklySoilConc = read.csv2("Data/SoilCompConc_W1toW15.csv", header = TRUE, dec = ".")
+if (length(weeklySoilConc) == 1){
+  weeklySoilConc = read.csv("Data/SoilCompConc_W1toW15.csv", header = TRUE)
+}
+head(weeklySoilConc)
+
 weeklySoilConc$Date.ti <- as.POSIXct(strptime(weeklySoilConc$Date.Soil, "%d/%m/%Y %H:%M", tz="EST")) 
 sum(is.na(weeklySoilConc$Date.ti))
 # View(weeklySoilConc)
@@ -131,8 +137,10 @@ if (length(weeklySoilIso) == 1){
   weeklySoilIso = read.csv("Data/SoilCompIsotopes_W1toW15ng.csv", header = T)
 }
 head(weeklySoilIso)
+colnames(weeklySoilIso)
+weeklySoilIso <- weeklySoilIso[complete.cases(weeklySoilIso[, "d.13C.12C"]), ]
 
-colnames(weeklySoilIso)[colnames(weeklySoilIso) == "DD13...31.21."] <- "DD13"
+colnames(weeklySoilIso)[colnames(weeklySoilIso) == "DD13.32.253."] <- "DD13"
 colnames(weeklySoilIso)[colnames(weeklySoilIso) == "ng..C."] <- "ngC"
 colnames(weeklySoilIso)[colnames(weeklySoilIso) == "Filename"] <- "ID"
 
@@ -142,7 +150,6 @@ weeklySoilIso <- weeklySoilIso[, c("ID",
                                    "DD13", 
                                    "ngC")]
 
-weeklySoilIso <- weeklySoilIso[complete.cases(weeklySoilIso),]
 # weeklySoilIso <- subset(weeklySoilIso, DD13 < 10) # & ngC > 5)
 
 
@@ -160,8 +167,8 @@ isoCompSummary = ddply(weeklySoilIso, c("ID"), summarise,
 isoCompSummary$prctError <- (isoCompSummary$comp.d13C.SD/isoCompSummary$comp.d13C)*-100
 mean(!is.na(isoCompSummary$prctError))
 
-sum(isoCompSummary$N_ngC == 2)
-sum(isoCompSummary$N_ngC == 3)
+sum(isoCompSummary$N_ngC == 2)/(sum(isoCompSummary$N_ngC == 2) + sum(isoCompSummary$N_ngC > 2))
+
 
 print("Soil Composites - Isotopes All")
 str(weeklySoilIso)

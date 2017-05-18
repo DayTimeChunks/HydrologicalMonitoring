@@ -57,6 +57,21 @@ library("plotly")
 getwd()
 
 ```
+## Lab and reference values
+
+```{r}
+# Pure and cuve isotope average
+d13Co = -32.25
+
+# Lab enrichment:
+# epsilon = -1.61
+
+# Lab enrichment:
+# Alteck
+epsilon_max = -1.5 # +/- 0.3 (@ 20C, 20% vwc)
+epsilon_min = -2.0 # +/- 0.2 (@ 20C, 40% vwc)
+epsilon_mean = -1.75
+```
 
 
 ## Outlet Data - Alteckendorf 2016
@@ -128,30 +143,30 @@ c) Nanograms of carbon > 2.0.
 
 # Outlet isotope data:
 
-outletIso = read.csv2("Data/Outlet_Isotopes_W0toW17.csv", header = T)
+outletIso = read.csv2("Data/Outlet_Isotopes_W0toW17.csv", header = T, dec = ".")
 if (length(outletIso) == 1){
   outletIso = read.csv("Data/Outlet_Isotopes_W0toW17.csv", header = T)
 }
 head(outletIso)
 
-colnames(outletIso)[colnames(outletIso) == "DD13...31.21."] <- "DD13"
+
+colnames(outletIso)
+colnames(outletIso)[colnames(outletIso) == "DD13...32.25."] <- "DD13"
 colnames(outletIso)[colnames(outletIso) == "ng..C."] <- "ngC"
-outletIso <- subset(outletIso, DD13 > 0 & DD13 < 10 & ngC >= 2)
 
 # Filter isotope data:
 
-filtersIso = read.csv2("Data/MESAlteck_FilterIsotopes.csv", header = T)
+filtersIso = read.csv2("Data/MESAlteck_FilterIsotopes.csv", header = T, dec = ".")
 #filtersIso <- filtersIso[filtersIso$Levl != "J+7", ]
 if (length(filtersIso) == 1){
   filtersIso = read.csv("Data/MESAlteck_FilterIsotopes.csv", header = T)
 }
+colnames(filtersIso)
 filtersIso$WeekSubWeek = paste(filtersIso$Week, filtersIso$Num, sep = "-")
-colnames(filtersIso)[colnames(filtersIso) == "DD13...31.21."] <- "DD13"
+colnames(filtersIso)[colnames(filtersIso) == "DD13.32.253."] <- "DD13"
 colnames(filtersIso)[colnames(filtersIso) == "ng..C."] <- "ngC"
 
 head(filtersIso)
-
-
 
 ```
 
@@ -171,7 +186,6 @@ hydroChem = hydroChem[, c("WeekSubWeek",
                           "TOC.ppm.unfilt" )]
 head(hydroChem)
 
-
 ```
 
 
@@ -179,6 +193,8 @@ head(hydroChem)
 
 ```{r, message=FALSE}
 
+
+outletIso <- outletIso[complete.cases(outletIso[ , "d.13C.12C"]), ]
 isoOutSummary = ddply(outletIso, c("WeekSubWeek"), summarise,
                          N    = length(d.13C.12C),
                          diss.d13C = mean(d.13C.12C),
@@ -221,18 +237,6 @@ out.CoIs = merge(out.CoIs, isoOutSummary, by = "WeekSubWeek", all = T)
 # Filters (MES, Conc.MES)
 out.CoIs = merge(out.CoIs, filters, by = "WeekSubWeek", all = T)
 out.CoIs = merge(out.CoIs, isoFiltSummary, by= "WeekSubWeek", all = T)
-
-# Pure and cuve isotope average
-d13Co = -31.21
-
-# Lab enrichment:
-# epsilon = -1.61
-
-# Lab enrichment:
-# Alteck
-epsilon_max = -1.5 # +/- 0.3 (@ 20C, 20% vwc)
-epsilon_min = -2.0 # +/- 0.2 (@ 20C, 40% vwc)
-epsilon_mean = -1.75
 
 # Remaining fraction
 out.CoIs$DD13C.diss <- (out.CoIs$diss.d13C - (d13Co))
@@ -298,7 +302,7 @@ p <- ggplot(cq1) +
   
   geom_text(data = cq1, 
             aes(x=AveDischarge.m3.h, y=Conc.mug.L, label=FlowType), hjust=1.5, vjust=0.5, size = 2)
-p
+# p
 
 #p <- ggplotly(p)
 #p

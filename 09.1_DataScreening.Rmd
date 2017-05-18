@@ -54,7 +54,7 @@ library("cluster")
 
 ```{r}
 # Initial signature measured in tank
-initialDelta = d13Co = -31.2144
+initialDelta = d13Co = -32.253
 
 # Define initial concentration (for Raleigh plots)
 #Co <- 8 # ug/g dry soil (based on Corn applications)
@@ -177,7 +177,7 @@ p <- ggplot(data = subset(soilGrApp, !is.na(ngC.Label)), aes(x=Conc.mug.g.dry.so
 p
 #ggsave(p, filename = "DDvsConc_soils.png", width = 8, height = 5, units = "in", scale = 1)
 
-ggplotly(p)
+#ggplotly(p)
   #stat_smooth(method = "lm", formula = y ~ poly(x, 2)) +
   #stat_smooth(method = "lm", formula = y~x, se=F) 
 ```
@@ -199,8 +199,8 @@ soilGrApp$iniCo <- ifelse(soilGrApp$Transect == "N", 4.82,
 soilGrApp$yRaleigh <- log((1000+d13Co+soilGrApp$DD13C.comp)/(1000+d13Co))
 soilGrApp$xRaleigh <- log(soilGrApp$Conc.mug.g.dry.soil/soilGrApp$iniCo)
 
-# model<-lm(yRaleigh~xRaleigh, data= soilGrApp, subset=(Wnum < 12 & !is.na(ngC.Label))) 
-model<-lm(yRaleigh~xRaleigh, data= soilGrApp, subset=(!is.na(ngC.Label))) # & ngC.mean >= 5)) 
+
+model<-lm(yRaleigh~xRaleigh, data= soilGrApp, subset=(N_compsoil >= 3)) 
 cof <- as.numeric(coef(model)[2]*1000)
 se <- summary(model)$coef[[4]]*1000
 lab <- sprintf(" epsilon == %0.2f ", cof)
@@ -212,17 +212,17 @@ lab1 <- paste(lab, labSE3)
 
 summary(model)
 
-model2<-lm(yRaleigh~xRaleigh, data= soilGrApp, subset=(!is.na(ngC.Label) & DD13C.comp < 4)) # & ngC.mean >= 5)) 
-summary(model2)
+model2n<-lm(yRaleigh~xRaleigh, data= soilGrApp, subset=(N_compsoil >= 2)) # & ngC.mean >= 5)) 
+summary(model2n)
 
 # Compre to each transect
-modelTalweg<-lm(yRaleigh~xRaleigh, data=soilGrApp, subset=(Wnum < 12 & !is.na(ngC.Label) & Transect == "T"))
+modelTalweg<-lm(yRaleigh~xRaleigh, data=soilGrApp, subset=(Wnum < 12 & N_compsoil >= 3 & Transect == "T"))
 eT <- coef(modelTalweg)[2]*1000
 
-modelNorth<-lm(yRaleigh~xRaleigh, data=soilGrApp, subset=(Wnum < 12 & !is.na(ngC.Label) & Transect == "N"))
+modelNorth<-lm(yRaleigh~xRaleigh, data=soilGrApp, subset=(Wnum < 12 & N_compsoil >= 3 & Transect == "N"))
 eN <- coef(modelNorth)[2]*1000
 
-modelSouth<-lm(yRaleigh~xRaleigh, data=soilGrApp, subset=(Wnum < 12 & !is.na(ngC.Label) & Transect == "S"))
+modelSouth<-lm(yRaleigh~xRaleigh, data=soilGrApp, subset=(Wnum < 12 & N_compsoil >= 3 & Transect == "S"))
 eS <- coef(modelSouth)[2]*1000
 
 sd(c(coef(modelSouth)[2]*1000 , coef(modelNorth)[2]*1000 , coef(modelTalweg)[2]*1000))
@@ -231,7 +231,7 @@ mean(c(coef(modelSouth)[2]*1000 , coef(modelNorth)[2]*1000 , coef(modelTalweg)[2
 #summary(modelFull)  
 
 rayleigh <- 
-  ggplot(data = subset(soilGrApp, ( Wnum > 0 & !is.na(ngC.Label) & !is.na(yRaleigh) )), 
+  ggplot(data = subset(soilGrApp, ( Wnum > 0 & N_compsoil >= 2 & !is.na(yRaleigh) )), 
          aes(x=xRaleigh, y=yRaleigh)) +
   geom_point(aes(group = ID, size = timeSinceApp.NoSo ))+ #, colour = Source)) +  #, shape = ngC.Label)) +
   theme_bw() +
@@ -243,10 +243,10 @@ rayleigh <-
   stat_smooth(data= subset(soilGrApp , 
                            ( Wnum > 0 & !is.na(ngC.Label) & !is.na(yRaleigh) )) , 
               method = "lm", formula = y~x, se=T) +
-  annotate("text", x = -0.5, y = 0.005, 
+  annotate("text", x = -0.55, y = 0.004, 
            # label = as.character(expression(paste( "\u0190", " \u2030", " = ", cof))), parse = T, size = 3.0) +
            label = lab, parse = T, size = 3.0) +
-  annotate("text", x = -0.33, y = 0.005, 
+  annotate("text", x = -0.33, y = 0.004, 
            label = as.character(expression(paste( "\u00B1" , 0.36))), parse = T, size = 3.0) # +
   
   #geom_text_repel(data = subset(soilGrApp, (!is.na(ngC.Label) & Wnum > 7 & Wnum < 12) ), aes(label=Wnum),
@@ -267,7 +267,7 @@ rayleigh <-
        #          nudge_x = .2)
 
 rayleigh
-ggplotly(rayleigh)
+#ggplotly(rayleigh)
 #ggsave(rayleigh, filename = "lnDDvslnConc_soils.png", width = 8, height = 5, units = "in", scale = 1)
 ```
 
@@ -305,7 +305,7 @@ soilGrApp$fdeg <- soilGrApp$ftot * soilGrApp$Fdil
 The relationship $D*/B*$ can be obtained by:
 
 ```{r}
-DBmodel<-lm(log(fdeg)~log(fdil), data= soilGrApp, subset=(!is.na(fdil))) # & ngC.mean >= 5)) 
+DBmodel<-lm(log(fdeg)~log(fdil), data= soilGrApp, subset=(!is.na(fdil))) 
 cof_DB <- as.numeric(coef(DBmodel)[2]*1000)
 se_DB <- summary(DBmodel)$coef[[4]]*1000
 summary(DBmodel)
@@ -1169,7 +1169,7 @@ wsALL <- ggdraw() +
  
 wsALL 
 
-ggsave(wsALL, filename = "WaterSoilvsTime.png", width = 8, height = 5, units = "in", scale = 1)
+# ggsave(wsALL, filename = "WaterSoilvsTime.png", width = 8, height = 5, units = "in", scale = 1)
 ```
 
 ## Check SOils
@@ -1189,6 +1189,8 @@ ggplot(data = wstidier2, aes(x = Date, y = measure, group = Source) )+
   #geom_errorbar(data=subset(wstidier2, Source == 'Outlet'), limits_DdC) +
   #geom_point(data=subset(wstidier2, Source == 'Outlet'), aes(shape = Type, colour = Source, size = Qmax)) +
   geom_point(data=subset(wstidier2, Type == 'Dissolved'), aes(shape = Type, colour = Source, size = Qmean)) +
+  geom_point(data=subset(wstidier2, Type == 'Top Soil'), aes(colour = Source)) +
+
   stat_smooth(data=subset(wstidier2,
                           (Source == "North" )), #| Source == "South" )), 
               method = "lm", formula = y ~ poly(x, 2), se = F, aes(colour = Source), alpha = 0.2, size=0.2) +
@@ -1207,7 +1209,8 @@ ggplot(data = wstidier2, aes(x = Date, y = measure, group = Source) )+
   #               point.padding = unit(1.0, 'lines'), 
   #               max.iter = 2e3,
   #              nudge_x = .2) +
-  geom_text_repel(data=subset(wstidier2, Source == 'Outlet'), aes(label=Week),
+  geom_text_repel(data=subset(wstidier2, Source != 'Outlet'), aes(label=Soil.ID),
+  # geom_text_repel(data=subset(wstidier2, Source == 'Outlet'), aes(label=Week),
                  arrow = arrow(length = unit(0.005, 'npc'), type = "closed"),
                  force = 1, 
                  point.padding = unit(1.0, 'lines'), 
