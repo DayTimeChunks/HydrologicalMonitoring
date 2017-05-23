@@ -50,7 +50,7 @@ CHECK_ERR = FALSE
 ```{r}
 
 # Pure and cuve isotope average
-initialDelta = d13Co = -31.2144
+initialDelta = d13Co = -32.235
 
 # Lab enrichment:
 # Alteck
@@ -194,7 +194,7 @@ weeklySoil$ngC.Label <- ifelse(weeklySoil$ngC.mean<5, "< 5 ng",
 limits_dCsoil <- aes(ymin=comp.d13C-comp.d13C.SD, ymax=comp.d13C+comp.d13C.SD)
 #limits_dCsoil <- aes(ymin=comp.d13C-0.5, ymax=comp.d13C+0.5)
 lb1a <- paste("App.~S-meto.")
-lb1ab <- paste("delta^{13}~C:-31.21")
+lb1ab <- paste("delta^{13}~C:-32.25")
 lb1a2 <- paste("App. ")
 
 lbW012 <- paste("App.W0/1/2")

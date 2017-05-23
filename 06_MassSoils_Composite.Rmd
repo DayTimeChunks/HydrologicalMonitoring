@@ -53,28 +53,30 @@ getwd()
 d13Co = -32.253
 
 # Lab enrichment: Alteck
-epsilon_max = -1.5 # +/- 0.3 (@ 20C, 20% vwc)
-epsilon_min = -2.0 # +/- 0.2 (@ 20C, 40% vwc)
+#epsilon_max = -1.5 # +/- 0.3 (@ 20C, 20% vwc)
+#epsilon_min = -2.0 # +/- 0.2 (@ 20C, 40% vwc)
 
-epsilon_mean = mean(c(epsilon_max, epsilon_min))
+# Essahn values:
+epsilon_max = -1.8 
+epsilon_min = -2.6 
+epsilon_mean = -2.2 # ± 0.4
 epsilon_mean
 
-sd(c(epsilon_max, epsilon_min))
 ```
 
-## Filed Assumptions
+## Field Assumptions
 
 ```{r}
 # S-metolachlor Mass [g]
 # Conc. [ug/g dry soil] * [g/10^6 ug] * density [g/m3] * depth [m]* A [m2] 
 # Soil bulk density: 2200 or 0.99? -> Leaching experiments: 0.99 [g/cm3]
 rho = 0.99*10^6 # soil density [g/m3]
-depth = 0.005 # [m]
+depth = 0.01 # [m]
 
 # Transect Areas pre-corn applications
 Area_Na = 13.92663*10^4 # [m2]
 
-# Corrections (old values):
+# Assumptions on Non-measured plots - Transect assignment:
 #Area_Ta = 6.55813*10^4  # [m2] # South Burger's as Talweg
 #Area_Sa = 11.05376*10^4 # [m2] # South Burger's as Talweg
 Area_Ta = 4.37134*10^4  # [m2]
@@ -83,21 +85,18 @@ Area_Sa = 13.3175*10^4 # [m2] # South Burger's as South
 # Transect Areas post Corn applications (not on transect)
 Area_Nb = 14.9949*10^4 # [m2] 
 
-# Corrections (old values): 
+# Assumptions on Non-measured plots - Transect assignment:
 #Area_Tb = 6.55813*10^4  # [m2] # South Burger's as Talweg
 #Area_Sb = 11.65202*10^4 # [m2] # South Burger's as Talweg
 Area_Tb = 4.37134*10^4  # [m2]
 Area_Sb = 13.91767*10^4 # [m2] # South Burger's as South
+
+Area_tot <- Area_Nb + Area_Tb + Area_Sb
+Area_tot 
 ```
 
 
 ## Composite Concentrations & Isotope Data - Alteckendorf 2016
-
-Isotopes selected where cleaned according to the following rules:
-
-a) The isotope shift was not largely beyond (2x) Streitwieser theoretical limits (i.e. > 10)
-b) Isotope shift was non-negative
-c) Nanograms of carbon > 5.0.
 
 1. Import CSV files 
 
@@ -149,9 +148,6 @@ weeklySoilIso <- weeklySoilIso[, c("ID",
                                    "d.13C.12C",
                                    "DD13", 
                                    "ngC")]
-
-# weeklySoilIso <- subset(weeklySoilIso, DD13 < 10) # & ngC > 5)
-
 
 isoCompSummary = ddply(weeklySoilIso, c("ID"), summarise,
                          N_compsoil    = length(d.13C.12C),
@@ -247,14 +243,23 @@ comp.CoIs$B.mean.comp <-
 
 3. Compute Soil S-metolachlor Mass at time $t$ across space  
 
-For non-measured plots, the soil concentration and isotope measured at the neareast transect is assumed. The total area for each transect at the end of the season is shown below. Corn fields in the catchment were known to have received S-metolachlor applications only during the last week of May, 2017. Given that two of these plots were not included within the transects, their area were not accounted for but until after the known application dates for corn plots. 
+For non-measured plots, the soil concentration and isotope measured at the neareast transect is assumed. The total area for each transect at the end of the season is shown below. Corn fields in the catchment were known to have received S-metolachlor applications only during the last week of May, 2017. Given that two of these plots were not included within the transects, their area was not accounted for but until after the known application dates for corn plots. 
 
-![Transect Areas $[Ha]$ (North: 14.995; Talweg: 8.774; South: 12.668)](Images/TransectAreas.png)
+![Transect Areas $[Ha]$ (North: 14.995; Talweg: 4.371; South: 13.918)](Images/TransectAreas.png)
+
+```{r}
+# Check values:
+Area_Nb/10000 
+Area_Tb/10000 
+Area_Sb/10000
+
+```
+
 
 The total pesticide mass for each transect at time $t$ is then given by:
 
 $$
-M(t)_{Ta} = C(t)_{T} \cdot \rho \cdot A_T \cdot D \cdot   
+M(t)_{Ta} = C(t)_{T} \cdot \rho \cdot A_T \cdot D  
 $$
 
 
@@ -279,34 +284,51 @@ Area_Sb # [m2]
 
 # Assign new column for S-metolachlor mass in grams
 comp.CoIs$MassSoil.g <- NA
+comp.CoIs$MassSoil.g.SD <- NA
 
 # Areas with S-metolachlor before week 9
 comp.CoIs$MassSoil.g <- 
-  ifelse((comp.CoIs$Transect == "N" & comp.CoIs$Wnum < 6), 
+  ifelse((comp.CoIs$Transect == "N" & comp.CoIs$Wnum < 9), 
          comp.CoIs$Conc.mug.g.dry.soil*10^-6*rho*depth*Area_Na,
-  ifelse((comp.CoIs$Transect == "T" & comp.CoIs$Wnum < 6), 
+  ifelse((comp.CoIs$Transect == "T" & comp.CoIs$Wnum < 9), 
          comp.CoIs$Conc.mug.g.dry.soil*10^-6*rho*depth*Area_Ta, 
-  ifelse((comp.CoIs$Transect == "S" & comp.CoIs$Wnum < 6), 
+  ifelse((comp.CoIs$Transect == "S" & comp.CoIs$Wnum < 9), 
          comp.CoIs$Conc.mug.g.dry.soil*10^-6*rho*depth*Area_Sa, comp.CoIs$MassSoil.g)))
+
+comp.CoIs$MassSoil.g.SD <- 
+  ifelse((comp.CoIs$Transect == "N" & comp.CoIs$Wnum < 9), 
+         comp.CoIs$Conc.ComSoil.SD*10^-6*rho*depth*Area_Na,
+  ifelse((comp.CoIs$Transect == "T" & comp.CoIs$Wnum < 9), 
+         comp.CoIs$Conc.ComSoil.SD*10^-6*rho*depth*Area_Ta, 
+  ifelse((comp.CoIs$Transect == "S" & comp.CoIs$Wnum < 9), 
+         comp.CoIs$Conc.ComSoil.SD*10^-6*rho*depth*Area_Sa, comp.CoIs$MassSoil.g.SD)))
 
 # Areas with S-metolachlor after week 9
 comp.CoIs$MassSoil.g <- 
-  ifelse((comp.CoIs$Transect == "N" & comp.CoIs$Wnum >= 6), 
+  ifelse((comp.CoIs$Transect == "N" & comp.CoIs$Wnum >= 9), 
          comp.CoIs$Conc.mug.g.dry.soil*10^-6*rho*depth*Area_Nb,
-  ifelse((comp.CoIs$Transect == "T" & comp.CoIs$Wnum >= 6), 
+  ifelse((comp.CoIs$Transect == "T" & comp.CoIs$Wnum >= 9), 
          comp.CoIs$Conc.mug.g.dry.soil*10^-6*rho*depth*Area_Tb, 
-  ifelse((comp.CoIs$Transect == "S" & comp.CoIs$Wnum >= 6), 
+  ifelse((comp.CoIs$Transect == "S" & comp.CoIs$Wnum >= 9), 
          comp.CoIs$Conc.mug.g.dry.soil*10^-6*rho*depth*Area_Sb, comp.CoIs$MassSoil.g)))
+
+comp.CoIs$MassSoil.g.SD <- 
+  ifelse((comp.CoIs$Transect == "N" & comp.CoIs$Wnum >= 9), 
+         comp.CoIs$Conc.ComSoil.SD*10^-6*rho*depth*Area_Nb,
+  ifelse((comp.CoIs$Transect == "T" & comp.CoIs$Wnum >= 9), 
+         comp.CoIs$Conc.ComSoil.SD*10^-6*rho*depth*Area_Tb, 
+  ifelse((comp.CoIs$Transect == "S" & comp.CoIs$Wnum >= 9), 
+         comp.CoIs$Conc.ComSoil.SD*10^-6*rho*depth*Area_Sb, comp.CoIs$MassSoil.g.SD)))
 
 # Areas as variables (for later computation of bulk catchment mass)
 comp.CoIs$Area.N <-
-  ifelse((comp.CoIs$Wnum < 6), Area_Na, Area_Nb)
+  ifelse((comp.CoIs$Wnum < 9), Area_Na, Area_Nb)
          
 comp.CoIs$Area.T <-
-  ifelse((comp.CoIs$Wnum < 6), Area_Ta, Area_Tb)
+  ifelse((comp.CoIs$Wnum < 9), Area_Ta, Area_Tb)
 
 comp.CoIs$Area.S <-
-  ifelse((comp.CoIs$Wnum < 6), Area_Sa, Area_Sb)
+  ifelse((comp.CoIs$Wnum < 9), Area_Sa, Area_Sb)
   
 
 print("S-meto mass per transect at time-t")

@@ -52,13 +52,13 @@ getwd()
 d13Co = -32.253
 
 # Lab enrichment: Alteck
-epsilon_max = -1.5 # +/- 0.3 (@ 20C, 20% vwc)
-epsilon_min = -2.0 # +/- 0.2 (@ 20C, 40% vwc)
+#epsilon_max = -1.5 # +/- 0.3 (@ 20C, 20% vwc)
+#epsilon_min = -2.0 # +/- 0.2 (@ 20C, 40% vwc)
 
-epsilon_mean = mean(c(epsilon_max, epsilon_min))
-epsilon_mean
-
-sd(c(epsilon_max, epsilon_min))
+# Essahn values:
+epsilon_max = -1.8 
+epsilon_min = -2.6 
+epsilon_mean = -2.2 # ± 0.4
 ```
 
 
@@ -92,30 +92,33 @@ str(soils)
 
 # North
 soils.N <- subset(soils, soils$Transect == "N")
-soils.N <- soils.N[, c("Date.ti", "B.mean.comp",  "B.max.comp",  "B.min.comp",  "MassSoil.g", 
+soils.N <- soils.N[, c("Date.ti", "B.mean.comp",  "B.max.comp",  "B.min.comp",  "MassSoil.g", "MassSoil.g.SD",
                        "comp.d13C", "comp.d13C.SD", # "comp.d13C.SE", 
                        "ID", "Area.N", "Area.T", "Area.S" )]
 
-colnames(soils.N) <- c("ti",  "B.mean.comp.North", "B.max.comp.North", "B.min.comp.North", "MassSoil.g.North", 
+colnames(soils.N) <- c("ti",  "B.mean.comp.North", "B.max.comp.North", "B.min.comp.North", 
+                       "MassSoil.g.North", "MassSoil.g.SD.North",
                        "comp.d13C.North", "comp.d13C.SD.North", # "comp.d13C.SE.North",  
                        "ID.N", "Area.N", "Area.T", "Area.S" )
 
 # Talweg
 soils.T <- subset(soils, soils$Transect == "T")
-soils.T <- soils.T[, c("Date.ti", "B.mean.comp",  "B.max.comp",  "B.min.comp", "MassSoil.g", 
+soils.T <- soils.T[, c("Date.ti", "B.mean.comp",  "B.max.comp",  "B.min.comp", "MassSoil.g", "MassSoil.g.SD",
                        "comp.d13C", "comp.d13C.SD", # "comp.d13C.SE", 
                        "ID")]
 
-colnames(soils.T) <- c("ti",  "B.mean.comp.Talweg", "B.max.comp.Talweg", "B.min.comp.Talweg", "MassSoil.g.Talweg", 
+colnames(soils.T) <- c("ti",  "B.mean.comp.Talweg", "B.max.comp.Talweg", "B.min.comp.Talweg", 
+                       "MassSoil.g.Talweg", "MassSoil.g.SD.Talweg",
                        "comp.d13C.Talweg", "comp.d13C.SD.Talweg", # "comp.d13C.SE.Talweg", 
                        "ID.T" )
 
 # South
 soils.S <- subset(soils, soils$Transect == "S")
-soils.S <- soils.S[, c("Date.ti", "B.mean.comp",  "B.max.comp",  "B.min.comp", "MassSoil.g", 
+soils.S <- soils.S[, c("Date.ti", "B.mean.comp",  "B.max.comp",  "B.min.comp", "MassSoil.g", "MassSoil.g.SD",
                        "comp.d13C", "comp.d13C.SD", # "comp.d13C.SE", 
                        "ID" )]
-colnames(soils.S) <- c("ti",  "B.mean.comp.South", "B.max.comp.South", "B.min.comp.South", "MassSoil.g.South", 
+colnames(soils.S) <- c("ti",  "B.mean.comp.South", "B.max.comp.South", "B.min.comp.South", 
+                       "MassSoil.g.South", "MassSoil.g.SD.South",
                        "comp.d13C.South", "comp.d13C.SD.South", # "comp.d13C.SE.South",
                        "ID.S" )
 
@@ -131,7 +134,7 @@ $$
   + \frac{ M_{South} }{ M_{tot} } \delta_{South}
 $$
 
-Bulk mass is a proxy for the potential mass that can be discharged at a give time. It is calculated base don the pondered mass from each transect area and the proportion of that area in relation to the entire catchment such that:
+Bulk mass (not currently used) is a proxy for the potential mass that can be discharged at a give time. It is calculated based on the pondered mass from each transect area and the proportion of that area in relation to the entire catchment such that:
 
 $$
 M_{bulk} =  \frac{ A_{North} }{ A_{tot} } M_{North} 
@@ -157,16 +160,23 @@ soilsOut$CatchMassSoil.g <-
   soilsOut$MassSoil.g.Talweg + 
   soilsOut$MassSoil.g.South
 
+soilsOut$CatchMassSoil.g.SD <- (
+  ( soilsOut$MassSoil.g.SD.North^2 + 
+      soilsOut$MassSoil.g.SD.South^2 + 
+      soilsOut$MassSoil.g.SD.Talweg^2
+    )/3
+  )^0.5
+  
 # Approximate initial mass for first 6 observation (before recording composite soils)
 #soilsOut$CatchMassSoil.g[1:6] <- ifelse(is.na(soilsOut$CatchMassSoil.g), 
 #                                        soilsOut$CumAppMass.g-soilsOut$CumOutMELsm.g, 
 #                                        soilsOut$CatchMassSoil.g) 
 
 
-soilsOut$BulkMass.g <- 
-  soilsOut$MassSoil.g.North*(soilsOut$Area.N/(soilsOut$Area.N+soilsOut$Area.T+soilsOut$Area.S)) +
-  soilsOut$MassSoil.g.Talweg*(soilsOut$Area.T/(soilsOut$Area.N+soilsOut$Area.T+soilsOut$Area.S)) +
-  soilsOut$MassSoil.g.South*(soilsOut$Area.S/(soilsOut$Area.N+soilsOut$Area.T+soilsOut$Area.S))
+#soilsOut$BulkMass.g <- 
+#  soilsOut$MassSoil.g.North*(soilsOut$Area.N/(soilsOut$Area.N+soilsOut$Area.T+soilsOut$Area.S)) +
+#  soilsOut$MassSoil.g.Talweg*(soilsOut$Area.T/(soilsOut$Area.N+soilsOut$Area.T+soilsOut$Area.S)) +
+#  soilsOut$MassSoil.g.South*(soilsOut$Area.S/(soilsOut$Area.N+soilsOut$Area.T+soilsOut$Area.S))
 
 # Bulk catchment isotopes
 soilsOut$BulkCatch.d13 <- 
@@ -191,9 +201,18 @@ d13Co
 soilsOut$f.mean.bulk <- 
   ((10^(-3)*soilsOut$BulkCatch.d13 + 1)/(10^(-3)*d13Co + 1))^(1000/(epsilon_mean))
 
+soilsOut$f.min.bulk <- 
+  ((10^(-3)*soilsOut$BulkCatch.d13 + 1)/(10^(-3)*d13Co + 1))^(1000/(epsilon_max))
+soilsOut$f.max.bulk <- 
+  ((10^(-3)*soilsOut$BulkCatch.d13 + 1)/(10^(-3)*d13Co + 1))^(1000/(epsilon_min))
+
 soilsOut$B.mean.bulk <-
   (1 - soilsOut$f.mean.bulk)*100
 
+soilsOut$B.min.bulk <-
+  (1 - soilsOut$f.max.bulk)*100
+soilsOut$B.max.bulk <-
+  (1 - soilsOut$f.min.bulk)*100
 
 print("Merged Soils and Outlet by ti")
 str(soilsOut)
@@ -292,8 +311,8 @@ massBal_MEL <- ggplot(pgSimple) +
   # Themes and axes
   theme_bw() +
   theme(# axis.text.x=element_text(angle = 45, hjust = 1), 
-        axis.text.x=element_blank(),
-        axis.title.x=element_blank(),
+        #axis.text.x=element_blank(),
+        #axis.title.x=element_blank(),
         legend.position="top"
         )+
   labs(color = "Estimated Mass") +
@@ -307,6 +326,9 @@ massBal_MEL
   
 ```
 
+```{r}
+
+```
 
 
 

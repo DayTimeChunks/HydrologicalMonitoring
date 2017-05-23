@@ -61,7 +61,8 @@ initialDelta = d13Co = -32.253
 Co <- 6.53 # ug/g dry soil (based on Max conc. measured in soils)
 # Note: Each transect now has individual starting concentration
 
-epsilon_lab = -1.75
+epsilon_lab = -2.2
+
 ```
 
 
@@ -120,12 +121,15 @@ sum(is.na(soilGroups$Date.ti)) == 0
 soilGroups$comp.d13C <- ifelse(is.na(soilGroups$comp.d13C.SD), NA, soilGroups$comp.d13C)
 soilGroups$ngC.Label <- ifelse(soilGroups$ngC.mean < 10, "< 10 ng", "> 10 ng")
 
+soilGroups <- subset(soilGroups, comp.d13C.SD <= 0.75)
+
 #str(soils)
 
 soilGrApp <- merge(soilGroups, timeApps, by = "Date.ti", all = F)
 soilGrApp <- soilGrApp[complete.cases(soilGrApp[ , "timeSinceApp"]),]
 
 soilGrApp$DD13C.comp <- ifelse(is.na(soilGrApp$comp.d13C.SD), NA, soilGrApp$DD13C.comp)
+soilGrApp <- subset(soilGrApp, comp.d13C.SD <= 0.75)
 
 cor.test(soilGroups$comp.d13C, soilGroups$Conc.mug.g.dry.soil)
 
@@ -196,18 +200,27 @@ soilGrApp$iniCo <- ifelse(soilGrApp$Transect == "N", 4.82,
                                  ifelse(soilGrApp$Transect == "S", 6.53, NA)))
 #soilGrApp$iniCo <- 8
 
+soilGrApp$ftot <- soilGrApp$Conc.mug.g.dry.soil/soilGrApp$iniCo
+soilGrApp$ftot <- ifelse(soilGrApp$ftot > 1, 1, soilGrApp$ftot)
+
 soilGrApp$yRaleigh <- log((1000+d13Co+soilGrApp$DD13C.comp)/(1000+d13Co))
-soilGrApp$xRaleigh <- log(soilGrApp$Conc.mug.g.dry.soil/soilGrApp$iniCo)
+soilGrApp$xRaleigh <- log(soilGrApp$ftot)/1000
 
 
 model<-lm(yRaleigh~xRaleigh, data= soilGrApp, subset=(N_compsoil >= 3)) 
-cof <- as.numeric(coef(model)[2]*1000)
-se <- summary(model)$coef[[4]]*1000
-lab <- sprintf(" epsilon == %0.2f ", cof)
-labSE <- sprintf("\u00B1 %0.2f ", se)
-labSE2 <- sprintf("± %0.2f ", se)
+cofsoil <- as.numeric(coef(model)[2])
+se <- summary(model)$coef[[4]]
 
-labSE3 <- paste(" '' %+-%  ' 0.43' ")
+minXsoil <- confint(model, "xRaleigh", level = 0.95)[1]
+maxXsoil <- confint(model, "xRaleigh", level = 0.95)[2]
+
+CI95soil = maxXsoil - cofsoil
+
+lab <- sprintf(" epsilon == %0.2f ", cofsoil)
+labSE <- sprintf("\u00B1 %0.2f ", CI95soil)
+labSE2 <- sprintf("± %0.2f ", CI95soil)
+
+labSE3 <- paste(" '' %+-%  ' 0.49' ")
 lab1 <- paste(lab, labSE3)
 
 summary(model)
@@ -247,7 +260,7 @@ rayleigh <-
            # label = as.character(expression(paste( "\u0190", " \u2030", " = ", cof))), parse = T, size = 3.0) +
            label = lab, parse = T, size = 3.0) +
   annotate("text", x = -0.33, y = 0.004, 
-           label = as.character(expression(paste( "\u00B1" , 0.36))), parse = T, size = 3.0) # +
+           label = as.character(expression(paste( "\u00B1" , 0.49))), parse = T, size = 3.0) # +
   
   #geom_text_repel(data = subset(soilGrApp, (!is.na(ngC.Label) & Wnum > 7 & Wnum < 12) ), aes(label=Wnum),
   #               arrow = arrow(length = unit(0.005, 'npc'), type = "closed"),
@@ -286,9 +299,9 @@ $$F = e^{(\Delta/\epsilon_{lab})-lnf_{total}} $$
 ```{r}
 soilGrApp$Fdil = 
   exp( (log((1000+d13Co+soilGrApp$DD13C.comp)/(1000+d13Co))/epsilon_lab) -
-         log(soilGrApp$Conc.mug.g.dry.soil/soilGrApp$iniCo)  )
+         log(soilGrApp$ftot)  )
 
-soilGrApp$Fdil <- ifelse(soilGrApp$Fdil < 1, NA, soilGrApp$Fdil)
+soilGrApp$Fdil <- ifelse(soilGrApp$Fdil < 1, 1, soilGrApp$Fdil)
 
 
 ```
@@ -298,9 +311,28 @@ We can now obtain $f_{dilution}$ and $f_{degradation}$:
 ```{r}
 
 soilGrApp$fdil <- 1/soilGrApp$Fdil
-soilGrApp$ftot <- soilGrApp$Conc.mug.g.dry.soil/soilGrApp$iniCo
 soilGrApp$fdeg <- soilGrApp$ftot * soilGrApp$Fdil 
 ```
+
+Re-calculating the enrichment factor based on dilution processes (i.e. new f):
+
+```{r}
+
+soilGrApp$xRaleighDeg <- log(soilGrApp$fdeg)
+
+modelDegField<-lm(yRaleigh~xRaleighDeg, data= soilGrApp, subset=(N_compsoil >= 3)) 
+summary(modelDegField)
+cofDegField <- as.numeric(coef(model)[2])
+
+minXDegField <- confint(modelDegField, "xRaleighDeg", level = 0.95)[1]
+maxXDegField <- confint(modelDegField, "xRaleighDeg", level = 0.95)[2]
+
+CI95degField = maxXDegField - cofDegField
+
+# Comparison with dilution
+summary(model)
+```
+
 
 The relationship $D*/B*$ can be obtained by:
 
@@ -351,14 +383,27 @@ waters$No_First <- ifelse(waters$Appl.Mass.g == 0, NA, waters$Appl.Mass.g)
 waters$No_Second <- waters$No_First
 waters$No_Second[1] <- 0
 waters$No_Third <- waters$No_Second
-waters$No_Second[which(!is.na(waters$No_Second))[3]] <- NA
-waters$No_Third[which(!is.na(waters$No_Second))[2]] <- NA
+waters$No_Fourth <- waters$No_Second
 
-waters$No_First <- na.locf( waters$No_First )
-waters$No_Second <- na.locf(waters$No_Second)
+# Delete the 3rd and 4th observation in "Second" 
+waters$No_Second[which(!is.na(waters$No_Second))[4]] <- NA
+waters$No_Second[which(!is.na(waters$No_Second))[3]] <- NA
+waters$No_Second <- na.locf(waters$No_Second) # fill the cumulative for the second only
+
+waters$No_Third[which(!is.na(waters$No_Third))[4]] <- NA
+waters$No_Third[which(!is.na(waters$No_Third))[2]] <- NA
 waters$No_Third <- na.locf(waters$No_Third)
 
-# Compute cumulative time for first, second and third applications
+waters$No_Fourth[which(!is.na(waters$No_Fourth))[3]] <- NA
+waters$No_Fourth[which(!is.na(waters$No_Fourth))[2]] <- NA
+waters$No_Fourth <- na.locf(waters$No_Fourth)
+
+waters$No_First[which(!is.na(waters$No_First))[4]] <- NA
+waters$No_First[which(!is.na(waters$No_First))[3]] <- NA
+waters$No_First[which(!is.na(waters$No_First))[2]] <- NA
+waters$No_First <- na.locf( waters$No_First )
+
+# Compute cumulative time for first, second, third and fourth applications
 waters$CumDays_First <- cumsum(waters$Duration)/24
 
 waters$dt_Second <- ifelse(waters$No_Second == 0, 0, waters$Duration)
@@ -369,28 +414,42 @@ waters$dt_Third <- ifelse(waters$No_Third == 0, 0 , waters$Duration)
 waters$CumDays_Third <- cumsum(waters$dt_Third)/24
 waters$dt_Third <- NULL
 
+waters$dt_Fourth <- ifelse(waters$No_Fourth == 0, 0 , waters$Duration)
+waters$CumDays_Fourth <- cumsum(waters$dt_Fourth)/24
+waters$dt_Fourth <- NULL
+
+# Based on half-life = 29d
 waters$remain_1st_29d <- waters$No_First*(0.5)^(waters$CumDays_First/median_half)
 waters$remain_2nd_29d <- waters$No_Second*(0.5)^(waters$CumDays_Second/median_half)
 waters$remain_3rd_29d <- waters$No_Third*(0.5)^(waters$CumDays_Third/median_half)
+waters$remain_4th_29d <- waters$No_Fourth*(0.5)^(waters$CumDays_Fourth/median_half)
 
+# Based on half-life = 46d
 waters$remain_1st_46d <- waters$No_First*(0.5)^(waters$CumDays_First/min_half)
 waters$remain_2nd_46d <- waters$No_Second*(0.5)^(waters$CumDays_Second/min_half)
 waters$remain_3rd_46d <- waters$No_Third*(0.5)^(waters$CumDays_Third/min_half)
+waters$remain_4th_46d <- waters$No_Fourth*(0.5)^(waters$CumDays_Fourth/min_half)
 
+# Based on half-life = 12d
 waters$remain_1st_12d <- waters$No_First*(0.5)^(waters$CumDays_First/max_half)
 waters$remain_2nd_12d <- waters$No_Second*(0.5)^(waters$CumDays_Second/max_half)
 waters$remain_3rd_12d <- waters$No_Third*(0.5)^(waters$CumDays_Third/max_half)
+waters$remain_4th_12d <- waters$No_Fourth*(0.5)^(waters$CumDays_Fourth/max_half)
 
-waters$remainMedTheo_prc <- ((waters$remain_1st_29d + waters$remain_2nd_29d + waters$remain_3rd_29d)/waters$CumAppMass.g)*100
-waters$remainMinTheo_prc <- ((waters$remain_1st_46d + waters$remain_2nd_46d + waters$remain_3rd_46d)/waters$CumAppMass.g)*100
-waters$remainMaxTheo_prc <- ((waters$remain_1st_12d + waters$remain_2nd_12d + waters$remain_3rd_12d)/waters$CumAppMass.g)*100
+waters$remainMedTheo_prc <- ((waters$remain_1st_29d + waters$remain_2nd_29d +
+                                waters$remain_3rd_29d + waters$remain_4th_29d)/waters$CumAppMass.g)*100
+waters$remainMinTheo_prc <- ((waters$remain_1st_46d + waters$remain_2nd_46d +
+                                waters$remain_3rd_46d + waters$remain_4th_46d)/waters$CumAppMass.g)*100
+waters$remainMaxTheo_prc <- ((waters$remain_1st_12d + waters$remain_2nd_12d +
+                                waters$remain_3rd_12d + waters$remain_4th_12d)/waters$CumAppMass.g)*100
 
 colnames(waters)
-dropWater2 <- c("No_First", "No_Second" ,"No_Third",
-                "CumDays_First", "CumDays_Second", "CumDays_Third", 
-                "remain_1st_29d", "remain_2nd_29d", "remain_3rd_29d", 
-                "remain_1st_46d", "remain_2nd_46d", "remain_3rd_46d",
-                "remain_1st_12d", "remain_2nd_12d", "remain_3rd_12d")
+dropWater2 <- c("No_First", "No_Second" ,"No_Third", "No_Fourth",
+                "CumDays_First", "CumDays_Second", "CumDays_Third", "CumDays_Fourth",
+                "remain_1st_29d", "remain_2nd_29d", "remain_3rd_29d", "remain_4th_29d", 
+                "remain_1st_46d", "remain_2nd_46d", "remain_3rd_46d", "remain_4th_46d",
+                "remain_1st_12d", "remain_2nd_12d", "remain_3rd_12d", "remain_4th_12d"
+                )
 
 waters <- waters[ , !(names(waters) %in% dropWater2)]
 
@@ -406,7 +465,7 @@ keepWaterMB <- c("Date.ti", "CumAppMass.g",
                  "CumOutSmeto.g.SD", "CumOutMELsm.g.SD",
                  "remainMedTheo_prc", "remainMinTheo_prc", "remainMaxTheo_prc",
                  # CSIA
-                 "B.diss", "SD.d13C")
+                 "B.diss", "B.diss.min", "B.diss.max", "SD.d13C")
 
 watersMassBal <- waters[ , (names(waters) %in% keepWaterMB)]
 
@@ -423,50 +482,59 @@ watersMassBal$TPout.SD1 <- watersMassBal$TPout_prc + (watersMassBal$CumOutMELsm.
 watersMassBal$TPout.SD2 <- watersMassBal$TPout_prc - (watersMassBal$CumOutMELsm.g.SD/watersMassBal$CumAppMass.g)*100
 
 watersMassBal$f <- 100 - (watersMassBal$B.diss + watersMassBal$SMout_prc)
+watersMassBal$f.min <- 100 - (watersMassBal$B.diss.max + watersMassBal$SMout_prc)
+watersMassBal$f.max <- 100 - (watersMassBal$B.diss.min + watersMassBal$SMout_prc)
 watersMassBal$SD.d13C <- NULL
 
 
-mayBal <- subset(watersMassBal, (Date.ti > as.POSIXct("2016-04-01 00:00:00", tz = "EST") 
+aprilBal <- subset(watersMassBal, (Date.ti >= as.POSIXct("2016-04-16 18:32:00", tz = "EST") # Last three measurements
                  & Date.ti < as.POSIXct("2016-05-01 00:00:00", tz = "EST")) )
-juneBal <- subset(watersMassBal, (Date.ti > as.POSIXct("2016-06-07 00:00:00", tz = "EST") 
+juneBal <- subset(watersMassBal, (Date.ti >= as.POSIXct("2016-06-14 12:34:00", tz = "EST") 
                  & Date.ti <= as.POSIXct("2016-06-24 14:52:00", tz = "EST")) )
 
-B.mean.may <- mean(mayBal$B.diss)
-B.sd.may <- sd(mayBal$B.diss)
-f.mean.may <- mean(mayBal$f)
-f.sd.may <- sd(mayBal$f)
+B.mean.april <- mean(aprilBal$B.diss)
+B.sd1.april <- mean(aprilBal$B.diss.min)
+B.sd2.april <- mean(aprilBal$B.diss.max)
+
+f.mean.april <- mean(aprilBal$f)
+f.sd1.april <- mean(aprilBal$f.max) 
+f.sd2.april <- mean(aprilBal$f.min)
 
 B.mean.june <- mean(juneBal$B.diss)
-B.sd.june <- sd(juneBal$B.diss)
-f.mean.june <- mean(juneBal$f)
-f.sd.june <- sd(juneBal$f)
+B.sd1.june <- mean(juneBal$B.diss.min)
+B.sd2.june <- mean(juneBal$B.diss.max)
 
-mayBal <- tail(mayBal, n=1)
-mayBal$B.mean <- B.mean.may
-mayBal$B.sd1 <- B.mean.may-B.sd.may
-mayBal$B.sd2 <- B.mean.may+B.sd.may
-mayBal$f.mean <- f.mean.may
-mayBal$f.sd1 <- f.mean.may-f.sd.may
-mayBal$f.sd2 <- f.mean.may+f.sd.may
-mayBal$DegMed <- 100 - mayBal$remainMedTheo_prc
-mayBal$DegLow <- 100 - mayBal$remainMinTheo_prc
-mayBal$DegHigh <- 100 - mayBal$remainMaxTheo_prc
-mayBal$Month <- "April"
+f.mean.june <- mean(juneBal$f)
+f.sd1.june <- mean(juneBal$f.max)
+f.sd2.june <- mean(juneBal$f.min)
+
+aprilBal <- tail(aprilBal, n=1)
+aprilBal$B.mean <- B.mean.april
+aprilBal$B.sd1 <- B.sd1.april
+aprilBal$B.sd2 <- B.sd2.april
+aprilBal$f.mean <- f.mean.april
+aprilBal$f.sd1 <- f.sd1.april
+aprilBal$f.sd2 <- f.sd2.april
+
+aprilBal$DegMed <- 100 - aprilBal$remainMedTheo_prc
+aprilBal$DegLow <- 100 - aprilBal$remainMinTheo_prc
+aprilBal$DegHigh <- 100 - aprilBal$remainMaxTheo_prc
+aprilBal$Month <- "April"
 
 juneBal <- tail(juneBal, n=1)
 juneBal$B.mean <- B.mean.june
-juneBal$B.sd1 <- B.mean.june-B.sd.june
-juneBal$B.sd2 <- B.mean.june+B.sd.june
+juneBal$B.sd1 <- B.sd1.june
+juneBal$B.sd2 <- B.sd2.june
 juneBal$f.mean <- f.mean.june
-juneBal$f.sd1 <- f.mean.june-f.sd.june
-juneBal$f.sd2 <- f.mean.june+f.sd.june
+juneBal$f.sd1 <- f.sd1.june
+juneBal$f.sd2 <- f.sd2.june
 juneBal$DegMed <- 100 - juneBal$remainMedTheo_prc
 juneBal$DegLow <- 100 - juneBal$remainMinTheo_prc
 juneBal$DegHigh <- 100 - juneBal$remainMaxTheo_prc
 juneBal$Month <- "June"
 
 
-bal <- rbind(mayBal, juneBal)
+bal <- rbind(aprilBal, juneBal)
 
 
 bal$B.diss <- NULL
@@ -499,7 +567,10 @@ balTidy <- bal %>%
   separate(measure, into = c("Sink", "temporary_var")) %>% # parses the sep = "." into...
   spread(temporary_var, value) # Moves molten temporary variable to own column 
 
-type <- rep(c("CSIA", "Predicted (half-life)", "CSIA", "Predicted (half-life)", "Mass Balance", "Mass Balance"), 2)
+type <- rep(c("CSIA", "Predicted (half-life)", 
+              "CSIA", "Predicted (half-life)", 
+              "Mass Balance", 
+              "Mass Balance"), 2)
 
 balTidyType <- cbind(balTidy, type)
 
@@ -585,60 +656,82 @@ theoBars
 ```{r}
 
 names(soils)
-keepMB <- c("Date.ti", "CumAppMass.g", "CatchMassSoil.g",
-            "f.mean.bulk", "B.mean.bulk")
+keepMB <- c("Date.ti", "CumAppMass.g", "CatchMassSoil.g", "CatchMassSoil.g.SD",
+            "B.mean.bulk", "B.min.bulk", "B.max.bulk" )
 
-  
 soilsMB <- soils[, (names(soils) %in% keepMB)]
+soilsMB <- soilsMB[complete.cases(soilsMB[ , "CatchMassSoil.g"]), ]
 
 soilsMB$Rem.measure <- (soilsMB$CatchMassSoil.g/soilsMB$CumAppMass.g)*100
+soilsMB$Rem.SD1 <-(soilsMB$Rem.measure + soilsMB$Rem.measure*0.1358)
+soilsMB$Rem.SD2 <- (soilsMB$Rem.measure - soilsMB$Rem.measure*0.1358)
+
 soilsMB$Unk.measure <- 100 - soilsMB$Rem.measure
+soilsMB$Unk.SD1 <- 100 - soilsMB$Rem.SD2
+soilsMB$Unk.SD2 <- 100 - soilsMB$Rem.SD1
+
+
 soilsMB$CatchMassSoil.g <- NULL
+soilsMB$CatchMassSoil.g.SD <- NULL
 soilsMB$CumAppMass.g <- NULL
 
-soils.April <- subset(soilsMB, (Date.ti > as.POSIXct("2016-04-01 00:00:00", tz = "EST") 
+soils.April <- subset(soilsMB, (Date.ti >= as.POSIXct("2016-04-26 11:50:00", tz = "EST") 
                  & Date.ti < as.POSIXct("2016-05-01 00:00:00", tz = "EST"))) 
 soils.April <- na.omit(soils.April)
 
-soils.June <- subset(soilsMB, (Date.ti > as.POSIXct("2016-06-07 00:00:00", tz = "EST") 
+soils.June <- subset(soilsMB, (Date.ti >= as.POSIXct("2016-06-28 08:56:00", tz = "EST") 
                  & Date.ti <= as.POSIXct("2016-06-28 14:52:00", tz = "EST")) )
 soils.June <- na.omit(soils.June)
 
-B.mean.maySol <- mean(soils.April$B.mean.bulk)
-B.sd.maySol <- sd(soils.April$B.mean.bulk)
-f.mean.maySol <- mean(soils.April$f.mean.bulk*100)
-f.sd.maySol <- sd(soils.April$f.mean.bulk*100)
-Rem.mean.maySol <- mean(soils.April$Rem.measure)
-Rem.sd.maySol <- sd(soils.April$Rem.measure)
-Unk.mean.maySol <- mean(soils.April$Unk.measure)
-Unk.sd.maySol <- sd(soils.April$Unk.measure)
+B.mean.aprilSol <- soils.April$B.mean.bulk
+B.sd1.aprilSol <- soils.April$B.min.bulk
+B.sd2.aprilSol <- soils.April$B.max.bulk
 
-B.mean.juneSol <- mean(soils.June$B.mean.bulk)
-B.sd.juneSol <- sd(soils.June$B.mean.bulk)
-f.mean.juneSol <- mean(soils.June$f.mean.bulk*100)
-f.sd.juneSol <- sd(soils.June$f.mean.bulk*100)
-Rem.mean.juneSol <- mean(soils.June$Rem.measure)
-Rem.sd.juneSol <- sd(soils.June$Rem.measure)
-Unk.mean.juneSol <- mean(soils.June$Unk.measure)
-Unk.sd.juneSol <- sd(soils.June$Unk.measure)
+f.mean.aprilSol <- 100 - B.mean.aprilSol
+f.sd1.aprilSol <- 100 - B.sd2.aprilSol
+f.sd2.aprilSol <- 100 - B.sd1.aprilSol
+
+Rem.mean.aprilSol <- soils.April$Rem.measure
+Rem.sd1.aprilSol <- soils.April$Rem.SD1
+Rem.sd2.aprilSol <- soils.April$Rem.SD2
+
+Unk.mean.aprilSol <- soils.April$Unk.measure
+Unk.sd1.aprilSol <- soils.April$Unk.SD1
+Unk.sd2.aprilSol <- soils.April$Unk.SD2
+
+B.mean.juneSol <- soils.June$B.mean.bulk
+B.sd1.juneSol <- soils.June$B.min.bulk
+B.sd2.juneSol <- soils.June$B.max.bulk
+
+f.mean.juneSol <- 100 - B.mean.juneSol
+f.sd1.juneSol <- 100 - B.sd2.juneSol
+f.sd2.juneSol <- 100 - B.sd1.juneSol
+
+Rem.mean.juneSol <- soils.June$Rem.measure
+Rem.sd1.juneSol <- soils.June$Rem.SD1
+Rem.sd2.juneSol <- soils.June$Rem.SD2
+
+Unk.mean.juneSol <-soils.June$Unk.measure
+Unk.sd1.juneSol <- soils.June$Unk.SD1
+Unk.sd2.juneSol <- soils.June$Unk.SD2
 
 
 Month <- c("April", "June")
 balSol <- data.frame(Month)
-balSol$B.measure <- c(B.mean.maySol, B.mean.juneSol) 
-balSol$B.SD1 <- c(B.mean.maySol-B.sd.maySol , B.mean.juneSol-B.sd.juneSol)
-balSol$B.SD2 <- c(B.mean.maySol+B.sd.maySol , B.mean.juneSol+B.sd.juneSol)
-balSol$f.measure <- c(f.mean.maySol, f.mean.juneSol)
-balSol$f.SD1 <- c(f.mean.maySol-f.sd.maySol, f.mean.juneSol-f.sd.juneSol)
-balSol$f.SD2 <- c(f.mean.maySol+f.sd.maySol, f.mean.juneSol+f.sd.juneSol)
+balSol$B.measure <- c(B.mean.aprilSol, B.mean.juneSol) 
+balSol$B.SD1 <- c(B.sd1.aprilSol , B.sd1.juneSol)
+balSol$B.SD2 <- c(B.sd2.aprilSol , B.sd2.juneSol)
+balSol$f.measure <- c(f.mean.aprilSol, f.mean.juneSol)
+balSol$f.SD1 <- c(f.sd1.aprilSol, f.sd1.juneSol)
+balSol$f.SD2 <- c(f.sd2.aprilSol, f.sd2.juneSol)
 
-balSol$Unk.measure <- c(Unk.mean.maySol, Unk.mean.juneSol)
-balSol$Unk.SD1 <- c(Unk.mean.maySol-Unk.sd.maySol, Unk.mean.juneSol-Unk.sd.juneSol)
-balSol$Unk.SD2 <- c(Unk.mean.maySol+Unk.sd.maySol, Unk.mean.juneSol+Unk.sd.juneSol)
+balSol$Unk.measure <- c(Unk.mean.aprilSol, Unk.mean.juneSol)
+balSol$Unk.SD1 <- c(Unk.sd1.aprilSol, Unk.sd1.juneSol)
+balSol$Unk.SD2 <- c(Unk.sd2.aprilSol, Unk.sd2.juneSol)
 
-balSol$Rem.measure <- c(Rem.mean.maySol, Rem.mean.juneSol)
-balSol$Rem.SD1 <- c(Rem.mean.maySol-Rem.sd.maySol, Rem.mean.juneSol-Rem.sd.juneSol)
-balSol$Rem.SD2 <- c(Rem.mean.maySol+Rem.sd.maySol, Rem.mean.juneSol+Rem.sd.juneSol)
+balSol$Rem.measure <- c(Rem.mean.aprilSol, Rem.mean.juneSol)
+balSol$Rem.SD1 <- c(Rem.sd1.aprilSol, Rem.sd1.juneSol)
+balSol$Rem.SD2 <- c(Rem.sd2.aprilSol, Rem.sd2.juneSol)
 
 solTidy <- balSol %>%
   gather(measure, value, -Month) %>% # Melts data frame
@@ -733,12 +826,17 @@ waters$yRaleigh <- log((1000+d13Co+waters$DD13C.diss)/(1000+d13Co))
 waters$xRaleigh <- log(waters$Conc.mug.L/waterCo)
 waters$DIa <- waters$maxQ*waters$Volume.m3/waters$Duration.Hrs
 
-waterClean <- subset(waters, Sampled == "Sampled")
+waterClean <- subset(waters, Sampled == "Sampled" & SD.d13C <= 0.5 )
 waterModel<-lm(yRaleigh~xRaleigh, data= waterClean) 
 summary(waterModel)
-cof <- as.numeric(coef(model)[2]*1000)
-se <- summary(model)$coef[[4]]*1000
 
+minX <- confint(waterModel, "xRaleigh", level = 0.95)[1]*1000
+maxX <- confint(waterModel, "xRaleigh", level = 0.95)[2]*1000
+
+cofwater <- as.numeric(coef(waterModel)[2]*1000)
+se <- summary(waterModel)$coef[[4]]*1000
+
+CI95 = maxX - cofwater
 
 
 waterRaleigh <- ggplot(data = subset(waterClean, (!is.na(yRaleigh) & xRaleigh > -7 & ngC.mean.diss > 5)), aes(x=xRaleigh, y=yRaleigh))+
@@ -792,10 +890,12 @@ waterIsoConc  <- ggplot(data = subset(waterClean, ngC.mean.diss > 5), aes(x=Conc
   scale_size_continuous(range = c(1, 4)) +
   labs(size="Days post appl.") +
   theme(axis.title.y = element_blank()) +
+  #scale_y_continuous(breaks=c(1, 2, 3 , 4 ,5) ) + 
+  scale_y_continuous(breaks=seq(1,5,1)) +
   #ylab(expression(paste({Delta~delta}^"13","C", ' (\u2030)'))) +
   xlab(expression(paste("S-MET Outlet Concentration ", {({mu}*g / L)}))) +
-  annotate("text", x = 22, y = 2.7, label = as.character(water_r_label), parse = T, size = 3.5) +
-  annotate("text", x = 22, y = 2.3, label = water_p_label, parse = T, size = 3.5)
+  annotate("text", x = 7.5, y = 2.7, label = as.character(water_r_label), parse = T, size = 3.5) +
+  annotate("text", x = 7.5, y = 2.3, label = water_p_label, parse = T, size = 3.5)
 
 waterIsoConc 
 #ggsave(waterIsoConc , filename = "DDvsConc_water.png", width = 8, height = 5, units = "in", scale = 1)
@@ -940,7 +1040,7 @@ wstidier$Type <- factor(wstidier$Type, levels = c("Top Soil", "Dissolved", "Sedi
 
 
 # epsilon
-epsilon_field <- cof
+epsilon_field <- cofsoil
 initialDelta
 
 wstidier$DegField <- (1-((1000 + d13Co + wstidier$measure)/(1000+d13Co))^(1000/epsilon_field))*100 
@@ -1051,7 +1151,7 @@ wsALL_field <- ggplot(data = wstidier2, aes(x = Date, y = measure, group = Sourc
   #            method = "lm", formula = y ~  poly(x, 2), se = F, alpha = 0.1, size=0.2) +
   
   # Water
-  stat_smooth(data=subset(wstidier2, #NoBASE,
+  stat_smooth(data=subset(NoBASE, #wstidier2, #NoBASE,
                           (Source == "Outlet" & Event > 1 & Type == "Dissolved")), 
               method = "lm", formula = y ~ poly(x, 2), se = T, aes(colour = 'Outlet'), alpha = 0.2, size=0.2) +
   # North
@@ -1169,7 +1269,7 @@ wsALL <- ggdraw() +
  
 wsALL 
 
-# ggsave(wsALL, filename = "WaterSoilvsTime.png", width = 8, height = 5, units = "in", scale = 1)
+#ggsave(wsALL, filename = "WaterSoilvsTime.png", width = 8, height = 5, units = "in", scale = 1)
 ```
 
 ## Check SOils

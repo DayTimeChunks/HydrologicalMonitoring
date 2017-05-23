@@ -68,9 +68,15 @@ d13Co = -32.25
 
 # Lab enrichment:
 # Alteck
-epsilon_max = -1.5 # +/- 0.3 (@ 20C, 20% vwc)
-epsilon_min = -2.0 # +/- 0.2 (@ 20C, 40% vwc)
-epsilon_mean = -1.75
+#epsilon_max = -1.5 # +/- 0.3 (@ 20C, 20% vwc)
+#epsilon_min = -2.0 # +/- 0.2 (@ 20C, 40% vwc)
+#epsilon_mean = -1.75
+
+# Essahn values:
+epsilon_max = -1.8 
+epsilon_min = -2.6 
+epsilon_mean = -2.2 # ± 0.4
+
 ```
 
 
@@ -245,8 +251,24 @@ out.CoIs$DD13C.filt <- (out.CoIs$filt.d13C - (d13Co))
 out.CoIs$f.diss <- (((10**(-3)*out.CoIs$diss.d13C + 1)/(10**(-3)*d13Co + 1))**(1000/(epsilon_mean)))
 out.CoIs$f.filt <- (((10**(-3)*out.CoIs$filt.d13C + 1)/(10**(-3)*d13Co + 1))**(1000/(epsilon_mean)))
 
+# epsilon_max = -1.8 
+# epsilon_min = -2.6 
+
+out.CoIs$f.diss.min <- (((10**(-3)*out.CoIs$diss.d13C + 1)/(10**(-3)*d13Co + 1))**(1000/(epsilon_max)))
+out.CoIs$f.filt.min <- (((10**(-3)*out.CoIs$filt.d13C + 1)/(10**(-3)*d13Co + 1))**(1000/(epsilon_max)))
+
+out.CoIs$f.diss.max <- (((10**(-3)*out.CoIs$diss.d13C + 1)/(10**(-3)*d13Co + 1))**(1000/(epsilon_min)))
+out.CoIs$f.filt.max <- (((10**(-3)*out.CoIs$filt.d13C + 1)/(10**(-3)*d13Co + 1))**(1000/(epsilon_min)))
+
 out.CoIs$B.diss <- (1 - out.CoIs$f.diss)*100 
 out.CoIs$B.filt <- (1 - out.CoIs$f.filt)*100 
+
+out.CoIs$B.diss.max <- (1 - out.CoIs$f.diss.min)*100 
+out.CoIs$B.filt.max <- (1 - out.CoIs$f.filt.min)*100 
+out.CoIs$B.diss.min <- (1 - out.CoIs$f.diss.max)*100 
+out.CoIs$B.filt.min <- (1 - out.CoIs$f.filt.max)*100 
+
+
 #out.CoIs$invf <- 1/out.CoIs$f 
 
 # Discharge times
@@ -354,12 +376,12 @@ out.CoIs$ExpMES.Kg <- na.approx(out.CoIs$ExpMES.Kg)
 
 4. Add the application dates and merge the total mass to the nearest discharge event
 
-The five application dates were:
+The 4 application dates were:
 
-- 2016-03-20 
-- 2016-04-05 
-- 2016-04-13 and 2016-04-14 
-- 2016-05-26 
+- 2016-03-20 (Friess, Beet) and 2016-03-25 (Matthis, Beet)
+- 2016-04-13 and 2016-04-14 (Kopp and Burger, Beet)
+- 2016-05-25 (Schmidt, Talweg, Corn)
+- 2016-06-04 (Assumed Speich and Mahler, Corn not on transect, Except Speich N1)
 
 So the total applied mass mass is merged at the nearest sampling time marker available : 
 
@@ -368,9 +390,11 @@ So the total applied mass mass is merged at the nearest sampling time marker ava
 ti = c(as.POSIXct('2016-03-25 00:04:00' , tz="EST"),
 #       as.POSIXct('2016-04-05 15:08:00' , tz="EST"),
        as.POSIXct('2016-04-14 13:52:00' , tz="EST"),
-       as.POSIXct('2016-05-23 18:02:00' , tz="EST"))
+       as.POSIXct('2016-05-29 12:10:00' , tz="EST"),
+       # as.POSIXct('2016-05-24 12:00:00' , tz="EST"),
+       as.POSIXct('2016-06-04 15:32:00' , tz="EST"))
 
-Appl.Mass.g = c(9497.87, 4744.571, 4982.038)
+Appl.Mass.g = c(17319.059, 4744.571, 1891.742, 6826.825)
 
 applics = as.data.frame(ti)
 applics$Appl.Mass.g = Appl.Mass.g
@@ -411,6 +435,14 @@ out.CoIs$CumAppMass.g = cumsum(out.CoIs$Appl.Mass.g)
 ## Section to UPDATE!!!
 
 5. This section is based on approximate carried-last-observation for the observed concentration data (if no model has been conducted yet). 
+
+Also, mass equivalent loads are calculated such that:
+
+$$
+MEQ_{SMET} = 
+  SMET_{out} + OXA_{out} * (\frac{mw_{SMET}}{mw_{MOXA}}) +
+  ESA_{out} * (\frac{mw_{SMET}}{mw_{MESA}})
+$$
 
 ```{r}
 
@@ -496,6 +528,7 @@ BulkDeltaOut = sum(out.CoIs$FracDeltaOut)
 
 ```
 
+
 The total mass discharged (up to Week 15) and bulk isotope signature (up to week 11) was:
 
 ```{r}
@@ -513,7 +546,6 @@ cat("% Mass applied in discahrge [MEL-sm]: ",  (MELsmOUT/TotAppl)*100)
 # Bulk isotope signature
 BulkDeltaOut
 ```
-
 
 
 
@@ -552,6 +584,7 @@ BulkDeltaOut
 #text(fit, use.n=TRUE, all=TRUE, cex=.8)
 
 ```
+
 
 ## Save files
 
