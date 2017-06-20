@@ -12,6 +12,7 @@ Sys.setlocale("LC_ALL", "English")
 ## Purpose
 
 A. This document merges corrected flowmeter data and automatic sampler data. 
+
 B. Converts 6 min rainfall to monthly statistics with visualizations comparing discharge. 
 
 Used files:
@@ -24,7 +25,8 @@ Used files:
 Produced file:
 
 1. **hydroAlteck2016_R.csv** (Used for plotting Sample and Discharge data together).
-2. **RainAprJune2016_R.csv** 
+2. **RainAprJune2016_R.csv** (Only March and July delted)
+3. **WaterDay_R.csv** (Daily and cumulative rainfall - mm)
 
 
 ## Required R-packages:
@@ -123,6 +125,14 @@ waterDay$Month <-
          )
 waterDay$CumRain.mm <- cumsum(waterDay$Rain.mm)
 
+write.csv2(waterDay, 
+           'Data/WaterDay_R.csv', row.names = F)
+
+```
+
+## Delete unused months
+
+```{r}
 waterDay <- subset(waterDay, Month != "March" & Month != "July")
 waterDay$Month <- factor(waterDay$Month, levels = c("April" , "May", "June" ))
 levels(waterDay$Month)
@@ -163,6 +173,8 @@ hydroBox <- ggplot(meltWaterDay2, aes(x = factor(Month), y = value, fill = varia
 hydroBox
 #ggsave(hydroBox, filename = "RainDischBox.png", width = 8, height = 5, units = "in", scale = 1)
 ```
+
+
 
 ## As Bar Plots
 

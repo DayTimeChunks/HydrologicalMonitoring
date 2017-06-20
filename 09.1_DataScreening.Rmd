@@ -20,6 +20,10 @@ Reference:
 https://sites.google.com/site/mb3gustame/home
 Buttigieg PL, Ramette A (2014) A Guide to Statistical Analysis in Microbial Ecology: a community-focused, living review of multivariate data analyses. FEMS Microbiol Ecol. 90: 543-550.
 
+# Files
+
+- **WaterDay_R.csv** (Book 02)
+
 # Packages
 
 ```{r, warning=FALSE,}
@@ -61,7 +65,20 @@ initialDelta = d13Co = -32.253
 Co <- 6.53 # ug/g dry soil (based on Max conc. measured in soils)
 # Note: Each transect now has individual starting concentration
 
-epsilon_lab = -2.2
+
+# Reference values
+# Ehssan values:
+epsilon_max = -1.8 
+epsilon_min = -2.6 
+epsilon_mean= -2.2 # ± 0.4
+
+epsilon_lab = epsilon_mean
+
+# Field values, after dilution correction (Van Breukelen 2008):
+# Calculated in Book 9.1
+epsilonField_max = -1.7 + 0.33 
+epsilonField_min = -1.7 - 0.33  
+epsilonField_mean = -1.7 # ± 0.33
 
 ```
 
@@ -255,12 +272,12 @@ rayleigh <-
   ylab(expression(paste("ln  ",  R / R['0'] ))) +
   stat_smooth(data= subset(soilGrApp , 
                            ( Wnum > 0 & !is.na(ngC.Label) & !is.na(yRaleigh) )) , 
-              method = "lm", formula = y~x, se=T) +
-  annotate("text", x = -0.55, y = 0.004, 
+              method = "lm", formula = y~x, se=T) #+
+  #annotate("text", x = -0.55, y = 0.004, 
            # label = as.character(expression(paste( "\u0190", " \u2030", " = ", cof))), parse = T, size = 3.0) +
-           label = lab, parse = T, size = 3.0) +
-  annotate("text", x = -0.33, y = 0.004, 
-           label = as.character(expression(paste( "\u00B1" , 0.49))), parse = T, size = 3.0) # +
+  #         label = lab, parse = T, size = 3.0) +
+  #annotate("text", x = -0.33, y = 0.004, 
+  #         label = as.character(expression(paste( "\u00B1" , 0.49))), parse = T, size = 3.0) # +
   
   #geom_text_repel(data = subset(soilGrApp, (!is.na(ngC.Label) & Wnum > 7 & Wnum < 12) ), aes(label=Wnum),
   #               arrow = arrow(length = unit(0.005, 'npc'), type = "closed"),
@@ -322,7 +339,7 @@ soilGrApp$xRaleighDeg <- log(soilGrApp$fdeg)
 
 modelDegField<-lm(yRaleigh~xRaleighDeg, data= soilGrApp, subset=(N_compsoil >= 3)) 
 summary(modelDegField)
-cofDegField <- as.numeric(coef(model)[2])
+cofDegField <- as.numeric(coef(modelDegField)[2])
 
 minXDegField <- confint(modelDegField, "xRaleighDeg", level = 0.95)[1]
 maxXDegField <- confint(modelDegField, "xRaleighDeg", level = 0.95)[2]
@@ -458,6 +475,14 @@ library("TTR")
 waters$CumOutSmeto.g.SD <- runSD(waters$TotSMout.g.SD, n=1, cumulative=TRUE)
 waters$CumOutMELsm.g.SD <- runSD(waters$MELsm.g.SD, n=1, cumulative=TRUE)
 
+# What does  runSD do? Equal to z :
+x <- waters$TotSMout.g.SD
+n <- length(x)
+m <- cumsum(x)/(1:n)
+m1 <- c(NA,m[1:(n-1)])
+ssd <- (x-m)*(x-m1)
+v <- c(0,cumsum(ssd[-1])/(1:(n-1)))
+z <- sqrt(v)
 
 keepWaterMB <- c("Date.ti", "CumAppMass.g",
                  # MB
@@ -465,7 +490,8 @@ keepWaterMB <- c("Date.ti", "CumAppMass.g",
                  "CumOutSmeto.g.SD", "CumOutMELsm.g.SD",
                  "remainMedTheo_prc", "remainMinTheo_prc", "remainMaxTheo_prc",
                  # CSIA
-                 "B.diss", "B.diss.min", "B.diss.max", "SD.d13C")
+                 "B.diss", "B.diss.min", "B.diss.max", "SD.d13C",
+                 "B.diss.Field", "B.diss.min.Field", "B.diss.max.Field")
 
 watersMassBal <- waters[ , (names(waters) %in% keepWaterMB)]
 
@@ -481,9 +507,14 @@ watersMassBal$TPout_prc <- (watersMassBal$CumOutMELsm.g/watersMassBal$CumAppMass
 watersMassBal$TPout.SD1 <- watersMassBal$TPout_prc + (watersMassBal$CumOutMELsm.g.SD/watersMassBal$CumAppMass.g)*100
 watersMassBal$TPout.SD2 <- watersMassBal$TPout_prc - (watersMassBal$CumOutMELsm.g.SD/watersMassBal$CumAppMass.g)*100
 
-watersMassBal$f <- 100 - (watersMassBal$B.diss + watersMassBal$SMout_prc)
-watersMassBal$f.min <- 100 - (watersMassBal$B.diss.max + watersMassBal$SMout_prc)
-watersMassBal$f.max <- 100 - (watersMassBal$B.diss.min + watersMassBal$SMout_prc)
+watersMassBal$f <- 100 - (watersMassBal$B.diss) # + watersMassBal$SMout_prc)
+watersMassBal$f.min <- 100 - (watersMassBal$B.diss.max)# + watersMassBal$SMout_prc)
+watersMassBal$f.max <- 100 - (watersMassBal$B.diss.min) # + watersMassBal$SMout_prc)
+
+watersMassBal$f.Field <- 100 - (watersMassBal$B.diss.Field) # + watersMassBal$SMout_prc)
+watersMassBal$f.min.Field <- 100 - (watersMassBal$B.diss.max.Field)# + watersMassBal$SMout_prc)
+watersMassBal$f.max.Field <- 100 - (watersMassBal$B.diss.min.Field) # + watersMassBal$SMout_prc)
+
 watersMassBal$SD.d13C <- NULL
 
 
@@ -496,19 +527,36 @@ B.mean.april <- mean(aprilBal$B.diss)
 B.sd1.april <- mean(aprilBal$B.diss.min)
 B.sd2.april <- mean(aprilBal$B.diss.max)
 
+B.mean.april.Field <- mean(aprilBal$B.diss.Field)
+B.sd1.april.Field <- mean(aprilBal$B.diss.min.Field)
+B.sd2.april.Field <- mean(aprilBal$B.diss.max.Field)
+
 f.mean.april <- mean(aprilBal$f)
 f.sd1.april <- mean(aprilBal$f.max) 
 f.sd2.april <- mean(aprilBal$f.min)
+
+f.mean.april.Field <- mean(aprilBal$f.Field)
+f.sd1.april.Field <- mean(aprilBal$f.max.Field) 
+f.sd2.april.Field <- mean(aprilBal$f.min.Field)
 
 B.mean.june <- mean(juneBal$B.diss)
 B.sd1.june <- mean(juneBal$B.diss.min)
 B.sd2.june <- mean(juneBal$B.diss.max)
 
+B.mean.june.Field <- mean(juneBal$B.diss.Field)
+B.sd1.june.Field <- mean(juneBal$B.diss.min.Field)
+B.sd2.june.Field <- mean(juneBal$B.diss.max.Field)
+
 f.mean.june <- mean(juneBal$f)
 f.sd1.june <- mean(juneBal$f.max)
 f.sd2.june <- mean(juneBal$f.min)
 
+f.mean.june.Field <- mean(juneBal$f.Field)
+f.sd1.june.Field <- mean(juneBal$f.max.Field)
+f.sd2.june.Field <- mean(juneBal$f.min.Field)
+
 aprilBal <- tail(aprilBal, n=1)
+
 aprilBal$B.mean <- B.mean.april
 aprilBal$B.sd1 <- B.sd1.april
 aprilBal$B.sd2 <- B.sd2.april
@@ -516,18 +564,34 @@ aprilBal$f.mean <- f.mean.april
 aprilBal$f.sd1 <- f.sd1.april
 aprilBal$f.sd2 <- f.sd2.april
 
+aprilBal$B.mean.Field <- B.mean.april.Field
+aprilBal$B.sd1.Field <- B.sd1.april.Field
+aprilBal$B.sd2.Field <- B.sd2.april.Field
+aprilBal$f.mean.Field <- f.mean.april.Field
+aprilBal$f.sd1.Field <- f.sd1.april.Field
+aprilBal$f.sd2.Field <- f.sd2.april.Field
+
 aprilBal$DegMed <- 100 - aprilBal$remainMedTheo_prc
 aprilBal$DegLow <- 100 - aprilBal$remainMinTheo_prc
 aprilBal$DegHigh <- 100 - aprilBal$remainMaxTheo_prc
 aprilBal$Month <- "April"
 
 juneBal <- tail(juneBal, n=1)
+
 juneBal$B.mean <- B.mean.june
 juneBal$B.sd1 <- B.sd1.june
 juneBal$B.sd2 <- B.sd2.june
 juneBal$f.mean <- f.mean.june
 juneBal$f.sd1 <- f.sd1.june
 juneBal$f.sd2 <- f.sd2.june
+
+juneBal$B.mean.Field <- B.mean.june.Field
+juneBal$B.sd1.Field <- B.sd1.june.Field
+juneBal$B.sd2.Field <- B.sd2.june.Field
+juneBal$f.mean.Field <- f.mean.june.Field
+juneBal$f.sd1.Field <- f.sd1.june.Field
+juneBal$f.sd2.Field <- f.sd2.june.Field
+
 juneBal$DegMed <- 100 - juneBal$remainMedTheo_prc
 juneBal$DegLow <- 100 - juneBal$remainMinTheo_prc
 juneBal$DegHigh <- 100 - juneBal$remainMaxTheo_prc
@@ -549,6 +613,8 @@ names(bal)
 bal <- bal[c("Month", 
              "B.mean" , "B.sd1" ,  "B.sd2", 
               "f.mean" , "f.sd1" , "f.sd2", 
+             "B.mean.Field", "B.sd1.Field", "B.sd2.Field",
+             "f.mean.Field", "f.sd1.Field", "f.sd2.Field", 
              "DegMed", "DegLow", "DegHigh", 
              "remainMedTheo_prc", "remainMinTheo_prc", "remainMaxTheo_prc",
              "SMout_prc",  "SMout.SD1", "SMout.SD2",
@@ -557,6 +623,8 @@ bal <- bal[c("Month",
 names(bal) <- c("Month", 
              "B.measure" , "B.SD1" ,  "B.SD2", 
               "f.measure" , "f.SD1" , "f.SD2", 
+             "BF.measure" , "BF.SD1" ,  "BF.SD2", 
+              "fF.measure" , "fF.SD1" , "fF.SD2",
              "Deg.measure", "Deg.SD1", "Deg.SD2", 
              "Rem.measure", "Rem.SD1", "Rem.SD2",
              "SMout.measure",  "SMout.SD1", "SMout.SD2",
@@ -567,23 +635,25 @@ balTidy <- bal %>%
   separate(measure, into = c("Sink", "temporary_var")) %>% # parses the sep = "." into...
   spread(temporary_var, value) # Moves molten temporary variable to own column 
 
-type <- rep(c("CSIA", "Predicted (half-life)", 
-              "CSIA", "Predicted (half-life)", 
+type <- rep(c("CSIA", "CSIA", "Predicted (half-life)", 
+              "CSIA", "CSIA", "Predicted (half-life)", 
               "Mass Balance", 
               "Mass Balance"), 2)
 
 balTidyType <- cbind(balTidy, type)
 
+
 balTidyType$Sink <- as.factor(balTidyType$Sink)
 balTidyType$Month <- as.factor(balTidyType$Month)
-balTidyType$Sink <- factor(balTidyType$Sink, levels = c("B" , "TPout",  "Deg" ,"f" ,"SMout", "Rem"))
+levels(balTidyType$Sink)
+balTidyType$Sink <- factor(balTidyType$Sink, levels = c("B" , "BF", "TPout",  "Deg" ,"f" , "fF" ,"SMout", "Rem"))
 levels(balTidyType$type)
 balTidyType$type <- factor(balTidyType$type, levels = c("CSIA" , "Mass Balance", "Predicted (half-life)"))
 levels(balTidyType$Sink)
 levels(balTidyType$Month)
 
 
-OutBars <- ggplot(data = subset(balTidyType, type != 'Predicted (half-life)') , 
+OutBars <- ggplot(data = subset(balTidyType, type != 'Predicted (half-life)' & Sink != "BF" &  Sink != "fF") , 
                   aes(x=Month, y=measure, fill = Sink, ymin=SD1, ymax=SD2))+
   geom_bar(stat = "identity", position = "dodge", width = 0.5) +
   geom_errorbar(#aes(ymin=SD1, ymax=SD2),
@@ -612,6 +682,9 @@ OutBars <- ggplot(data = subset(balTidyType, type != 'Predicted (half-life)') ,
   guides(fill=guide_legend(ncol=3))
 
 OutBars
+
+balTidyType$CI95 <- signif(balTidyType$SD1 - balTidyType$measure, 2)
+
 
 #pal = c("#01665e",  "#ec7014",   "#35978f",  "#fe9929", "#80cdc1", "#fec44f")
 #display.pal(pal, sel=1:length(pal), names=F)
@@ -657,14 +730,18 @@ theoBars
 
 names(soils)
 keepMB <- c("Date.ti", "CumAppMass.g", "CatchMassSoil.g", "CatchMassSoil.g.SD",
-            "B.mean.bulk", "B.min.bulk", "B.max.bulk" )
+            "B.mean.bulk", "B.min.bulk", "B.max.bulk",
+            "B.mean.bulk.Field" , "B.min.bulk.Field", "B.max.bulk.Field")
 
 soilsMB <- soils[, (names(soils) %in% keepMB)]
 soilsMB <- soilsMB[complete.cases(soilsMB[ , "CatchMassSoil.g"]), ]
 
 soilsMB$Rem.measure <- (soilsMB$CatchMassSoil.g/soilsMB$CumAppMass.g)*100
-soilsMB$Rem.SD1 <-(soilsMB$Rem.measure + soilsMB$Rem.measure*0.1358)
-soilsMB$Rem.SD2 <- (soilsMB$Rem.measure - soilsMB$Rem.measure*0.1358)
+
+#soilsMB$Rem.SD1 <-(soilsMB$Rem.measure + soilsMB$Rem.measure*0.1358)
+#soilsMB$Rem.SD2 <- (soilsMB$Rem.measure - soilsMB$Rem.measure*0.1358)
+soilsMB$Rem.SD1 <- soilsMB$Rem.measure + (soilsMB$CatchMassSoil.g.SD/soilsMB$CumAppMass.g)*100
+soilsMB$Rem.SD2 <- soilsMB$Rem.measure -  (soilsMB$CatchMassSoil.g.SD/soilsMB$CumAppMass.g)*100
 
 soilsMB$Unk.measure <- 100 - soilsMB$Rem.measure
 soilsMB$Unk.SD1 <- 100 - soilsMB$Rem.SD2
@@ -683,14 +760,24 @@ soils.June <- subset(soilsMB, (Date.ti >= as.POSIXct("2016-06-28 08:56:00", tz =
                  & Date.ti <= as.POSIXct("2016-06-28 14:52:00", tz = "EST")) )
 soils.June <- na.omit(soils.June)
 
+# CSIA April
 B.mean.aprilSol <- soils.April$B.mean.bulk
 B.sd1.aprilSol <- soils.April$B.min.bulk
 B.sd2.aprilSol <- soils.April$B.max.bulk
+
+B.mean.aprilSol.Field <- soils.April$B.mean.bulk.Field
+B.sd1.aprilSol.Field <- soils.April$B.min.bulk.Field
+B.sd2.aprilSol.Field <- soils.April$B.max.bulk.Field
 
 f.mean.aprilSol <- 100 - B.mean.aprilSol
 f.sd1.aprilSol <- 100 - B.sd2.aprilSol
 f.sd2.aprilSol <- 100 - B.sd1.aprilSol
 
+f.mean.aprilSol.Field <- 100 - B.mean.aprilSol.Field
+f.sd1.aprilSol.Field <- 100 - B.sd2.aprilSol.Field
+f.sd2.aprilSol.Field <- 100 - B.sd1.aprilSol.Field
+
+# MB April
 Rem.mean.aprilSol <- soils.April$Rem.measure
 Rem.sd1.aprilSol <- soils.April$Rem.SD1
 Rem.sd2.aprilSol <- soils.April$Rem.SD2
@@ -699,14 +786,24 @@ Unk.mean.aprilSol <- soils.April$Unk.measure
 Unk.sd1.aprilSol <- soils.April$Unk.SD1
 Unk.sd2.aprilSol <- soils.April$Unk.SD2
 
+# CSIA June
 B.mean.juneSol <- soils.June$B.mean.bulk
 B.sd1.juneSol <- soils.June$B.min.bulk
 B.sd2.juneSol <- soils.June$B.max.bulk
+
+B.mean.juneSol.Field <- soils.June$B.mean.bulk.Field
+B.sd1.juneSol.Field <- soils.June$B.min.bulk.Field
+B.sd2.juneSol.Field <- soils.June$B.max.bulk.Field
 
 f.mean.juneSol <- 100 - B.mean.juneSol
 f.sd1.juneSol <- 100 - B.sd2.juneSol
 f.sd2.juneSol <- 100 - B.sd1.juneSol
 
+f.mean.juneSol.Field <- 100 - B.mean.juneSol.Field
+f.sd1.juneSol.Field <- 100 - B.sd2.juneSol.Field
+f.sd2.juneSol.Field <- 100 - B.sd1.juneSol.Field
+
+# MB June
 Rem.mean.juneSol <- soils.June$Rem.measure
 Rem.sd1.juneSol <- soils.June$Rem.SD1
 Rem.sd2.juneSol <- soils.June$Rem.SD2
@@ -718,6 +815,8 @@ Unk.sd2.juneSol <- soils.June$Unk.SD2
 
 Month <- c("April", "June")
 balSol <- data.frame(Month)
+
+# CSIA April and June
 balSol$B.measure <- c(B.mean.aprilSol, B.mean.juneSol) 
 balSol$B.SD1 <- c(B.sd1.aprilSol , B.sd1.juneSol)
 balSol$B.SD2 <- c(B.sd2.aprilSol , B.sd2.juneSol)
@@ -725,6 +824,14 @@ balSol$f.measure <- c(f.mean.aprilSol, f.mean.juneSol)
 balSol$f.SD1 <- c(f.sd1.aprilSol, f.sd1.juneSol)
 balSol$f.SD2 <- c(f.sd2.aprilSol, f.sd2.juneSol)
 
+balSol$BF.measure <- c(B.mean.aprilSol.Field, B.mean.juneSol.Field) 
+balSol$BF.SD1 <- c(B.sd1.aprilSol.Field , B.sd1.juneSol.Field)
+balSol$BF.SD2 <- c(B.sd2.aprilSol.Field , B.sd2.juneSol.Field)
+balSol$fF.measure <- c(f.mean.aprilSol.Field, f.mean.juneSol.Field)
+balSol$fF.SD1 <- c(f.sd1.aprilSol.Field, f.sd1.juneSol.Field)
+balSol$fF.SD2 <- c(f.sd2.aprilSol.Field, f.sd2.juneSol.Field)
+
+# MB April and June
 balSol$Unk.measure <- c(Unk.mean.aprilSol, Unk.mean.juneSol)
 balSol$Unk.SD1 <- c(Unk.sd1.aprilSol, Unk.sd1.juneSol)
 balSol$Unk.SD2 <- c(Unk.sd2.aprilSol, Unk.sd2.juneSol)
@@ -738,15 +845,17 @@ solTidy <- balSol %>%
   separate(measure, into = c("Sink", "temporary_var")) %>% # parses the sep = "." into...
   spread(temporary_var, value) # Moves molten temporary variable to own column 
 
-type <- rep(c("CSIA", "CSIA", "Mass Balance", "Mass Balance"), 2)
+type <- rep(c("CSIA", "CSIA", "CSIA", "CSIA", "Mass Balance", "Mass Balance"), 2)
 
 balTidySol <- cbind(solTidy, type)
 balTidySol$Sink <- as.factor(balTidySol$Sink)
 
 levels(balTidySol$Sink)
-balTidySol$Sink <- factor(balTidySol$Sink, levels = c("B" , "f" ,"Unk", "Rem"))
+# BF -> CSIA with field enrichment
+# B -> CSIA with lab enrichment
+balTidySol$Sink <- factor(balTidySol$Sink, levels = c("B" , "BF" ,"f" , "fF", "Unk", "Rem"))
 
-SoilBars <- ggplot(data = balTidySol , aes(x=Month, y=measure, fill = Sink, ymin=SD1, ymax=SD2))+
+SoilBars <- ggplot(data = subset(balTidySol, Sink != "BF" & Sink != "fF") , aes(x=Month, y=measure, fill = Sink, ymin=SD1, ymax=SD2))+
   geom_bar(stat = "identity", position = "dodge", width = 0.5) +
   geom_errorbar(#aes(ymin=SD1, ymax=SD2),
                   width=.2 , # ) + #,                    # Width of the error bars
@@ -763,13 +872,13 @@ SoilBars <- ggplot(data = balTidySol , aes(x=Month, y=measure, fill = Sink, ymin
                     breaks=c("B", "f" , 
                                 "Unk" , "Rem" 
                                 ),
-                    labels=c("Degr.", "Persist.", 
+                    labels=c("Degr.", "Non-degr.", 
                                 "Unknown", "Persist." ))+
   guides(fill=guide_legend(ncol=2))
 
 SoilBars
 
-
+balTidySol$CI95 <- signif(balTidySol$measure - balTidySol$SD1, 2) 
 ```
 
 ## Merge both Outlet and Soils - BARS
@@ -826,7 +935,9 @@ waters$yRaleigh <- log((1000+d13Co+waters$DD13C.diss)/(1000+d13Co))
 waters$xRaleigh <- log(waters$Conc.mug.L/waterCo)
 waters$DIa <- waters$maxQ*waters$Volume.m3/waters$Duration.Hrs
 
-waterClean <- subset(waters, Sampled == "Sampled" & SD.d13C <= 0.5 )
+# For evidence of desorption effects, Event 7-1 (May 12th) would need to show SD < 0.54 (currently at 0.63)
+# Contingent on sample repeats
+waterClean <- subset(waters, Sampled == "Sampled" & SD.d13C < 0.64) # | filt.SD.d13C <= 0.75 ) 
 waterModel<-lm(yRaleigh~xRaleigh, data= waterClean) 
 summary(waterModel)
 
@@ -897,6 +1008,7 @@ waterIsoConc  <- ggplot(data = subset(waterClean, ngC.mean.diss > 5), aes(x=Conc
   annotate("text", x = 7.5, y = 2.7, label = as.character(water_r_label), parse = T, size = 3.5) +
   annotate("text", x = 7.5, y = 2.3, label = water_p_label, parse = T, size = 3.5)
 
+
 waterIsoConc 
 #ggsave(waterIsoConc , filename = "DDvsConc_water.png", width = 8, height = 5, units = "in", scale = 1)
 
@@ -959,8 +1071,12 @@ ggplot(mpg, aes(displ, hwy)) +
 Or this: https://github.com/tidyverse/ggplot2/wiki/Align-two-plots-on-a-page
 
 ```{r}
+# SD min. selection line 914 (for dissolved)
 waterClean_ng <- subset(waterClean, ngC.mean.diss > 0)
 WaterSoils <- merge(waterClean_ng, soils, by = "Date.ti", all = T)
+
+WaterSoils$BulkCatch.d13
+WaterSoils$BulkCatch.DD13
 
 
 str(WaterSoils)
@@ -972,13 +1088,10 @@ keepWS <- c("Date.ti", "WeekSubWeek", "ID.N", "Event.x",
             "DD13C.Talweg", "comp.d13C.SD.Talweg", 
             "DD13C.South", "comp.d13C.SD.South", 
             "DD13C.North", "comp.d13C.SD.North",
-            
-            "BulkCatch.d13", "BulkCatch.d13.SD" 
+            "BulkCatch.DD13", "BulkCatch.d13.SD" 
             #"timeSinceApp.x", "Event.x", "Events"
             )
 wsSmall <- WaterSoils[ , (names(WaterSoils) %in% keepWS)]
-
-wsSmall$DD13.Bulk <- wsSmall$BulkCatch.d13-initialDelta 
 
 names(wsSmall)
 wsSmall <- wsSmall[c("Date.ti", "WeekSubWeek", "ID.N", "Event.x",  
@@ -988,7 +1101,15 @@ wsSmall <- wsSmall[c("Date.ti", "WeekSubWeek", "ID.N", "Event.x",
             "DD13C.Talweg", "comp.d13C.SD.Talweg", 
             "DD13C.South", "comp.d13C.SD.South", 
             "DD13C.North", "comp.d13C.SD.North",
-            "DD13.Bulk", "BulkCatch.d13.SD")]
+            "BulkCatch.DD13", "BulkCatch.d13.SD")]
+
+keepCorrTest <- c("DD13C.diss", 
+                  "DD13C.Talweg", 
+                  "DD13C.South",
+                  "DD13C.North",
+                  "BulkCatch.DD13")
+
+wsTest <- wsSmall[ , (names(wsSmall) %in% keepCorrTest)]
 
 names(wsSmall) <- c("Date", "Week", "IDSoil", "Event", 
                     "Qmax", "Qmean",
@@ -999,6 +1120,19 @@ names(wsSmall) <- c("Date", "Week", "IDSoil", "Event",
             "North.measure", "North.SD",
             "BulkDD.measure", "BulkDD.SD"
             )
+
+wsTest <- wsTest[7:length(wsTest$DD13C.diss) , ]
+wsTest$BulkCatch.DD13 <- na.locf(wsTest$BulkCatch.DD13)
+wsTest$DD13C.Talweg <- na.locf(wsTest$DD13C.Talweg)
+wsTest$DD13C.South <- na.locf(wsTest$DD13C.South)
+wsTest$DD13C.North <- na.locf(wsTest$DD13C.North)
+
+cor.test(wsTest$BulkCatch.DD13, wsTest$DD13C.diss, method = "pearson", use = "pairwise.complete.obs")
+cor.test(wsTest$DD13C.Talweg, wsTest$DD13C.diss, method = "pearson", use = "pairwise.complete.obs")
+cor.test(wsTest$DD13C.North, wsTest$DD13C.diss, method = "pearson", use = "pairwise.complete.obs")
+cor.test(wsTest$DD13C.South, wsTest$DD13C.diss, method = "pearson", use = "pairwise.complete.obs")
+
+
 # Conventional way of melting won't work if we need SDs.
 # ws <- melt(wsSmall, id=c("Date.ti", "timeSinceApp.x", "Events", "Event.x"))
 
@@ -1040,7 +1174,7 @@ wstidier$Type <- factor(wstidier$Type, levels = c("Top Soil", "Dissolved", "Sedi
 
 
 # epsilon
-epsilon_field <- cofsoil
+epsilon_field <- cofDegField
 initialDelta
 
 wstidier$DegField <- (1-((1000 + d13Co + wstidier$measure)/(1000+d13Co))^(1000/epsilon_field))*100 
@@ -1060,8 +1194,8 @@ sumary <- na.omit(wstidier) %>%
 limits_DdC <- aes(ymin=measure-SD, ymax=measure+SD, colour = Source)
 
 
-
-wstidier2 = subset(wstidier, SD <= 1 ) #& Source != "Bulk"  ) #& Date < as.POSIXct('2016-06-14 08:04:00'))
+# Dissolved has been selected, but not soils or filters
+wstidier2 = subset(wstidier, SD <= 0.75) #& Source != "Bulk"  ) #& Date < as.POSIXct('2016-06-14 08:04:00'))
 NoBASE <- subset(wstidier2, Week != "W6-1" ) 
 
 pd <- position_dodge(width = 0.4)
@@ -1213,25 +1347,8 @@ wsALL_field <- ggplot(data = wstidier2, aes(x = Date, y = measure, group = Sourc
   # scale_shape_manual(name= )
 
 #ggplotly(wsALL_field)
+wsALL_field
 
-# May 12th event
-# Two samples from 2 very close (t = +3hrs) peaks
-mean(c( 1.70, 0.94))
-sd(c( 1.70, 0.94))
-
-# May 29th event 
-# 2 samples from second peak
-mean(c( 2.65, 2.56))
-sd(c( 2.65, 2.56))
-
-# 2 samples from end event (9-4 and 10-1)
-mean(c(2.507, 2.772))
-sd(c(2.507, 2.772))
-
-# June 2-3 event
-# 2 samples from 1st peak
-mean(c( 1.23, 1.44 ))
-sd(c( 1.23, 1.44 ))
 
 ```
 
@@ -1272,7 +1389,7 @@ wsALL
 #ggsave(wsALL, filename = "WaterSoilvsTime.png", width = 8, height = 5, units = "in", scale = 1)
 ```
 
-## Check SOils
+## Check Soils
 
 ```{r}
 wstidier2$IDSoil <- as.character(wstidier2$IDSoil)
@@ -1309,8 +1426,8 @@ ggplot(data = wstidier2, aes(x = Date, y = measure, group = Source) )+
   #               point.padding = unit(1.0, 'lines'), 
   #               max.iter = 2e3,
   #              nudge_x = .2) +
-  geom_text_repel(data=subset(wstidier2, Source != 'Outlet'), aes(label=Soil.ID),
-  # geom_text_repel(data=subset(wstidier2, Source == 'Outlet'), aes(label=Week),
+  #geom_text_repel(data=subset(wstidier2, Source != 'Outlet'), aes(label=Soil.ID),
+  geom_text_repel(data=subset(wstidier2, Source == 'Outlet'), aes(label=Week),
                  arrow = arrow(length = unit(0.005, 'npc'), type = "closed"),
                  force = 1, 
                  point.padding = unit(1.0, 'lines'), 
@@ -1330,17 +1447,97 @@ sum(wstidier2$Source == "Bulk")  # 9
 ## Comparison to Lutz et al. (2013)
 
 ```{r}
-Time <- c(0, 4, 6, 12, 24)
-Intensity <- c(30, 0, 0, 0, 0)
-Delta <- c(0, 2, 3, 3.3, 3.3)
-Event <- rep("Lutz", 5)
-Approach <- rep("Simulation", 5)
 
-events <- data.frame(Time, Intensity, Delta, Event, Approach)
+rainDay = read.csv2("Data/WaterDay_R.csv", header = T)
+rainDay$DayMoYr <-as.character(rainDay$DayMoYr)
+rainDay$Month <-as.character(rainDay$Month)
+split2 <- strsplit(rainDay$DayMoYr, "-", fixed = TRUE)
+rainDay$Day <- as.numeric(sapply(split2, "[", 3))
 
-# Build other vectors from field data
-# then rbind to events..
+# Subset only dissolved measures and select events 
+dissolved <- subset(wstidier2, Location == "diss" &
+                  Date >= as.POSIXct("2016-05-12 06:34:00", tz = "EST") & 
+                    Date <= as.POSIXct("2016-06-07 12:00:00", tz = "EST"))
+dissolved <- subset(dissolved, Date != as.POSIXct("2016-05-24 12:00:00", tz = "EST"))
 
+# May 12 event
+eventMay12 <- subset(dissolved, Date >= as.POSIXct("2016-05-12 06:34:00", tz = "EST") & 
+                       Date <= as.POSIXct("2016-05-13 12:06:00", tz = "EST"))
+
+# Inspect the required mm / day
+rainMay12 <- subset(rainDay, Month == "May" & (Day == 12 | Day == 13))
+eventMay12$Intensity <- c(20.0, 20.0, 8.4)
+eventMay12$Time <- c(0, 3, 24)
+eventMay12$Event <- rep("May 12", 3)
+eventMay12$Approach <- rep("Outlet, 2016", 3)
+
+# May 30 event
+eventMay30 <- subset(dissolved, Date >= as.POSIXct("2016-05-30 05:48:00", tz = "EST") & 
+                       Date <= as.POSIXct("2016-05-31 12:00:00", tz = "EST"))
+
+rainMay30 <- subset(rainDay, Month == "May" & (Day == 30 | Day == 31))
+eventMay30$Intensity <- c(20.4, 20.4, 0)
+eventMay30$Time <- c(0, 6, 24)
+eventMay30$Event <- rep("May 30", 3)
+eventMay30$Approach <- rep("Outlet, 2016", 3)
+
+# June 2 event
+eventJune2 <- subset(dissolved, Date >= as.POSIXct("2016-06-02 12:58:00", tz = "EST") & 
+                       Date < as.POSIXct("2016-06-03 12:06:00", tz = "EST")) 
+
+rainJune2 <- subset(rainDay, Month == "June" & Day == 2)
+eventJune2$Intensity <- c(5)
+eventJune2$Time <- c(0)
+eventJune2$Event <- rep("June 2", 1)
+eventJune2$Approach <- rep("Outlet, 2016", 1)
+
+eventJune3 <- subset(dissolved, Date >= as.POSIXct("2016-06-03 12:06:00", tz = "EST") & 
+                       Date <= as.POSIXct("2016-06-07 12:00:00", tz = "EST"))
+
+rainJune3 <- subset(rainDay, Month == "June" & (Day > 2 & Day <= 7 ))
+eventJune3$Intensity <- c(15.2, 18.0, 18.0, 0.8)
+eventJune3$Time <- c(0, 20, 23, 96)
+eventJune3$Event <- rep("June 3", 4)
+eventJune3$Approach <- rep("Outlet, 2016", 4)
+
+eventsField <- rbind(eventMay12, eventMay30, eventJune3) # eventJune2, 
+
+names(eventsField)
+eventsField <- eventsField[c("Time", "Intensity", "measure", "SD" ,  "Event", "Approach")]
+
+
+Time <- c(0, 4, 6, 12, 24, 48, 72, 96)
+Intensity <- c(30, 0, 0, 0, 0, 0, 0, 0)
+measure <- c(0, 2, 3, 3.2, 3.4, 3.5, 3.5, 3.5)
+SD <- rep(NA, 8)
+Event <- rep("Simulation", 8)
+Approach <- rep("Simulation (Lutz et al., 2013)", 8)
+
+events <- data.frame(Time, Intensity, measure, SD, Event, Approach)
+
+allEvents <- rbind (events, eventsField)
+
+LutzEvents <- ggplot(data = allEvents, aes(x= Time, y=measure, colour = Event))+
+  theme_bw() +
+  geom_point(aes(size = Intensity)) +
+  geom_line(data = subset(allEvents, Event == "Simulation"), aes(colour = Event), linetype = "dashed") +
+  geom_errorbar(data = allEvents, aes(ymin = measure-SD, ymax = measure+SD),
+                 width=.2 , # ) + #,                    # Width of the error bars
+                  position=position_dodge(.5)) +
+  geom_smooth(data=subset(allEvents, Event != "Simulation"), aes(group = Event, colour = Event) ,
+              se = F, alpha = 0.2, size=0.2, span = 0.74, linetype = "dashed") +
+  ylab(expression(paste({Delta~delta}^"13","C", ' (\u2030)'))) +
+  xlab("Hours after 1st pulse") +
+  guides(size = guide_legend(order = 4, 
+                             title=expression("Intensity " ~ (mm/d) ), 
+                             ncol=1, title.position = "top", title.vjust = .26
+                              )) +
+  #theme(axis.title.x = element_blank() ) +
+  facet_wrap(~ Approach)#, scale="free") 
+
+LutzEvents
+  
+# ggsave(LutzEvents, filename = "LutzEvents.png", width = 8, height = 5, units = "in", scale = 1)
 ```
 
 

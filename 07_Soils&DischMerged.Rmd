@@ -55,10 +55,16 @@ d13Co = -32.253
 #epsilon_max = -1.5 # +/- 0.3 (@ 20C, 20% vwc)
 #epsilon_min = -2.0 # +/- 0.2 (@ 20C, 40% vwc)
 
-# Essahn values:
+# Ehssan values:
 epsilon_max = -1.8 
 epsilon_min = -2.6 
 epsilon_mean = -2.2 # ± 0.4
+
+# Field values, after dilution correction (Van Breukelen 2008):
+# Calculated in Book 9.1
+epsilonField_max = -1.7 + 0.33 
+epsilonField_min = -1.7 - 0.33  
+epsilonField_mean = -1.7 # ± 0.33
 ```
 
 
@@ -189,30 +195,44 @@ soilsOut$BulkCatch.d13.SD <-
   (soilsOut$MassSoil.g.Talweg/soilsOut$CatchMassSoil.g)*soilsOut$comp.d13C.SD.Talweg + 
   (soilsOut$MassSoil.g.South/soilsOut$CatchMassSoil.g)*soilsOut$comp.d13C.SD.South
 
-  
+
 
 # Lab epsilon (mean)
 epsilon_mean
 
 # Measured initial signature in tank
 d13Co
+soilsOut$BulkCatch.DD13 <-  (soilsOut$BulkCatch.d13 - (d13Co))  
 
 # Mean epsilon (# Alteck)
 soilsOut$f.mean.bulk <- 
   ((10^(-3)*soilsOut$BulkCatch.d13 + 1)/(10^(-3)*d13Co + 1))^(1000/(epsilon_mean))
+soilsOut$f.mean.bulk.Field <- 
+  ((10^(-3)*soilsOut$BulkCatch.d13 + 1)/(10^(-3)*d13Co + 1))^(1000/(epsilonField_mean))
 
 soilsOut$f.min.bulk <- 
   ((10^(-3)*soilsOut$BulkCatch.d13 + 1)/(10^(-3)*d13Co + 1))^(1000/(epsilon_max))
+soilsOut$f.min.bulk.Field <- 
+  ((10^(-3)*soilsOut$BulkCatch.d13 + 1)/(10^(-3)*d13Co + 1))^(1000/(epsilonField_max))
+
 soilsOut$f.max.bulk <- 
   ((10^(-3)*soilsOut$BulkCatch.d13 + 1)/(10^(-3)*d13Co + 1))^(1000/(epsilon_min))
+soilsOut$f.max.bulk.Field <- 
+  ((10^(-3)*soilsOut$BulkCatch.d13 + 1)/(10^(-3)*d13Co + 1))^(1000/(epsilonField_min))
 
 soilsOut$B.mean.bulk <-
   (1 - soilsOut$f.mean.bulk)*100
-
 soilsOut$B.min.bulk <-
   (1 - soilsOut$f.max.bulk)*100
 soilsOut$B.max.bulk <-
   (1 - soilsOut$f.min.bulk)*100
+
+soilsOut$B.mean.bulk.Field <-
+  (1 - soilsOut$f.mean.bulk.Field)*100
+soilsOut$B.min.bulk.Field <-
+  (1 - soilsOut$f.max.bulk.Field)*100
+soilsOut$B.max.bulk.Field <-
+  (1 - soilsOut$f.min.bulk.Field)*100
 
 print("Merged Soils and Outlet by ti")
 str(soilsOut)
