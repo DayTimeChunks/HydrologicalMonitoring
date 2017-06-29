@@ -874,7 +874,7 @@ massbar <- ggplot(data = prctMB , aes(x=ti, y=value))+
   #                     labels=c("Unknown", "SM (Top soil)", "SM (Outlet)", "TPs (Outlet)" ))
   
 massbar
-ggsave(massbar, filename = "MassBalBar.png", width = 8, height = 5, units = "in", scale = 1)
+# ggsave(massbar, filename = "MassBalBar.png", width = 8, height = 5, units = "in", scale = 1)
 
 
 # CSIA Based approach
@@ -923,7 +923,7 @@ csbar <- ggplot(data = prctCSIA , aes(x=ti, y=value))+
   #                     labels=c("Unknown", "SM (Top soil)", "SM (Outlet)", "TPs (Outlet)" ))
   
 csbar
-ggsave(csbar, filename = "MassBalCSIABar.png", width = 8, height = 5, units = "in", scale = 1)
+# ggsave(csbar, filename = "MassBalCSIABar.png", width = 8, height = 5, units = "in", scale = 1)
 ```
 
 
@@ -1463,7 +1463,7 @@ QD
 acd = plot_grid(QC, QD, ncol = 2, nrow = 1, align = "h")
 acd
 
-ggsave(acd, filename = "Disch_Conc_Delta_XYlabs.png", width = 8, height = 5, units = "in", scale = 1)
+#ggsave(acd, filename = "Disch_Conc_Delta_XYlabs.png", width = 8, height = 5, units = "in", scale = 1)
 #ggsave(acd, filename = "Disch_Conc_Delta_XY.png", width = 8, height = 5, units = "in", scale = 1)
 #ggsave(acd, filename = "Disch_Conc_Delta_W.pdf", width = 8, height = 4.6, units = "in", scale = 1)
 ```
