@@ -52,16 +52,6 @@ getwd()
 # Pure and cuve isotope average
 d13Co = -32.253
 
-# Lab enrichment: Alteck
-#epsilon_max = -1.5 # +/- 0.3 (@ 20C, 20% vwc)
-#epsilon_min = -2.0 # +/- 0.2 (@ 20C, 40% vwc)
-
-# Essahn values:
-epsilon_max = -1.8 
-epsilon_min = -2.6 
-epsilon_mean = -2.2 # ± 0.4
-epsilon_mean
-
 ```
 
 ## Field Assumptions
@@ -188,58 +178,12 @@ comp.CoIs$comp.IMP.d13C[is.na(comp.CoIs$comp.d13C)] <- ave(comp.CoIs$comp.d13C,
 
 comp.CoIs$comp.d13C <- ifelse(is.na(comp.CoIs$comp.d13C), comp.CoIs$comp.IMP.d13C, comp.CoIs$comp.d13C) 
 
+comp.CoIs$DD13C.comp <- (comp.CoIs$comp.d13C - (d13Co))
+
 print("Merged Soil Concentrations and Isotopes")
 str(comp.CoIs)  
 ```
 
-
-3. Compute Degradation Extent and Delta-delta 
-
-```{r}
-
-# Pure and cuve isotope average
-d13Co
-
-# Lab enrichment: Alteck
-epsilon_max # +/- 0.3 (@ 20C, 20% vwc)
-epsilon_min # +/- 0.2 (@ 20C, 40% vwc)
-
-epsilon_mean
-sd(c(epsilon_max, epsilon_min))
-
-# Vine
-# (@ 20C, 20% vwc) -0.8 +/- 0.1
-# (@ 30C, 20% vwc) -1.4 +/- 0.2 
-# (@ 20C, 40% vwc) -1.7 +/- 0.2
-# Average
-
-# Remaining fraction
-comp.CoIs$DD13C.comp <- (comp.CoIs$comp.d13C - (d13Co))
-
-# Max epsilon (20C, 20%) 
-comp.CoIs$f.max.comp <-
-  ((10^(-3)*comp.CoIs$comp.d13C + 1)/(10^(-3)*d13Co + 1))^(1000/(epsilon_max))
-
-comp.CoIs$B.max.comp <-
-  (1 - comp.CoIs$f.max.comp)*100 
-
-# Min epsilon (20C, 40%) 
-comp.CoIs$f.min.comp <-
-  ((10^(-3)*comp.CoIs$comp.d13C + 1)/(10^(-3)*d13Co + 1))^(1000/(epsilon_min))
-
-comp.CoIs$B.min.comp <-
-  (1 - comp.CoIs$f.min.comp)*100
-
-# Mean epsilon (# Alteck)
-comp.CoIs$f.mean.comp <- 
-  ((10^(-3)*comp.CoIs$comp.d13C + 1)/(10^(-3)*d13Co + 1))^(1000/(epsilon_mean))
-
-comp.CoIs$B.mean.comp <-
-  (1 - comp.CoIs$f.mean.comp)*100
-
-
-
-```
 
 3. Compute Soil S-metolachlor Mass at time $t$ across space  
 

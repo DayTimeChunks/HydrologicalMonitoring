@@ -254,33 +254,6 @@ out.CoIs = merge(out.CoIs, isoFiltSummary, by= "WeekSubWeek", all = T)
 out.CoIs$DD13C.diss <- (out.CoIs$diss.d13C - (d13Co))
 out.CoIs$DD13C.filt <- (out.CoIs$filt.d13C - (d13Co))
 
-out.CoIs$f.diss <- (((10**(-3)*out.CoIs$diss.d13C + 1)/(10**(-3)*d13Co + 1))**(1000/(epsilon_mean)))
-out.CoIs$f.diss.Field <- (((10**(-3)*out.CoIs$diss.d13C + 1)/(10**(-3)*d13Co + 1))**(1000/(epsilonField_mean)))
-
-out.CoIs$f.filt <- (((10**(-3)*out.CoIs$filt.d13C + 1)/(10**(-3)*d13Co + 1))**(1000/(epsilon_mean)))
-
-
-
-# epsilon_max 
-# epsilon_min 
-out.CoIs$f.diss.min <- (((10**(-3)*out.CoIs$diss.d13C + 1)/(10**(-3)*d13Co + 1))**(1000/(epsilon_max)))
-out.CoIs$f.diss.min.Field <- (((10**(-3)*out.CoIs$diss.d13C + 1)/(10**(-3)*d13Co + 1))**(1000/(epsilonField_max)))
-out.CoIs$f.filt.min <- (((10**(-3)*out.CoIs$filt.d13C + 1)/(10**(-3)*d13Co + 1))**(1000/(epsilon_max)))
-
-out.CoIs$f.diss.max <- (((10**(-3)*out.CoIs$diss.d13C + 1)/(10**(-3)*d13Co + 1))**(1000/(epsilon_min)))
-out.CoIs$f.diss.max.Field <- (((10**(-3)*out.CoIs$diss.d13C + 1)/(10**(-3)*d13Co + 1))**(1000/(epsilonField_min)))
-out.CoIs$f.filt.max <- (((10**(-3)*out.CoIs$filt.d13C + 1)/(10**(-3)*d13Co + 1))**(1000/(epsilon_min)))
-
-out.CoIs$B.diss <- (1 - out.CoIs$f.diss)*100 
-out.CoIs$B.diss.Field <- (1 - out.CoIs$f.diss.Field)*100 
-out.CoIs$B.filt <- (1 - out.CoIs$f.filt)*100 
-
-out.CoIs$B.diss.max <- (1 - out.CoIs$f.diss.min)*100 
-out.CoIs$B.diss.max.Field <- (1 - out.CoIs$f.diss.min.Field)*100 
-out.CoIs$B.filt.max <- (1 - out.CoIs$f.filt.min)*100 
-out.CoIs$B.diss.min <- (1 - out.CoIs$f.diss.max)*100 
-out.CoIs$B.diss.min.Field <- (1 - out.CoIs$f.diss.max.Field)*100 
-out.CoIs$B.filt.min <- (1 - out.CoIs$f.filt.max)*100 
 
 # Discharge times
 out.CoIs = merge(weeklyhydro, out.CoIs, by = "WeekSubWeek", all = T)

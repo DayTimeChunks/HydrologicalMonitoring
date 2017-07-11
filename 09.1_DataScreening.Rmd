@@ -54,34 +54,6 @@ library("cluster")
 # library(xlsx)
 ```
 
-# Lab parameters
-
-```{r}
-# Initial signature measured in tank
-initialDelta = d13Co = -32.253
-
-# Define initial concentration (for Raleigh plots)
-#Co <- 8 # ug/g dry soil (based on Corn applications)
-Co <- 6.53 # ug/g dry soil (based on Max conc. measured in soils)
-# Note: Each transect now has individual starting concentration
-
-
-# Reference values
-# Ehssan values:
-epsilon_max = -1.8 
-epsilon_min = -2.6 
-epsilon_mean= -2.2 # ± 0.4
-
-epsilon_lab = epsilon_mean
-
-# Field values, after dilution correction (Van Breukelen 2008):
-# Calculated in Book 9.1
-epsilonField_max = -1.7 + 0.33 
-epsilonField_min = -1.7 - 0.33  
-epsilonField_mean = -1.7 # ± 0.33
-
-```
-
 
 # Missing values
 
@@ -93,6 +65,25 @@ These have been considered to be Values Missing Completely at Random (MCAR) as t
 
 These values must be considered to be Missing at Random (MAR) as the missing value has no relation to the value that 'should' be there, but does depend on other variables in the data set. Thus, other variables must be taken into account for MAR data to be considered random (i.e. missing data is "conditioned by" other data in the data set). 
 
+# Lab parameters
+
+```{r}
+# Initial signature measured in tank
+initialDelta = d13Co = -32.253
+
+epsilon_mean= -2.2 # ± 0.4
+epsilon_lab = epsilon_mean
+
+# Field values, after dilution correction (Van Breukelen 2008):
+# Calculated in Book 9.1
+epsilonField_max = -1.7 + 0.33 
+epsilonField_min = -1.7 - 0.33  
+epsilonField_mean = -1.7 # ± 0.33
+
+epsilon_field = epsilonField_mean
+```
+
+
 # Import soils 
 
 Convert to single time observation for merging with water observation.
@@ -102,6 +93,8 @@ Convert to single time observation for merging with water observation.
 # Soils
 soils = read.csv2("Data/MassBalance_R.csv", 
                        na.strings=c('#DIV/0!', '', 'NA'), header = TRUE)
+names(soils)
+
 colnames(soils)[colnames(soils) == "ti"] <- "Date.ti"
 soils$Date.ti <- as.POSIXct(strptime(soils$Date.ti, 
                                           "%Y-%m-%d %H:%M", tz="EST")) # csv typos, option 1
@@ -116,17 +109,24 @@ soils$DD13C.South <- (ifelse(!is.na(soils$comp.d13C.SD.South), soils$comp.d13C.S
 
 
 dropSoil <- c("WeekSubWeek", # "Event", 
-              "B.diss", "B.filt", "CumOutDiss.g", "CumOutFilt.g", "CumOutAppMass.g",  "CumOutMELsm.g", 
+              "CumOutDiss.g", "CumOutFilt.g", "CumOutAppMass.g",  "CumOutMELsm.g", 
               # "CumAppMass.g",
               # "ID.N",  
               "ID.T",  "Area.N", "Area.T", "Area.S",
               "comp.d13C.SE.North", "comp.d13C.SE.Talweg", "comp.d13C.SE.South", 
-              "f.max.comp", "f.mean.comp", "f.min.comp", "ngC.SD","ngC.SE", "N_compsoil" )#, "N_ngC")
+              "ngC.SD","ngC.SE", "N_compsoil" )#, "N_ngC")
 soils <- soils[ , !(names(soils) %in% dropSoil)]
 
 soilsCheck <- soils[complete.cases(soils[ , "ID.N"]),]
 
 timeApps <- soils[ , c("Date.ti", "timeSinceApp", "timeSinceApp.NoSo", "Event")]
+
+```
+
+
+## Soils from Book: 06, to merge with "timeApps" 
+
+```{r}
 
 # Quasi-Molten SOILS
 soilGroups = read.csv2("Data/WeeklySoils_Rng.csv", 
@@ -203,212 +203,6 @@ p
   #stat_smooth(method = "lm", formula = y~x, se=F) 
 ```
 
-## Rayleigh plot (no dilution accounted for)
-
-
-$$ ln (\frac{1000 + \delta ^{13}C_0 + \Delta\delta^{13}C }{1000 + \delta^{13} C_0 }) = (\alpha - 1) \cdot ln f = \frac{\epsilon}{1000} \cdot ln f $$
-
-$$ f = \frac{C_t}{C_0} $$
-
-```{r}
-
-soilGrApp$iniCo <- ifelse(soilGrApp$Transect == "N", 4.82, 
-                          ifelse(soilGrApp$Transect == "T", 5.32, 
-                                 ifelse(soilGrApp$Transect == "S", 6.53, NA)))
-#soilGrApp$iniCo <- 8
-
-soilGrApp$ftot <- soilGrApp$Conc.mug.g.dry.soil/soilGrApp$iniCo
-soilGrApp$ftot <- ifelse(soilGrApp$ftot > 1, 1, soilGrApp$ftot)
-
-soilGrApp$yRaleigh <- log((1000+d13Co+soilGrApp$DD13C.comp)/(1000+d13Co))
-soilGrApp$xRaleigh <- log(soilGrApp$ftot)/1000
-
-
-model<-lm(yRaleigh~xRaleigh, data= soilGrApp, subset=(N_compsoil >= 3)) 
-cofsoil <- as.numeric(coef(model)[2])
-se <- summary(model)$coef[[4]]
-
-minXsoil <- confint(model, "xRaleigh", level = 0.95)[1]
-maxXsoil <- confint(model, "xRaleigh", level = 0.95)[2]
-
-CI95soil = maxXsoil - cofsoil
-
-lab <- sprintf(" epsilon == %0.2f ", cofsoil)
-labSE <- sprintf("\u00B1 %0.2f ", CI95soil)
-labSE2 <- sprintf("± %0.2f ", CI95soil)
-
-labSE3 <- paste(" '' %+-%  ' 0.49' ")
-lab1 <- paste(lab, labSE3)
-
-summary(model)
-
-model2n<-lm(yRaleigh~xRaleigh, data= soilGrApp, subset=(N_compsoil >= 2)) # & ngC.mean >= 5)) 
-summary(model2n)
-
-# Compre to each transect
-modelTalweg<-lm(yRaleigh~xRaleigh, data=soilGrApp, subset=(Wnum < 12 & N_compsoil >= 3 & Transect == "T"))
-eT <- coef(modelTalweg)[2]*1000
-
-modelNorth<-lm(yRaleigh~xRaleigh, data=soilGrApp, subset=(Wnum < 12 & N_compsoil >= 3 & Transect == "N"))
-eN <- coef(modelNorth)[2]*1000
-
-modelSouth<-lm(yRaleigh~xRaleigh, data=soilGrApp, subset=(Wnum < 12 & N_compsoil >= 3 & Transect == "S"))
-eS <- coef(modelSouth)[2]*1000
-
-sd(c(coef(modelSouth)[2]*1000 , coef(modelNorth)[2]*1000 , coef(modelTalweg)[2]*1000))
-mean(c(coef(modelSouth)[2]*1000 , coef(modelNorth)[2]*1000 , coef(modelTalweg)[2]*1000))
-#modelFull<-lm(yRaleigh~xRaleigh, data=soilGroups, subset=(Wnum < 16)) 
-#summary(modelFull)  
-
-rayleigh <- 
-  ggplot(data = subset(soilGrApp, ( Wnum > 0 & N_compsoil >= 2 & !is.na(yRaleigh) )), 
-         aes(x=xRaleigh, y=yRaleigh)) +
-  geom_point(aes(group = ID, size = timeSinceApp.NoSo ))+ #, colour = Source)) +  #, shape = ngC.Label)) +
-  theme_bw() +
-  scale_size_continuous(range = c(1, 5)) +
-  labs(size="Days post appl.", colour="Source") + #, shape = "Mass Carbon") +
-  xlab("ln f") +
-  ylab("ln R/Ro") +
-  ylab(expression(paste("ln  ",  R / R['0'] ))) +
-  stat_smooth(data= subset(soilGrApp , 
-                           ( Wnum > 0 & !is.na(ngC.Label) & !is.na(yRaleigh) )) , 
-              method = "lm", formula = y~x, se=T) #+
-  #annotate("text", x = -0.55, y = 0.004, 
-           # label = as.character(expression(paste( "\u0190", " \u2030", " = ", cof))), parse = T, size = 3.0) +
-  #         label = lab, parse = T, size = 3.0) +
-  #annotate("text", x = -0.33, y = 0.004, 
-  #         label = as.character(expression(paste( "\u00B1" , 0.49))), parse = T, size = 3.0) # +
-  
-  #geom_text_repel(data = subset(soilGrApp, (!is.na(ngC.Label) & Wnum > 7 & Wnum < 12) ), aes(label=Wnum),
-  #               arrow = arrow(length = unit(0.005, 'npc'), type = "closed"),
-  #               force = 1, 
-  #               point.padding = unit(1.0, 'lines'), 
-  #               max.iter = 2e3,
-  #               nudge_x = .2)
-
-
-
-  
-  #geom_text_repel(aes(label=Wnum),
-   #             arrow = arrow(length = unit(0.005, 'npc'), type = "closed"),
-    #             force = 1, 
-     #            point.padding = unit(1.0, 'lines'), 
-      #           max.iter = 2e3,
-       #          nudge_x = .2)
-
-rayleigh
-#ggplotly(rayleigh)
-#ggsave(rayleigh, filename = "lnDDvslnConc_soils.png", width = 8, height = 5, units = "in", scale = 1)
-```
-
-# Accounting for dilution
-
-The Rayleigh equation above assumes that $f$ reflects solely reduction in concentrations due to degradation and should thus be expressed as $f_{degradation}$. Accounting for dilution processes, the remaining fraction that is measured in the field sample becomes then $f_{total}$, where:
-
-$$f_{total} = f_{degradation} \cdot f_{dilution} $$
-Following Van Breukelen [-@VanBreukelen2007],
-
-$$ f_{degradation} = f_{total} \cdot F $$
-where the dilution factor $F$ (i.e. the number of times the source volume has become diluted at the observation location) can be calculated if $\epsilon_{lab}$ is known:
-
-$$F = e^{(\Delta/\epsilon_{lab})-lnf_{total}} $$
-
-```{r}
-soilGrApp$Fdil = 
-  exp( (log((1000+d13Co+soilGrApp$DD13C.comp)/(1000+d13Co))/epsilon_lab) -
-         log(soilGrApp$ftot)  )
-
-soilGrApp$Fdil <- ifelse(soilGrApp$Fdil < 1, 1, soilGrApp$Fdil)
-
-
-```
-
-We can now obtain $f_{dilution}$ and $f_{degradation}$:
-
-```{r}
-
-soilGrApp$fdil <- 1/soilGrApp$Fdil
-soilGrApp$fdeg <- soilGrApp$ftot * soilGrApp$Fdil 
-```
-
-Re-calculating the enrichment factor based on dilution processes (i.e. new f):
-
-```{r}
-
-soilGrApp$xRaleighDeg <- log(soilGrApp$fdeg)
-
-modelDegField<-lm(yRaleigh~xRaleighDeg, data= soilGrApp, subset=(N_compsoil >= 3)) 
-summary(modelDegField)
-
-cofDegField <- as.numeric(coef(modelDegField)[2])
-
-minXDegField <- confint(modelDegField, "xRaleighDeg", level = 0.95)[1]
-maxXDegField <- confint(modelDegField, "xRaleighDeg", level = 0.95)[2]
-
-CI95degField = maxXDegField - cofDegField
-
-
-rayleighCorrect <- 
-  ggplot(data = subset(soilGrApp, ( Wnum > 0 & N_compsoil >= 2 & !is.na(yRaleigh) )), 
-         aes(x=xRaleighDeg, y=yRaleigh)) +
-  geom_point(aes(group = ID, size = timeSinceApp.NoSo ))+ #, colour = Source)) +  #, shape = ngC.Label)) +
-  theme_bw() +
-  scale_size_continuous(range = c(1, 5)) +
-  labs(size="Days post appl.", colour="Source") + #, shape = "Mass Carbon") +
-  xlab("ln f") +
-  ylab("ln R/Ro") +
-  ylab(expression(paste("ln  ",  R / R['0'] ))) +
-  stat_smooth(data= subset(soilGrApp , 
-                           ( Wnum > 0 & !is.na(ngC.Label) & !is.na(yRaleigh) )) , 
-              method = "lm", formula = y~x, se=T) #+
-  #annotate("text", x = -0.55, y = 0.004, 
-           # label = as.character(expression(paste( "\u0190", " \u2030", " = ", cof))), parse = T, size = 3.0) +
-  #         label = lab, parse = T, size = 3.0) +
-  #annotate("text", x = -0.33, y = 0.004, 
-  #         label = as.character(expression(paste( "\u00B1" , 0.49))), parse = T, size = 3.0) # +
-  
-  #geom_text_repel(data = subset(soilGrApp, (!is.na(ngC.Label) & Wnum > 7 & Wnum < 12) ), aes(label=Wnum),
-  #               arrow = arrow(length = unit(0.005, 'npc'), type = "closed"),
-  #               force = 1, 
-  #               point.padding = unit(1.0, 'lines'), 
-  #               max.iter = 2e3,
-  #               nudge_x = .2)
-
-
-
-  
-  #geom_text_repel(aes(label=Wnum),
-   #             arrow = arrow(length = unit(0.005, 'npc'), type = "closed"),
-    #             force = 1, 
-     #            point.padding = unit(1.0, 'lines'), 
-      #           max.iter = 2e3,
-       #          nudge_x = .2)
-
-rayleighCorrect
-
-
-
-
-# Comparison with dilution
-summary(model)
-```
-
-
-The relationship $D*/B*$ can be obtained by:
-
-```{r}
-DBmodel<-lm(log(fdeg)~log(fdil), data= soilGrApp, subset=(!is.na(fdil))) 
-cof_DB <- as.numeric(coef(DBmodel)[2]*1000)
-se_DB <- summary(DBmodel)$coef[[4]]*1000
-summary(DBmodel)
-```
-
-
-
-Alternatively, Van Breukelen gives the following equation to estimate the field enrichment:
-
-$$ \epsilon_{filed} = B^* \cdot \epsilon_{true} = \frac{\Delta}{ln f_{total}} $$
-
 # Import waters
 
 ## Compare mass balance, theoretical and CSIA
@@ -420,553 +214,6 @@ colnames(waters)[colnames(waters) == "ti"] <- "Date.ti"
 waters$Events <- factor(waters$Events, levels = unique(waters$Events))
 waters$Event <- factor(waters$Event, levels = unique(waters$Event))
 
-
-dropWater <- c("N.x", "N.y", 
-               "Markers" , "TimeDiff", 
-               "se.d13C", "MES.mg.L", "MES.sd", "MO.mg.L", "filt.se.d13C", "f.diss", "f.filt",
-               # "Appl.Mass.g", 
-               "DissSmeto.mg", "DissSmeto.mg.SD", 
-               "DissOXA.mg", "DissOXA.mg.SD", 
-               "DissESA.mg", "DissESA.mg.SD",
-               "FiltSmeto.mg", "DissSmeto.mg.SD", 
-               "TotSMout.mg", "TotSMout.mg.SD",
-               "FracDiss", "FracFilt")
-waters <- waters[ , !(names(waters) %in% dropWater)]
-
-# Half-life calculations (days)
-median_half <- 29 
-max_half <- 12
-min_half <- 46
-
-
-waters$No_First <- ifelse(waters$Appl.Mass.g == 0, NA, waters$Appl.Mass.g)
-waters$No_Second <- waters$No_First
-waters$No_Second[1] <- 0
-waters$No_Third <- waters$No_Second
-waters$No_Fourth <- waters$No_Second
-
-# Delete the 3rd and 4th observation in "Second" 
-waters$No_Second[which(!is.na(waters$No_Second))[4]] <- NA
-waters$No_Second[which(!is.na(waters$No_Second))[3]] <- NA
-waters$No_Second <- na.locf(waters$No_Second) # fill the cumulative for the second only
-
-waters$No_Third[which(!is.na(waters$No_Third))[4]] <- NA
-waters$No_Third[which(!is.na(waters$No_Third))[2]] <- NA
-waters$No_Third <- na.locf(waters$No_Third)
-
-waters$No_Fourth[which(!is.na(waters$No_Fourth))[3]] <- NA
-waters$No_Fourth[which(!is.na(waters$No_Fourth))[2]] <- NA
-waters$No_Fourth <- na.locf(waters$No_Fourth)
-
-waters$No_First[which(!is.na(waters$No_First))[4]] <- NA
-waters$No_First[which(!is.na(waters$No_First))[3]] <- NA
-waters$No_First[which(!is.na(waters$No_First))[2]] <- NA
-waters$No_First <- na.locf( waters$No_First )
-
-# Compute cumulative time for first, second, third and fourth applications
-waters$CumDays_First <- cumsum(waters$Duration)/24
-
-waters$dt_Second <- ifelse(waters$No_Second == 0, 0, waters$Duration)
-waters$CumDays_Second <- cumsum(waters$dt_Second)/24
-waters$dt_Second <- NULL
-
-waters$dt_Third <- ifelse(waters$No_Third == 0, 0 , waters$Duration)
-waters$CumDays_Third <- cumsum(waters$dt_Third)/24
-waters$dt_Third <- NULL
-
-waters$dt_Fourth <- ifelse(waters$No_Fourth == 0, 0 , waters$Duration)
-waters$CumDays_Fourth <- cumsum(waters$dt_Fourth)/24
-waters$dt_Fourth <- NULL
-
-# Based on half-life = 29d
-waters$remain_1st_29d <- waters$No_First*(0.5)^(waters$CumDays_First/median_half)
-waters$remain_2nd_29d <- waters$No_Second*(0.5)^(waters$CumDays_Second/median_half)
-waters$remain_3rd_29d <- waters$No_Third*(0.5)^(waters$CumDays_Third/median_half)
-waters$remain_4th_29d <- waters$No_Fourth*(0.5)^(waters$CumDays_Fourth/median_half)
-
-# Based on half-life = 46d
-waters$remain_1st_46d <- waters$No_First*(0.5)^(waters$CumDays_First/min_half)
-waters$remain_2nd_46d <- waters$No_Second*(0.5)^(waters$CumDays_Second/min_half)
-waters$remain_3rd_46d <- waters$No_Third*(0.5)^(waters$CumDays_Third/min_half)
-waters$remain_4th_46d <- waters$No_Fourth*(0.5)^(waters$CumDays_Fourth/min_half)
-
-# Based on half-life = 12d
-waters$remain_1st_12d <- waters$No_First*(0.5)^(waters$CumDays_First/max_half)
-waters$remain_2nd_12d <- waters$No_Second*(0.5)^(waters$CumDays_Second/max_half)
-waters$remain_3rd_12d <- waters$No_Third*(0.5)^(waters$CumDays_Third/max_half)
-waters$remain_4th_12d <- waters$No_Fourth*(0.5)^(waters$CumDays_Fourth/max_half)
-
-waters$remainMedTheo_prc <- ((waters$remain_1st_29d + waters$remain_2nd_29d +
-                                waters$remain_3rd_29d + waters$remain_4th_29d)/waters$CumAppMass.g)*100
-waters$remainMinTheo_prc <- ((waters$remain_1st_46d + waters$remain_2nd_46d +
-                                waters$remain_3rd_46d + waters$remain_4th_46d)/waters$CumAppMass.g)*100
-waters$remainMaxTheo_prc <- ((waters$remain_1st_12d + waters$remain_2nd_12d +
-                                waters$remain_3rd_12d + waters$remain_4th_12d)/waters$CumAppMass.g)*100
-
-colnames(waters)
-dropWater2 <- c("No_First", "No_Second" ,"No_Third", "No_Fourth",
-                "CumDays_First", "CumDays_Second", "CumDays_Third", "CumDays_Fourth",
-                "remain_1st_29d", "remain_2nd_29d", "remain_3rd_29d", "remain_4th_29d", 
-                "remain_1st_46d", "remain_2nd_46d", "remain_3rd_46d", "remain_4th_46d",
-                "remain_1st_12d", "remain_2nd_12d", "remain_3rd_12d", "remain_4th_12d"
-                )
-
-waters <- waters[ , !(names(waters) %in% dropWater2)]
-
-# Get cummualtive SD
-library("TTR")
-waters$CumOutSmeto.g.SD <- runSD(waters$TotSMout.g.SD, n=1, cumulative=TRUE)
-waters$CumOutMELsm.g.SD <- runSD(waters$MELsm.g.SD, n=1, cumulative=TRUE)
-
-# What does  runSD do? Equal to z :
-x <- waters$TotSMout.g.SD
-n <- length(x)
-m <- cumsum(x)/(1:n)
-m1 <- c(NA,m[1:(n-1)])
-ssd <- (x-m)*(x-m1)
-v <- c(0,cumsum(ssd[-1])/(1:(n-1)))
-z <- sqrt(v)
-
-keepWaterMB <- c("Date.ti", "CumAppMass.g",
-                 # MB
-                 "CumOutSmeto.g", "CumOutMELsm.g" ,
-                 "CumOutSmeto.g.SD", "CumOutMELsm.g.SD",
-                 "remainMedTheo_prc", "remainMinTheo_prc", "remainMaxTheo_prc",
-                 # CSIA
-                 "B.diss", "B.diss.min", "B.diss.max", "SD.d13C",
-                 "B.diss.Field", "B.diss.min.Field", "B.diss.max.Field")
-
-watersMassBal <- waters[ , (names(waters) %in% keepWaterMB)]
-
-# Get last 5 rows, omit NA's, will return rows only where B.diss was not NA
-watersMassBal <- na.omit(watersMassBal[ , (names(watersMassBal) %in% keepWaterMB)])
-watersMassBal <- subset(watersMassBal, SD.d13C < 1)
-
-watersMassBal$SMout_prc <- (watersMassBal$CumOutSmeto.g/watersMassBal$CumAppMass.g)*100
-watersMassBal$SMout.SD1 <- watersMassBal$SMout_prc + (watersMassBal$CumOutSmeto.g.SD/watersMassBal$CumAppMass.g)*100
-watersMassBal$SMout.SD2 <- watersMassBal$SMout_prc - (watersMassBal$CumOutSmeto.g.SD/watersMassBal$CumAppMass.g)*100
-
-watersMassBal$TPout_prc <- (watersMassBal$CumOutMELsm.g/watersMassBal$CumAppMass.g)*100
-watersMassBal$TPout.SD1 <- watersMassBal$TPout_prc + (watersMassBal$CumOutMELsm.g.SD/watersMassBal$CumAppMass.g)*100
-watersMassBal$TPout.SD2 <- watersMassBal$TPout_prc - (watersMassBal$CumOutMELsm.g.SD/watersMassBal$CumAppMass.g)*100
-
-watersMassBal$f <- 100 - (watersMassBal$B.diss) # + watersMassBal$SMout_prc)
-watersMassBal$f.min <- 100 - (watersMassBal$B.diss.max)# + watersMassBal$SMout_prc)
-watersMassBal$f.max <- 100 - (watersMassBal$B.diss.min) # + watersMassBal$SMout_prc)
-
-watersMassBal$f.Field <- 100 - (watersMassBal$B.diss.Field) # + watersMassBal$SMout_prc)
-watersMassBal$f.min.Field <- 100 - (watersMassBal$B.diss.max.Field)# + watersMassBal$SMout_prc)
-watersMassBal$f.max.Field <- 100 - (watersMassBal$B.diss.min.Field) # + watersMassBal$SMout_prc)
-
-watersMassBal$SD.d13C <- NULL
-
-
-aprilBal <- subset(watersMassBal, (Date.ti >= as.POSIXct("2016-04-16 18:32:00", tz = "EST") # Last three measurements
-                 & Date.ti < as.POSIXct("2016-05-01 00:00:00", tz = "EST")) )
-juneBal <- subset(watersMassBal, (Date.ti >= as.POSIXct("2016-06-14 12:34:00", tz = "EST") 
-                 & Date.ti <= as.POSIXct("2016-06-24 14:52:00", tz = "EST")) )
-
-B.mean.april <- mean(aprilBal$B.diss)
-B.sd1.april <- mean(aprilBal$B.diss.min)
-B.sd2.april <- mean(aprilBal$B.diss.max)
-
-B.mean.april.Field <- mean(aprilBal$B.diss.Field)
-B.sd1.april.Field <- mean(aprilBal$B.diss.min.Field)
-B.sd2.april.Field <- mean(aprilBal$B.diss.max.Field)
-
-f.mean.april <- mean(aprilBal$f)
-f.sd1.april <- mean(aprilBal$f.max) 
-f.sd2.april <- mean(aprilBal$f.min)
-
-f.mean.april.Field <- mean(aprilBal$f.Field)
-f.sd1.april.Field <- mean(aprilBal$f.max.Field) 
-f.sd2.april.Field <- mean(aprilBal$f.min.Field)
-
-B.mean.june <- mean(juneBal$B.diss)
-B.sd1.june <- mean(juneBal$B.diss.min)
-B.sd2.june <- mean(juneBal$B.diss.max)
-
-B.mean.june.Field <- mean(juneBal$B.diss.Field)
-B.sd1.june.Field <- mean(juneBal$B.diss.min.Field)
-B.sd2.june.Field <- mean(juneBal$B.diss.max.Field)
-
-f.mean.june <- mean(juneBal$f)
-f.sd1.june <- mean(juneBal$f.max)
-f.sd2.june <- mean(juneBal$f.min)
-
-f.mean.june.Field <- mean(juneBal$f.Field)
-f.sd1.june.Field <- mean(juneBal$f.max.Field)
-f.sd2.june.Field <- mean(juneBal$f.min.Field)
-
-aprilBal <- tail(aprilBal, n=1)
-
-aprilBal$B.mean <- B.mean.april
-aprilBal$B.sd1 <- B.sd1.april
-aprilBal$B.sd2 <- B.sd2.april
-aprilBal$f.mean <- f.mean.april
-aprilBal$f.sd1 <- f.sd1.april
-aprilBal$f.sd2 <- f.sd2.april
-
-aprilBal$B.mean.Field <- B.mean.april.Field
-aprilBal$B.sd1.Field <- B.sd1.april.Field
-aprilBal$B.sd2.Field <- B.sd2.april.Field
-aprilBal$f.mean.Field <- f.mean.april.Field
-aprilBal$f.sd1.Field <- f.sd1.april.Field
-aprilBal$f.sd2.Field <- f.sd2.april.Field
-
-aprilBal$DegMed <- 100 - aprilBal$remainMedTheo_prc
-aprilBal$DegLow <- 100 - aprilBal$remainMinTheo_prc
-aprilBal$DegHigh <- 100 - aprilBal$remainMaxTheo_prc
-aprilBal$Month <- "April"
-
-juneBal <- tail(juneBal, n=1)
-
-juneBal$B.mean <- B.mean.june
-juneBal$B.sd1 <- B.sd1.june
-juneBal$B.sd2 <- B.sd2.june
-juneBal$f.mean <- f.mean.june
-juneBal$f.sd1 <- f.sd1.june
-juneBal$f.sd2 <- f.sd2.june
-
-juneBal$B.mean.Field <- B.mean.june.Field
-juneBal$B.sd1.Field <- B.sd1.june.Field
-juneBal$B.sd2.Field <- B.sd2.june.Field
-juneBal$f.mean.Field <- f.mean.june.Field
-juneBal$f.sd1.Field <- f.sd1.june.Field
-juneBal$f.sd2.Field <- f.sd2.june.Field
-
-juneBal$DegMed <- 100 - juneBal$remainMedTheo_prc
-juneBal$DegLow <- 100 - juneBal$remainMinTheo_prc
-juneBal$DegHigh <- 100 - juneBal$remainMaxTheo_prc
-juneBal$Month <- "June"
-
-
-bal <- rbind(aprilBal, juneBal)
-
-
-bal$B.diss <- NULL
-bal$f <- NULL
-bal$Date.ti <- NULL
-bal$CumAppMass.g <- NULL
-bal$CumOutSmeto.g <- NULL
-bal$CumOutMELsm.g <- NULL
-
-
-names(bal)
-bal <- bal[c("Month", 
-             "B.mean" , "B.sd1" ,  "B.sd2", 
-              "f.mean" , "f.sd1" , "f.sd2", 
-             "B.mean.Field", "B.sd1.Field", "B.sd2.Field",
-             "f.mean.Field", "f.sd1.Field", "f.sd2.Field", 
-             "DegMed", "DegLow", "DegHigh", 
-             "remainMedTheo_prc", "remainMinTheo_prc", "remainMaxTheo_prc",
-             "SMout_prc",  "SMout.SD1", "SMout.SD2",
-             "TPout_prc", "TPout.SD1", "TPout.SD2")]
-
-names(bal) <- c("Month", 
-             "B.measure" , "B.SD1" ,  "B.SD2", 
-              "f.measure" , "f.SD1" , "f.SD2", 
-             "BF.measure" , "BF.SD1" ,  "BF.SD2", 
-              "fF.measure" , "fF.SD1" , "fF.SD2",
-             "Deg.measure", "Deg.SD1", "Deg.SD2", 
-             "Rem.measure", "Rem.SD1", "Rem.SD2",
-             "SMout.measure",  "SMout.SD1", "SMout.SD2",
-             "TPout.measure", "TPout.SD1", "TPout.SD2")
-
-balTidy <- bal %>%
-  gather(measure, value, -Month) %>% # Melts data frame
-  separate(measure, into = c("Sink", "temporary_var")) %>% # parses the sep = "." into...
-  spread(temporary_var, value) # Moves molten temporary variable to own column 
-
-type <- rep(c("CSIA", "CSIA", "Predicted (half-life)", 
-              "CSIA", "CSIA", "Predicted (half-life)", 
-              "Mass Balance", 
-              "Mass Balance"), 2)
-
-balTidyType <- cbind(balTidy, type)
-
-
-balTidyType$Sink <- as.factor(balTidyType$Sink)
-balTidyType$Month <- as.factor(balTidyType$Month)
-levels(balTidyType$Sink)
-balTidyType$Sink <- factor(balTidyType$Sink, levels = c("B" , "BF", "TPout",  "Deg" ,"f" , "fF" ,"SMout", "Rem"))
-levels(balTidyType$type)
-balTidyType$type <- factor(balTidyType$type, levels = c("CSIA" , "Mass Balance", "Predicted (half-life)"))
-levels(balTidyType$Sink)
-levels(balTidyType$Month)
-
-
-OutBars <- ggplot(data = subset(balTidyType, type != 'Predicted (half-life)' & Sink != "BF" &  Sink != "fF") , 
-                  aes(x=Month, y=measure, fill = Sink, ymin=SD1, ymax=SD2))+
-  geom_bar(stat = "identity", position = "dodge", width = 0.5) +
-  geom_errorbar(#aes(ymin=SD1, ymax=SD2),
-                  width=.3 , # ) + #,                    # Width of the error bars
-                  position=position_dodge(.5)) + 
-  theme_bw() +
-  ylab("% S-MET Applied") +
-  theme(axis.title.x = element_blank() ) +
-  scale_y_continuous( breaks=c(25, 50, 75, 100), limits = c(0, 100) )+ #expand=c(0, 10, 0, 0)) + 
-  #xlab("Month") +
-  facet_wrap(~type) +
-  scale_fill_manual(#values = c("#01665e",  "#ec7014",   "#35978f",  "#fe9929", "#80cdc1", "#fec44f"), # blue-orange
-                    values = c("#01665e",  "#35978f", "#ec7014" ,  "#fe9929"), # blue-orange
-                    #values = c("#238b45", "#41ab5d", "#74c476", "#40004b", "#762a83", "#9970ab" ), # green-purple
-                    #values = c("#238b45", "#41ab5d", "#74c476", "#ec7014", "#fe9929", "#fec44f" ), # green-orange
-                    #values = c("#80cdc1", "#018571", "#a6611a", "#dfc27d", "#80cdc1", "#018571"),
-                    name= "Outlet Monitoring" ,# element_blank(), #"Mass Balance", # \n
-                       breaks=c("B", "f" , 
-                                "TPout" , "SMout" #, 
-                                #"Deg", "Rem" 
-                                ),
-                       labels=c("Degr.", "Non-degr.", 
-                                "Degr.", "Loads" #, 
-                                #"Degr." , "Persist."
-                                 )) +
-  guides(fill=guide_legend(ncol=3))
-
-OutBars
-
-balTidyType$CI95 <- signif(balTidyType$SD1 - balTidyType$measure, 2)
-
-
-#pal = c("#01665e",  "#ec7014",   "#35978f",  "#fe9929", "#80cdc1", "#fec44f")
-#display.pal(pal, sel=1:length(pal), names=F)
-
-```
-
-## Predicted (half-life) only
-
-```{r}
-theoBars <- ggplot(data = subset(balTidyType, type == 'Predicted (half-life)') , 
-                  aes(x=Month, y=measure, fill = Sink, ymin=SD1, ymax=SD2))+
-  geom_bar(stat = "identity", position = "dodge", width = 0.5) +
-  geom_errorbar(#aes(ymin=SD1, ymax=SD2),
-                  width=.3 , # ) + #,                    # Width of the error bars
-                  position=position_dodge(.5)) + 
-  theme_bw() +
-  ylab("% S-MET Applied") +
-  theme(axis.title.x = element_blank() ) +
-  scale_y_continuous( breaks=c(25, 50, 75, 100), limits = c(0, 100) )+ #expand=c(0, 10, 0, 0)) + 
-  #xlab("Month") +
-  facet_wrap(~type) +
-  scale_fill_manual(values = c( "#80cdc1", "#fec44f"), # blue-orange
-                    #values = c("#238b45", "#41ab5d", "#74c476", "#40004b", "#762a83", "#9970ab" ), # green-purple
-                    #values = c("#238b45", "#41ab5d", "#74c476", "#ec7014", "#fe9929", "#fec44f" ), # green-orange
-                    #values = c("#80cdc1", "#018571", "#a6611a", "#dfc27d", "#80cdc1", "#018571"),
-                    name= "Predicted",# element_blank(), #"Mass Balance", # \n
-                       breaks=c("Deg", "Rem" 
-                                ),
-                       labels=c("Degr." , "Persist."
-                                 )) +
-  guides(fill=guide_legend(ncol=1))
-
-#pal = c( "#35978f", "#fe9929", "#fec44f", "#01665e", "#80cdc1", "#ec7014" )
-#display.pal(pal, sel=1:length(pal), names=F)
-
-theoBars
-```
-
-
-## Compare to Catchment soils
-
-```{r}
-
-names(soils)
-keepMB <- c("Date.ti", "CumAppMass.g", "CatchMassSoil.g", "CatchMassSoil.g.SD",
-            "B.mean.bulk", "B.min.bulk", "B.max.bulk",
-            "B.mean.bulk.Field" , "B.min.bulk.Field", "B.max.bulk.Field")
-
-soilsMB <- soils[, (names(soils) %in% keepMB)]
-soilsMB <- soilsMB[complete.cases(soilsMB[ , "CatchMassSoil.g"]), ]
-
-soilsMB$Rem.measure <- (soilsMB$CatchMassSoil.g/soilsMB$CumAppMass.g)*100
-
-#soilsMB$Rem.SD1 <-(soilsMB$Rem.measure + soilsMB$Rem.measure*0.1358)
-#soilsMB$Rem.SD2 <- (soilsMB$Rem.measure - soilsMB$Rem.measure*0.1358)
-soilsMB$Rem.SD1 <- soilsMB$Rem.measure + (soilsMB$CatchMassSoil.g.SD/soilsMB$CumAppMass.g)*100
-soilsMB$Rem.SD2 <- soilsMB$Rem.measure -  (soilsMB$CatchMassSoil.g.SD/soilsMB$CumAppMass.g)*100
-
-soilsMB$Unk.measure <- 100 - soilsMB$Rem.measure
-soilsMB$Unk.SD1 <- 100 - soilsMB$Rem.SD2
-soilsMB$Unk.SD2 <- 100 - soilsMB$Rem.SD1
-
-
-soilsMB$CatchMassSoil.g <- NULL
-soilsMB$CatchMassSoil.g.SD <- NULL
-soilsMB$CumAppMass.g <- NULL
-
-soils.April <- subset(soilsMB, (Date.ti >= as.POSIXct("2016-04-26 11:50:00", tz = "EST") 
-                 & Date.ti < as.POSIXct("2016-05-01 00:00:00", tz = "EST"))) 
-soils.April <- na.omit(soils.April)
-
-soils.June <- subset(soilsMB, (Date.ti >= as.POSIXct("2016-06-28 08:56:00", tz = "EST") 
-                 & Date.ti <= as.POSIXct("2016-06-28 14:52:00", tz = "EST")) )
-soils.June <- na.omit(soils.June)
-
-# CSIA April
-B.mean.aprilSol <- soils.April$B.mean.bulk
-B.sd1.aprilSol <- soils.April$B.min.bulk
-B.sd2.aprilSol <- soils.April$B.max.bulk
-
-B.mean.aprilSol.Field <- soils.April$B.mean.bulk.Field
-B.sd1.aprilSol.Field <- soils.April$B.min.bulk.Field
-B.sd2.aprilSol.Field <- soils.April$B.max.bulk.Field
-
-f.mean.aprilSol <- 100 - B.mean.aprilSol
-f.sd1.aprilSol <- 100 - B.sd2.aprilSol
-f.sd2.aprilSol <- 100 - B.sd1.aprilSol
-
-f.mean.aprilSol.Field <- 100 - B.mean.aprilSol.Field
-f.sd1.aprilSol.Field <- 100 - B.sd2.aprilSol.Field
-f.sd2.aprilSol.Field <- 100 - B.sd1.aprilSol.Field
-
-# MB April
-Rem.mean.aprilSol <- soils.April$Rem.measure
-Rem.sd1.aprilSol <- soils.April$Rem.SD1
-Rem.sd2.aprilSol <- soils.April$Rem.SD2
-
-Unk.mean.aprilSol <- soils.April$Unk.measure
-Unk.sd1.aprilSol <- soils.April$Unk.SD1
-Unk.sd2.aprilSol <- soils.April$Unk.SD2
-
-# CSIA June
-B.mean.juneSol <- soils.June$B.mean.bulk
-B.sd1.juneSol <- soils.June$B.min.bulk
-B.sd2.juneSol <- soils.June$B.max.bulk
-
-B.mean.juneSol.Field <- soils.June$B.mean.bulk.Field
-B.sd1.juneSol.Field <- soils.June$B.min.bulk.Field
-B.sd2.juneSol.Field <- soils.June$B.max.bulk.Field
-
-f.mean.juneSol <- 100 - B.mean.juneSol
-f.sd1.juneSol <- 100 - B.sd2.juneSol
-f.sd2.juneSol <- 100 - B.sd1.juneSol
-
-f.mean.juneSol.Field <- 100 - B.mean.juneSol.Field
-f.sd1.juneSol.Field <- 100 - B.sd2.juneSol.Field
-f.sd2.juneSol.Field <- 100 - B.sd1.juneSol.Field
-
-# MB June
-Rem.mean.juneSol <- soils.June$Rem.measure
-Rem.sd1.juneSol <- soils.June$Rem.SD1
-Rem.sd2.juneSol <- soils.June$Rem.SD2
-
-Unk.mean.juneSol <-soils.June$Unk.measure
-Unk.sd1.juneSol <- soils.June$Unk.SD1
-Unk.sd2.juneSol <- soils.June$Unk.SD2
-
-
-Month <- c("April", "June")
-balSol <- data.frame(Month)
-
-# CSIA April and June
-balSol$B.measure <- c(B.mean.aprilSol, B.mean.juneSol) 
-balSol$B.SD1 <- c(B.sd1.aprilSol , B.sd1.juneSol)
-balSol$B.SD2 <- c(B.sd2.aprilSol , B.sd2.juneSol)
-balSol$f.measure <- c(f.mean.aprilSol, f.mean.juneSol)
-balSol$f.SD1 <- c(f.sd1.aprilSol, f.sd1.juneSol)
-balSol$f.SD2 <- c(f.sd2.aprilSol, f.sd2.juneSol)
-
-balSol$BF.measure <- c(B.mean.aprilSol.Field, B.mean.juneSol.Field) 
-balSol$BF.SD1 <- c(B.sd1.aprilSol.Field , B.sd1.juneSol.Field)
-balSol$BF.SD2 <- c(B.sd2.aprilSol.Field , B.sd2.juneSol.Field)
-balSol$fF.measure <- c(f.mean.aprilSol.Field, f.mean.juneSol.Field)
-balSol$fF.SD1 <- c(f.sd1.aprilSol.Field, f.sd1.juneSol.Field)
-balSol$fF.SD2 <- c(f.sd2.aprilSol.Field, f.sd2.juneSol.Field)
-
-# MB April and June
-balSol$Unk.measure <- c(Unk.mean.aprilSol, Unk.mean.juneSol)
-balSol$Unk.SD1 <- c(Unk.sd1.aprilSol, Unk.sd1.juneSol)
-balSol$Unk.SD2 <- c(Unk.sd2.aprilSol, Unk.sd2.juneSol)
-
-balSol$Rem.measure <- c(Rem.mean.aprilSol, Rem.mean.juneSol)
-balSol$Rem.SD1 <- c(Rem.sd1.aprilSol, Rem.sd1.juneSol)
-balSol$Rem.SD2 <- c(Rem.sd2.aprilSol, Rem.sd2.juneSol)
-
-solTidy <- balSol %>%
-  gather(measure, value, -Month) %>% # Melts data frame
-  separate(measure, into = c("Sink", "temporary_var")) %>% # parses the sep = "." into...
-  spread(temporary_var, value) # Moves molten temporary variable to own column 
-
-type <- rep(c("CSIA", "CSIA", "CSIA", "CSIA", "Mass Balance", "Mass Balance"), 2)
-
-balTidySol <- cbind(solTidy, type)
-balTidySol$Sink <- as.factor(balTidySol$Sink)
-
-levels(balTidySol$Sink)
-# BF -> CSIA with field enrichment
-# B -> CSIA with lab enrichment
-balTidySol$Sink <- factor(balTidySol$Sink, levels = c("B" , "BF" ,"f" , "fF", "Unk", "Rem"))
-
-SoilBars <- ggplot(data = subset(balTidySol, Sink != "BF" & Sink != "fF") , aes(x=Month, y=measure, fill = Sink, ymin=SD1, ymax=SD2))+
-  geom_bar(stat = "identity", position = "dodge", width = 0.5) +
-  geom_errorbar(#aes(ymin=SD1, ymax=SD2),
-                  width=.2 , # ) + #,                    # Width of the error bars
-                  position=position_dodge(.5)) + 
-  theme_bw() +
-  ylab("% S-MET Applied") +
-  theme(axis.title.x = element_blank() ) +
-  xlab("Month") +
-  facet_wrap(~type) +
-  scale_y_continuous( breaks=c(25, 50, 75, 100), limits = c(0, 100) )+ #expand=c(0, 10, 0, 0)) + 
-  scale_fill_manual(#values = c("#6a51a3" , "#ec7014", "#807dba", "#fe9929"), # purple-orange
-                    values = c("#6a51a3" , "#ec7014", "#d9d9d9", "#fe9929"), # Unknown as grey
-                    name= "Top Soils" ,# element_blank(), #"Mass Balance", # \n
-                    breaks=c("B", "f" , 
-                                "Unk" , "Rem" 
-                                ),
-                    labels=c("Degr.", "Non-degr.", 
-                                "Unknown", "Persist." ))+
-  guides(fill=guide_legend(ncol=2))
-
-SoilBars
-
-balTidySol$CI95 <- signif(balTidySol$measure - balTidySol$SD1, 2) 
-```
-
-## Merge both Outlet and Soils - BARS
-
-```{r}
-
-#balAll <- rbind(balTidyType,  balTidySol)
-
-OutBars_noLeg <- OutBars + theme(legend.position = 'none')
-OutBars_Leg <- get_legend(OutBars)
-
-SoilBars_noLeg <- SoilBars + theme(legend.position = 'none')
-SoilBars_Leg <- get_legend(SoilBars)
-
-TheoBars_noLeg <- theoBars + theme(legend.position = 'none')
-TheoBars_Leg <- get_legend(theoBars)
-
-#plot_grid(OutBars_noLeg, SoilBars_noLeg,
-#                    ncol =1, nrow = 2, align ="v" )
-#,
-#                    labels = c("A", "C", "B", "D"))
-
-balAllplot <- ggdraw() +
-  draw_plot(SoilBars_noLeg, x=0.01, y = 0.5, width = 0.60, height = 0.5) +
-  draw_plot(TheoBars_noLeg, x=0.65, y=.5, width =  0.33, height = .5) + 
-  draw_plot(OutBars_noLeg, x=0.01, y=.0, width =  0.60, height = .5) + 
-  draw_plot(SoilBars_Leg, x=0.67, y = 0.3, width = 0.1, height = 0.1) +
-  draw_plot(OutBars_Leg, x=0.69, y = 0.1, width = 0.1, height = 0.1) +
-  draw_plot(TheoBars_Leg, x=0.89, y = 0.3, width = 0.05, height = 0.1) +
-  draw_label("A", x= 0.11, y = .9, size = 12, fontface = "bold") +
-  draw_label("C", x= 0.11, y = .39, size = 12, fontface = "bold") +
-  draw_label("B", x= 0.37, y = .9, size = 12, fontface = "bold") +
-  draw_label("D", x= 0.37, y = .39, size = 12, fontface = "bold") +
-  draw_label("E", x= 0.75, y = .9, size = 12, fontface = "bold") 
-
-balAllplot
-#ggsave(balAllplot, filename = "MB_CSIA_Bars.png", width = 8, height = 5, units = "in", scale = 1)
-
-```
-
-
-
-## Water Rayleigh plots
-
-```{r}
 
 #waters$remain_maxHalf
 #waters$remain_minHalf
@@ -981,6 +228,40 @@ waters$DIa <- waters$maxQ*waters$Volume.m3/waters$Duration.Hrs
 # For evidence of desorption effects, Event 7-1 (May 12th) would need to show SD < 0.54 (currently at 0.63)
 # Contingent on sample repeats
 waterClean <- subset(waters, Sampled == "Sampled" & SD.d13C < 0.64) # | filt.SD.d13C <= 0.75 ) 
+
+# cor.test(waterClean$TotSMout.g, waterClean$DD13C.diss)
+
+pearson_water_r <- cor.test(waterClean$Conc.mug.L, waterClean$DD13C.diss)[4]
+water_r_label <- sprintf("Pearson~r == %0.2f", pearson_water_r)
+water_p_value <- cor.test(waterClean$Conc.mug.L, waterClean$DD13C.diss)[3]
+water_p_label <- sprintf("p == %0.2f", water_p_value)
+
+waterIsoConc  <- ggplot(data = subset(waterClean, ngC.mean.diss > 5), aes(x=Conc.mug.L, y=DD13C.diss))+
+  stat_smooth(data = subset(waterClean, ngC.mean.diss > 5), 
+              aes(x=Conc.mug.L, y=DD13C.diss), method = "lm", formula = y~x, se=F) +
+  geom_errorbar(aes(ymin = DD13C.diss - SD.d13C, ymax = DD13C.diss + SD.d13C)) +
+  geom_errorbarh(aes(xmin = Conc.mug.L - Conc.SD, xmax = Conc.mug.L + Conc.SD)) +
+  geom_point(aes(size = timeSinceApp)) +
+  theme_bw() +
+  scale_size_continuous(range = c(1, 4)) +
+  labs(size="Days post appl.") +
+  theme(axis.title.y = element_blank()) +
+  #scale_y_continuous(breaks=c(1, 2, 3 , 4 ,5) ) + 
+  scale_y_continuous(breaks=seq(1,5,1)) +
+  #ylab(expression(paste({Delta~delta}^"13","C", ' (\u2030)'))) +
+  xlab(expression(paste("S-MET Outlet Concentration ", {({mu}*g / L)}))) +
+  annotate("text", x = 7.5, y = 2.7, label = as.character(water_r_label), parse = T, size = 3.5) +
+  annotate("text", x = 7.5, y = 2.3, label = water_p_label, parse = T, size = 3.5)
+
+
+waterIsoConc 
+#ggsave(waterIsoConc , filename = "DDvsConc_water.png", width = 8, height = 5, units = "in", scale = 1)
+
+```
+
+## Water Rayleigh
+
+```{r}
 waterModel<-lm(yRaleigh~xRaleigh, data= waterClean) 
 summary(waterModel)
 
@@ -1025,36 +306,6 @@ ggplot(waterClean, aes(x=TotSMout.g, y=DD13C.diss))+
                  point.padding = unit(1.0, 'lines'), 
                  max.iter = 2e3,
                  nudge_x = .2)
-
-
-# cor.test(waterClean$TotSMout.g, waterClean$DD13C.diss)
-
-pearson_water_r <- cor.test(waterClean$Conc.mug.L, waterClean$DD13C.diss)[4]
-water_r_label <- sprintf("Pearson~r == %0.2f", pearson_water_r)
-water_p_value <- cor.test(waterClean$Conc.mug.L, waterClean$DD13C.diss)[3]
-water_p_label <- sprintf("p == %0.2f", water_p_value)
-
-waterIsoConc  <- ggplot(data = subset(waterClean, ngC.mean.diss > 5), aes(x=Conc.mug.L, y=DD13C.diss))+
-  stat_smooth(data = subset(waterClean, ngC.mean.diss > 5), 
-              aes(x=Conc.mug.L, y=DD13C.diss), method = "lm", formula = y~x, se=F) +
-  geom_errorbar(aes(ymin = DD13C.diss - SD.d13C, ymax = DD13C.diss + SD.d13C)) +
-  geom_errorbarh(aes(xmin = Conc.mug.L - Conc.SD, xmax = Conc.mug.L + Conc.SD)) +
-  geom_point(aes(size = timeSinceApp)) +
-  theme_bw() +
-  scale_size_continuous(range = c(1, 4)) +
-  labs(size="Days post appl.") +
-  theme(axis.title.y = element_blank()) +
-  #scale_y_continuous(breaks=c(1, 2, 3 , 4 ,5) ) + 
-  scale_y_continuous(breaks=seq(1,5,1)) +
-  #ylab(expression(paste({Delta~delta}^"13","C", ' (\u2030)'))) +
-  xlab(expression(paste("S-MET Outlet Concentration ", {({mu}*g / L)}))) +
-  annotate("text", x = 7.5, y = 2.7, label = as.character(water_r_label), parse = T, size = 3.5) +
-  annotate("text", x = 7.5, y = 2.3, label = water_p_label, parse = T, size = 3.5)
-
-
-waterIsoConc 
-#ggsave(waterIsoConc , filename = "DDvsConc_water.png", width = 8, height = 5, units = "in", scale = 1)
-
 ```
 
 
@@ -1100,9 +351,11 @@ cor.test(waters$Conc.mug.L, waters$diss.d13C)
 
 # Merge Soil and Water data frames
 
+Objective is to plot both soils and water temporaly
+
 ## Outlet Isotope Shifts (DD)
 
-In the same plot consider this secondary axis, where the secondary axis is a formulat of the first:
+In the same plot consider this secondary axis, where the secondary axis is a formulation of the first:
 
 ggplot(mpg, aes(displ, hwy)) + 
   geom_point() + 
@@ -1110,6 +363,10 @@ ggplot(mpg, aes(displ, hwy)) +
     "mpg (US)", 
     sec.axis = sec_axis(~ . * 1.20, name = "mpg (UK)")
   )
+  
+The equation for the secondary y-axis will be:
+
+$$B = (1 -  (\frac{1000 + \delta ^{13}C_0 + \Delta\delta^{13}C }{1000 + \delta^{13} C_0 })^{\frac{\epsilon}{1000}}  )*100 $$  
 
 Or this: https://github.com/tidyverse/ggplot2/wiki/Align-two-plots-on-a-page
 
@@ -1119,10 +376,8 @@ waterClean_ng <- subset(waterClean, ngC.mean.diss > 0)
 WaterSoils <- merge(waterClean_ng, soils, by = "Date.ti", all = T)
 
 WaterSoils$BulkCatch.d13
-WaterSoils$BulkCatch.DD13
+WaterSoils$DD13.Bulk
 
-
-str(WaterSoils)
 names(WaterSoils)
 keepWS <- c("Date.ti", "WeekSubWeek", "ID.N", "Event.x",
             "maxQ", "AveDischarge.m3.h", 
@@ -1131,7 +386,7 @@ keepWS <- c("Date.ti", "WeekSubWeek", "ID.N", "Event.x",
             "DD13C.Talweg", "comp.d13C.SD.Talweg", 
             "DD13C.South", "comp.d13C.SD.South", 
             "DD13C.North", "comp.d13C.SD.North",
-            "BulkCatch.DD13", "BulkCatch.d13.SD" 
+            "DD13.Bulk", "BulkCatch.d13.SD" 
             #"timeSinceApp.x", "Event.x", "Events"
             )
 wsSmall <- WaterSoils[ , (names(WaterSoils) %in% keepWS)]
@@ -1144,13 +399,13 @@ wsSmall <- wsSmall[c("Date.ti", "WeekSubWeek", "ID.N", "Event.x",
             "DD13C.Talweg", "comp.d13C.SD.Talweg", 
             "DD13C.South", "comp.d13C.SD.South", 
             "DD13C.North", "comp.d13C.SD.North",
-            "BulkCatch.DD13", "BulkCatch.d13.SD")]
+            "DD13.Bulk", "BulkCatch.d13.SD")]
 
 keepCorrTest <- c("DD13C.diss", 
                   "DD13C.Talweg", 
                   "DD13C.South",
                   "DD13C.North",
-                  "BulkCatch.DD13")
+                  "DD13.Bulk")
 
 wsTest <- wsSmall[ , (names(wsSmall) %in% keepCorrTest)]
 
@@ -1165,12 +420,12 @@ names(wsSmall) <- c("Date", "Week", "IDSoil", "Event",
             )
 
 wsTest <- wsTest[7:length(wsTest$DD13C.diss) , ]
-wsTest$BulkCatch.DD13 <- na.locf(wsTest$BulkCatch.DD13)
+wsTest$DD13.Bulk <- na.locf(wsTest$DD13.Bulk)
 wsTest$DD13C.Talweg <- na.locf(wsTest$DD13C.Talweg)
 wsTest$DD13C.South <- na.locf(wsTest$DD13C.South)
 wsTest$DD13C.North <- na.locf(wsTest$DD13C.North)
 
-cor.test(wsTest$BulkCatch.DD13, wsTest$DD13C.diss, method = "pearson", use = "pairwise.complete.obs")
+cor.test(wsTest$DD13.Bulk, wsTest$DD13C.diss, method = "pearson", use = "pairwise.complete.obs")
 cor.test(wsTest$DD13C.Talweg, wsTest$DD13C.diss, method = "pearson", use = "pairwise.complete.obs")
 cor.test(wsTest$DD13C.North, wsTest$DD13C.diss, method = "pearson", use = "pairwise.complete.obs")
 cor.test(wsTest$DD13C.South, wsTest$DD13C.diss, method = "pearson", use = "pairwise.complete.obs")
@@ -1217,22 +472,22 @@ wstidier$Type <- factor(wstidier$Type, levels = c("Top Soil", "Dissolved", "Sedi
 
 
 # epsilon
-epsilon_field <- cofDegField
-initialDelta
+#epsilon_field
+#initialDelta
 
-wstidier$DegField <- (1-((1000 + d13Co + wstidier$measure)/(1000+d13Co))^(1000/epsilon_field))*100 
-wstidier$DegLab <- (1-((1000 + d13Co + wstidier$measure)/(1000+d13Co))^(1000/epsilon_lab))*100 
+#wstidier$DegField <- (1-((1000 + d13Co + wstidier$measure)/(1000+d13Co))^(1000/epsilon_field))*100 
+#wstidier$DegLab <- (1-((1000 + d13Co + wstidier$measure)/(1000+d13Co))^(1000/epsilon_lab))*100 
 
-wstidier$DegDiff <- (wstidier$DegField - wstidier$DegLab) 
+#wstidier$DegDiff <- (wstidier$DegField - wstidier$DegLab) 
 
 wstidier$Location <- as.factor(wstidier$Location)
 #wstidier$Week <- as.factor(wstidier$Week)
 
 #library(dplyr)
 #detach("package:plyr")
-sumary <- na.omit(wstidier) %>% 
-  group_by(Type) %>%
-  summarise(mean = mean(DegDiff))
+#sumary <- na.omit(wstidier) %>% 
+#  group_by(Type) %>%
+#  summarise(mean = mean(DegDiff))
 
 limits_DdC <- aes(ymin=measure-SD, ymax=measure+SD, colour = Source)
 
