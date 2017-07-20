@@ -62,11 +62,14 @@ sum(is.na(outlet$ti))
 
 # Select variables from Water dataset
 outlet <- outlet[, c("ti", "WeekSubWeek", "Event", "timeSinceApp", "timeSinceApp.NoSo",
-                     "diss.d13C", "SD.d13C","CumOutDiss.g", "CumOutFilt.g", "CumAppMass.g", "CumOutMELsm.g")]
+                     "diss.d13C", "SD.d13C","CumOutDiss.g", "CumOutFilt.g", 
+                     "CumAppMass.g", "iniCo.ug.g.N",  "iniCo.ug.g.T", "iniCo.ug.g.S",  
+                     "CumOutMELsm.g")]
 print("Water")
-str(outlet)
+names(outlet)
 
 soils = read.csv2("Data/WeeklySoils_Rng.csv", header =T) # Corrected with only ngC > 2.0 
+names(soils)
 soils$Date.ti <- as.POSIXct(soils$Date.ti, "%Y-%m-%d %H:%M", tz = "EST")
 #soils$Date.ti <- as.POSIXct(soils$Date.ti, "%d/%m/%Y %H:%M", tz = "EST")
 sum(is.na(soils$Date.ti))
@@ -86,13 +89,19 @@ soils.N <- soils.N[, c("Date.ti",
                        "MassSoil.g", "MassSoil.g.SD", 
                        "Conc.mug.g.dry.soil", 
                        "comp.d13C", "comp.d13C.SD", # "comp.d13C.SE", 
-                       "ID", "Area.N", "Area.T", "Area.S" )]
+                       "ID", 
+                       "Area.N", "Area.T", "Area.S" #,
+                       # "Area_Nt", "Area_Tt", "Area_St"
+                       )]
 
 colnames(soils.N) <- c("ti",
                        "MassSoil.g.North", "MassSoil.g.SD.North",
                        "Conc.mug.g.dry.soil.N",
                        "comp.d13C.North", "comp.d13C.SD.North", # "comp.d13C.SE.North",  
-                       "ID.N", "Area.N", "Area.T", "Area.S" )
+                       "ID.N", 
+                       "Area.N", "Area.T", "Area.S"#,
+                       #"Area.Nt", "Area.Tt", "Area.St"
+                       )
 
 # Talweg
 soils.T <- subset(soils, soils$Transect == "T")
@@ -206,6 +215,10 @@ soilsOut$BulkCatch.Conc <-
   (soilsOut$Area.T/soilsOut$Area.Catchment)*soilsOut$Conc.mug.g.dry.soil.T + 
   (soilsOut$Area.S/soilsOut$Area.Catchment)*soilsOut$Conc.mug.g.dry.soil.S
 
+soilsOut$iniCo.Bulk <-
+  soilsOut$iniCo.ug.g.N*(soilsOut$Area.N/soilsOut$Area.Catchment) +
+  soilsOut$iniCo.ug.g.T*(soilsOut$Area.T/soilsOut$Area.Catchment) + 
+  soilsOut$iniCo.ug.g.S*(soilsOut$Area.S/soilsOut$Area.Catchment)
 
 
 ```

@@ -1,0 +1,122 @@
+---
+title: "Isotope Data Treatment"
+author: "PAZ"
+date: "13/07/2017"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, warning=FALSE, message = FALSE)
+Sys.setlocale("LC_ALL", "English")
+```
+
+# Introduction
+
+This document treats IRMS raw csv files. 
+
+# Files
+
+- **All raw isotope .csv files **
+
+# Packages
+
+```{r, warning=FALSE,}
+library(dplyr)
+```
+
+# Import files
+
+```{r}
+# Outlet
+getwd() # Ensure you have the correct parent directory
+filenames <- list.files("Data/Outlet", pattern="*.csv", full.names=TRUE) #where you have your files
+outlet1 <- do.call(rbind, lapply(filenames, read.csv2, header = TRUE, sep = ","))
+names(outlet1)
+outlet1$Component <- as.character(outlet1$Component) 
+colnames(outlet1)[colnames(outlet1) == "d.13C.12C.per.mil.vs..VPDB"] <- "d13C"
+outlet1$d13C <- as.numeric(as.character(outlet1$d13C))
+outlet1 <- outlet1[ which(outlet1$Component == "S-Metolachlor"), ]
+outlet1 <- outlet1[, (names(outlet1) %in% c("Filename", "d13C") )]
+
+
+# Older files (need to adjust Carbon standard), re-integrated
+filenames <- list.files("Data/Outlet/BEFORE_Jan24_m_1.043", pattern="*.csv", full.names=TRUE) #where you have your files
+outlet2 <- do.call(rbind, lapply(filenames, read.csv2, header = TRUE, sep = ","))
+outlet2$Component <- as.character(outlet2$Component) 
+colnames(outlet2)[colnames(outlet2) == "d.13C.12C.per.mil.vs..VPDB"] <- "d13C"
+outlet2$d13C <- as.numeric(as.character(outlet2$d13C))
+outlet2 <- outlet1[ which(outlet2$Component == "S-Metolachlor"), ]
+outlet2 <- outlet2[, (names(outlet2) %in% c("Filename", "d13C"))]
+outlet2$d13C <- outlet2$d13C - 1.043
+
+# Older files (need to adjust Carbon standard), second format, re-integrated
+filenames <- list.files("Data/Outlet/BEFORE_Jan24_m_1.043/Format1", pattern="*.csv", full.names=TRUE) 
+outlet3 <- do.call(rbind, lapply(filenames, read.csv2, header = TRUE, sep = ","))
+outlet3$Component <- as.character(outlet3$Component) 
+colnames(outlet3)[colnames(outlet3) == "d.13C.12C"] <- "d13C"
+outlet3 <- outlet3[which(outlet3$Component == "S-Metolachlor"), ]
+outlet3 <- outlet3[ , (names(outlet3) %in% c("FileHeader..Filename", "d13C"))]
+colnames(outlet3)[colnames(outlet3) == "FileHeader..Filename"] <- "Filename"
+outlet3$d13C <- as.numeric(as.character(outlet3$d13C))
+outlet3$d13C <- outlet3$d13C - 1.043
+
+
+out <- rbind(outlet1, outlet2, outlet3)
+
+#detach("package:plyr")
+sumaryOutlet <- na.omit(out) %>% 
+  group_by(Filename) %>%
+  summarise(mean = mean(d13C), 
+            N_out = length(d13C))
+
+
+
+```
+
+
+## Soils
+
+```{r}
+filenames <- list.files("Data/Composites", pattern="*.csv", full.names=TRUE) #where you have your files
+soil1 <- do.call(rbind, lapply(filenames, read.csv2, header = TRUE, sep = ","))
+names(soil1)
+
+soil1$Component <- as.character(soil1$Component) 
+colnames(soil1)[colnames(soil1) == "d.13C.12C.per.mil.vs..VPDB"] <- "d13C"
+soil1$d13C <- as.numeric(as.character(soil1$d13C))
+soil1 <- soil1[ which(soil1$Component == "S-Metolachlor"), ]
+soil1 <- soil1[, (names(soil1) %in% c("Filename", "d13C"))]
+
+
+filenames <- list.files("Data/Composites/BEFORE_Jan24_m_1.043", pattern="*.csv", full.names=TRUE) #where you have your files
+soil2 <- do.call(rbind, lapply(filenames, read.csv2, header = TRUE, sep = ","))
+names(soil2)
+
+soil2$Component <- as.character(soil2$Component) 
+colnames(soil2)[colnames(soil2) == "d.13C.12C.per.mil.vs..VPDB"] <- "d13C"
+soil2$d13C <- as.numeric(as.character(soil2$d13C))
+soil2 <- soil2[ which(soil2$Component == "S-Metolachlor"), ]
+soil2 <- soil2[, (names(soil2) %in% c("Filename", "d13C"))]
+soil2$d13C <- soil2$d13C - 1.043
+
+
+filenames <- list.files("Data/Composites/BEFORE_Jan24_m_1.043", pattern="*.csv", full.names=TRUE) #where you have your files
+soil3 <- do.call(rbind, lapply(filenames, read.csv2, header = TRUE, sep = ","))
+soil3$Component <- as.character(soil3$Component) 
+colnames(soil3)[colnames(soil3) ==  "d.13C.12C.per.mil.vs..VPDB"] <- "d13C"
+soil3 <- soil3[which(soil3$Component == "S-Metolachlor"), ]
+soil3 <- soil3[ , (names(soil3) %in% c("Filename", "d13C"))]
+soil3$d13C <- as.numeric(as.character(soil3$d13C))
+soil3$d13C <- soil3$d13C - 1.043
+
+soil <- rbind(soil1, soil2, soil3)
+
+sumarySoil <- na.omit(soil) %>% 
+  group_by(Filename) %>%
+  summarise(mean = mean(d13C), 
+            N_out = length(d13C))
+
+write.csv(sumarySoil, "soils_rec_d13C.csv", row.names = T)
+
+```
+

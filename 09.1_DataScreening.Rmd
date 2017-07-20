@@ -75,10 +75,12 @@ epsilon_mean= -2.2 # ± 0.4
 epsilon_lab = epsilon_mean
 
 # Field values, after dilution correction (Van Breukelen 2008):
-# Calculated in Book 9.1
+# Calculated in Book 9.2
 epsilonField_max = -1.7 + 0.33 
 epsilonField_min = -1.7 - 0.33  
 epsilonField_mean = -1.7 # ± 0.33
+
+# Closed system assumption applied to field for demonstration
 
 epsilon_field = epsilonField_mean
 ```
@@ -102,7 +104,7 @@ sum(is.na(soils$Date.ti)) == 0
 
 initialDelta
 
-# Get rid of imputed values to avoid unwanted bias
+# Get rid of imputed values to avoid bias
 soils$DD13C.North <- (ifelse(!is.na(soils$comp.d13C.SD.North), soils$comp.d13C.North - (initialDelta), NA))
 soils$DD13C.Talweg <- (ifelse(!is.na(soils$comp.d13C.SD.Talweg), soils$comp.d13C.Talweg - (initialDelta), NA))
 soils$DD13C.South <- (ifelse(!is.na(soils$comp.d13C.SD.South), soils$comp.d13C.South - (initialDelta), NA))
@@ -136,9 +138,9 @@ soilGroups$Date.ti <- as.POSIXct(strptime(soilGroups$Date.ti,
 sum(is.na(soilGroups$Date.ti)) == 0
 
 soilGroups$comp.d13C <- ifelse(is.na(soilGroups$comp.d13C.SD), NA, soilGroups$comp.d13C)
-soilGroups$ngC.Label <- ifelse(soilGroups$ngC.mean < 10, "< 10 ng", "> 10 ng")
+# soilGroups$ngC.Label <- ifelse(soilGroups$ngC.mean < 10, "< 10 ng", "> 10 ng")
 
-soilGroups <- subset(soilGroups, comp.d13C.SD <= 0.75)
+soilGroups <- subset(soilGroups, comp.d13C.SD <= 0.70)
 
 #str(soils)
 
@@ -146,7 +148,7 @@ soilGrApp <- merge(soilGroups, timeApps, by = "Date.ti", all = F)
 soilGrApp <- soilGrApp[complete.cases(soilGrApp[ , "timeSinceApp"]),]
 
 soilGrApp$DD13C.comp <- ifelse(is.na(soilGrApp$comp.d13C.SD), NA, soilGrApp$DD13C.comp)
-soilGrApp <- subset(soilGrApp, comp.d13C.SD <= 0.75)
+soilGrApp <- subset(soilGrApp, comp.d13C.SD <= 0.70)
 
 cor.test(soilGroups$comp.d13C, soilGroups$Conc.mug.g.dry.soil)
 
@@ -167,10 +169,10 @@ if (p_value < 0.0001){
 soilGrApp$Source <- ifelse(soilGrApp$Transect == "T", "Valley", "Plateau")
 soilGrApp$Source <- as.factor(soilGrApp$Source)
 
-p <- ggplot(data = subset(soilGrApp, !is.na(ngC.Label)), aes(x=Conc.mug.g.dry.soil, y=DD13C.comp))+
+p <- ggplot(data = soilGrApp, aes(x=Conc.mug.g.dry.soil, y=DD13C.comp))+
   geom_errorbar(aes(ymin = DD13C.comp - comp.d13C.SD, ymax = DD13C.comp + comp.d13C.SD)) +
   geom_errorbarh(aes(xmin = Conc.mug.g.dry.soil - Conc.ComSoil.SD, xmax = Conc.mug.g.dry.soil + Conc.ComSoil.SD)) +
-  stat_smooth(data = subset(soilGrApp, !is.na(ngC.Label)), 
+  stat_smooth(data = soilGrApp, 
               aes(x=Conc.mug.g.dry.soil, y=DD13C.comp), method = "lm", formula = y ~ poly(x, 2), se=F) +
   geom_point(aes(group = ID, size = timeSinceApp.NoSo)) + # , colour = Source)) +  # , shape = ngC.Label)) +
   theme_bw() +
@@ -202,6 +204,31 @@ p
   #stat_smooth(method = "lm", formula = y ~ poly(x, 2)) +
   #stat_smooth(method = "lm", formula = y~x, se=F) 
 ```
+
+### Closed system field enrichment derivation (for error estimation)
+
+```{r}
+soils$yRaleigh <- log((1000+d13Co+soils$DD13.Bulk)/(1000+d13Co))
+soils$xRaleigh <- log(soils$BulkCatch.Conc/soils$iniCo.Bulk)
+soilModel<-lm(yRaleigh~xRaleigh, data= soils) 
+summary(soilModel)
+
+cofsoil <- as.numeric(coef(soilModel)[2]*1000)
+minX <- confint(soilModel, "xRaleigh", level = 0.95)[1]*1000
+maxX <- confint(soilModel, "xRaleigh", level = 0.95)[2]*1000
+se <- summary(soilModel)$coef[[4]]*1000
+
+e_label <- sprintf("epsilon == %0.3f", cofsoil)
+
+CI95 = maxX - cofsoil
+
+ggplot(data = subset(soils,  !is.na(yRaleigh) ), aes(x=xRaleigh, y=yRaleigh)) +
+  geom_point() +
+  stat_smooth(method = "lm", formula = y ~ x, se=F) +
+  annotate("text", x = -1.5, y = 0.003, label = as.character(e_label), parse = T, size = 3.5) +
+  theme_bw()
+```
+
 
 # Import waters
 
@@ -366,7 +393,7 @@ ggplot(mpg, aes(displ, hwy)) +
   
 The equation for the secondary y-axis will be:
 
-$$B = (1 -  (\frac{1000 + \delta ^{13}C_0 + \Delta\delta^{13}C }{1000 + \delta^{13} C_0 })^{\frac{\epsilon}{1000}}  )*100 $$  
+$$B = (1 -  (\frac{1000 + \delta ^{13}C_0 + \Delta\delta^{13}C }{1000 + \delta^{13} C_0 })^{\frac{1000}{\epsilon}}  )*100 $$  
 
 Or this: https://github.com/tidyverse/ggplot2/wiki/Align-two-plots-on-a-page
 

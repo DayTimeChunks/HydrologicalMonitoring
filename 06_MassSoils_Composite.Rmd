@@ -83,6 +83,11 @@ Area_Sb = 13.91767*10^4 # [m2] # South Burger's as South
 
 Area_tot <- Area_Nb + Area_Tb + Area_Sb
 Area_tot 
+
+# Areas touching each transect (respective to)needed for Rayleigh initial concentrations) 
+#Area_Nt <- 101721.702 # [m2] 
+#Area_Tt <- 39247.330
+#Area_St <- 94205.501
 ```
 
 
@@ -128,8 +133,8 @@ if (length(weeklySoilIso) == 1){
 head(weeklySoilIso)
 colnames(weeklySoilIso)
 weeklySoilIso <- weeklySoilIso[complete.cases(weeklySoilIso[, "d.13C.12C"]), ]
-
 colnames(weeklySoilIso)[colnames(weeklySoilIso) == "DD13.32.253."] <- "DD13"
+weeklySoilIso$DD13 <- weeklySoilIso$d.13C.12C - -32.253
 colnames(weeklySoilIso)[colnames(weeklySoilIso) == "ng..C."] <- "ngC"
 colnames(weeklySoilIso)[colnames(weeklySoilIso) == "Filename"] <- "ID"
 
@@ -176,7 +181,7 @@ comp.CoIs$comp.IMP.d13C[is.na(comp.CoIs$comp.d13C)] <- ave(comp.CoIs$comp.d13C,
                                                            FUN= function(x) mean(x, na.rm = T))[is.na(comp.CoIs$comp.d13C)] 
 
 
-comp.CoIs$comp.d13C <- ifelse(is.na(comp.CoIs$comp.d13C), comp.CoIs$comp.IMP.d13C, comp.CoIs$comp.d13C) 
+# comp.CoIs$comp.d13C <- ifelse(is.na(comp.CoIs$comp.d13C), comp.CoIs$comp.IMP.d13C, comp.CoIs$comp.d13C) 
 
 comp.CoIs$DD13C.comp <- (comp.CoIs$comp.d13C - (d13Co))
 
@@ -274,7 +279,12 @@ comp.CoIs$Area.T <-
 comp.CoIs$Area.S <-
   ifelse((comp.CoIs$Wnum < 9), Area_Sa, Area_Sb)
   
+# Needed to compute Transect res
+#comp.CoIs$Area_Nt <- Area_Nt  # [m2] 
+#comp.CoIs$Area_Tt <- Area_Tt 
+#comp.CoIs$Area_St <- Area_St
 
+names(comp.CoIs)
 print("S-meto mass per transect at time-t")
 str(comp.CoIs)
 tail(comp.CoIs)

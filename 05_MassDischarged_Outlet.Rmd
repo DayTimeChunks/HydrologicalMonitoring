@@ -367,6 +367,12 @@ The 4 application dates were:
 - 2016-05-25 (Schmidt, Talweg, Corn)
 - 2016-06-04 (Assumed Speich and Mahler, Corn not on transect, Except Speich N1)
 
+To compute initial concentration needed for Rayleigh calculations, the application rates are used to derive the respective concentration at each plot $C_i$, plot area $A$ and the effective transect area $A_tr$ (i.e. proportional to sampling points along transect, not total area represented by transect within the catchment). 
+
+Note that initial concentrations at each transect are then extrapolated to the catchment to calculate initial catchment concentrations (bulk), which in turn do take into account the full catchment area.
+
+$$\sum_i C_{i} \cdot \frac{A_{i}}{A_{tr}}$$
+
 So the total applied mass mass is merged at the nearest sampling time marker available : 
 
 ```{r}
@@ -378,12 +384,38 @@ ti = c(as.POSIXct('2016-03-25 00:04:00' , tz="EST"),
        # as.POSIXct('2016-05-24 12:00:00' , tz="EST"),
        as.POSIXct('2016-06-04 15:32:00' , tz="EST"))
 
-Appl.Mass.g = c(17319.059, 4744.571, 1891.742, 6826.825)
+# Appl.Mass.g = c(17319.059, 4744.571, 1891.742, 6826.825)
+Appl.Mass.g = c(33242.550, 4744.571, 1891.742, 6826.825) # With Friess applying DG's doses instead of MG's
+# Initial soil concentration (needed for Rayleigh calculations later)
+
+# Effective area [m2] refers to plot area touched by a transect, not sub-catchment area.
+# Need this to calculate initial concentration.
+Narea_eff <- 101721.702
+Tarea_eff <- 39247.330
+Sarea_eff <- 94205.501
+
+MGplotConc <- 5.818 # ug/g soil for Mercantor Gold
+DGplotConc <- 20.364 # Dual Gold
+
+north_first <- DGplotConc*(43903.301/Narea_eff)
+talweg_first <- DGplotConc*(14204.800/Tarea_eff)
+south_first <- DGplotConc*(15022.600/Sarea_eff)+DGplotConc*(54313.801/Sarea_eff)
+  
+north_second <- north_first+MGplotConc*(9452.500/Narea_eff+13776.500/Narea_eff+17448.600/Narea_eff)
+talweg_second <- talweg_first+MGplotConc*(2965.980/Tarea_eff + 5336.080/Tarea_eff + 7356.830/Tarea_eff)
+south_second <- south_first+MGplotConc*(24869.100/Sarea_eff)
+
+talweg_third <- talweg_second+DGplotConc*(9383.640/Tarea_eff)
+north_fourth <- north_second+DGplotConc*(17140.801/Narea_eff)
 
 applics = as.data.frame(ti)
 applics$Appl.Mass.g = Appl.Mass.g
+applics$iniCo.ug.g.N = c(north_first, north_second, north_second, north_fourth)
+applics$iniCo.ug.g.T = c(talweg_first, talweg_second, talweg_third, talweg_third)
+applics$iniCo.ug.g.S = c(south_first, south_second, south_second, south_second)
 
 out.CoIs = merge(out.CoIs, applics, by = "ti", all = T)
+
 out.CoIs$Appl.Mass.g <- ifelse(is.na(out.CoIs$Appl.Mass.g), 0.0, out.CoIs$Appl.Mass.g)
 
 out.CoIs$timeSinceApp <- NA
@@ -412,6 +444,10 @@ out.CoIs$timeSinceApp.NoSo <- round(out.CoIs$timeSinceApp.NoSo/24, 1)
 
 # Cumulative (Continous)
 out.CoIs$CumAppMass.g = cumsum(out.CoIs$Appl.Mass.g)
+out.CoIs$iniCo.ug.g.N = na.locf(out.CoIs$iniCo.ug.g.N)
+out.CoIs$iniCo.ug.g.T = na.locf(out.CoIs$iniCo.ug.g.T)
+out.CoIs$iniCo.ug.g.S = na.locf(out.CoIs$iniCo.ug.g.S)
+
 
 ```
 

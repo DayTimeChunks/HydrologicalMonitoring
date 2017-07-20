@@ -713,14 +713,14 @@ soilsOut$BulkCatch.d13 <- ifelse(is.na(soilsOut$comp.d13C.SD.North), NA,
 print("Mass Balance Soils")
 str(soilsOut)
 
-
+names(soilsOut)
 # Melt data set
 ##Subset the necessary columns
 soilsRemainMass <- soilsOut[, c("ti" , "WeekSubWeek", 
                                 "diss.d13C", "SD.d13C", 
                                 "CumAppMass.g", "CatchMassSoil.g",
-                                "CumOutDiss.g", "CumOutFilt.g", "CumOutMELsm.g",
-                                "f.mean.bulk", "B.mean.bulk"
+                                "CumOutDiss.g", "CumOutFilt.g", "CumOutMELsm.g"
+                                # "f.mean.bulk", "B.mean.bulk"
                                 )]
 
 # Fraction remaining with mean lab epsilon (Alteck)
