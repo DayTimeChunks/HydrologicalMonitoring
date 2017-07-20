@@ -375,18 +375,28 @@ soils$dM.g.N =  (soils$iniCo.ug.g.N*rho*soils$Area.N*depth - soils$Conc.mug.g.dr
 soils$dM.g.T =  (soils$iniCo.ug.g.T*rho*soils$Area.T*depth - soils$Conc.mug.g.dry.soil.T*rho*soils$Area.T*depth)*1/10^6
 soils$dM.g.S =  (soils$iniCo.ug.g.S*rho*soils$Area.S*depth - soils$Conc.mug.g.dry.soil.S*rho*soils$Area.S*depth)*1/10^6
 
-soils$Area.Catch <- soils$Area.N + soils$Area.S + soils$Area.T
-soils$dM.g.Bulk <- (soils$iniCo.Bulk*rho*soils$Area.Catch*depth - soils$BulkCatch.Conc*rho*soils$Area.Catch*depth)*1/10^6
-
-
 soils$Mdeg.g.N <- soils$dM.g.N*soils$Bstar.N
 soils$Mdeg.g.T <- soils$dM.g.T*soils$Bstar.T
 soils$Mdeg.g.S <- soils$dM.g.S*soils$Bstar.S
-soils$Mdeg.g.Bulk <- soils$dM.g.Bulk*soils$Bstar.Bulk
-
 soils$SumDeg.g <- soils$Mdeg.g.N + soils$Mdeg.g.T + soils$Mdeg.g.S
+
+soils$Mdil.g.N <- soils$dM.g.N*soils$Dstar.N
+soils$Mdil.g.T <- soils$dM.g.T*soils$Dstar.T
+soils$Mdil.g.S <- soils$dM.g.S*soils$Dstar.S
+soils$SumDil.g <- soils$Mdil.g.N + soils$Mdil.g.T + soils$Mdil.g.S
+
+soils$Mrem.g <- 
+  (soils$Conc.mug.g.dry.soil.N*rho*soils$Area.N*depth +
+     soils$Conc.mug.g.dry.soil.T*rho*soils$Area.T*depth +
+     soils$Conc.mug.g.dry.soil.S*rho*soils$Area.S*depth)*1/10^6
+
 soils$PrctDeg <- (soils$SumDeg.g/soils$CumAppMass.g)*100 # Sum of transect degradations relative to Applied mass
-soils$PrctDeg.Bulk <- (soils$Mdeg.g.Bulk /soils$CumAppMass.g)*100 # Bulk deg. rel. to app. mass (shouldbe = Elsner Bulk)
+
+
+# soils$Area.Catch <- soils$Area.N + soils$Area.S + soils$Area.T
+# soils$dM.g.Bulk <- (soils$iniCo.Bulk*rho*soils$Area.Catch*depth - soils$BulkCatch.Conc*rho*soils$Area.Catch*depth)*1/10^6
+# soils$Mdeg.g.Bulk <- soils$dM.g.Bulk*soils$Bstar.Bulk
+# soils$PrctDeg.Bulk <- (soils$Mdeg.g.Bulk /soils$CumAppMass.g)*100 # Bulk deg. rel. to app. mass (shouldbe = Elsner Bulk)
 
 
 soils$DiffToB.breukelen <- soils$Bprct.Bulk - soils$PrctDeg
@@ -405,8 +415,8 @@ dropS <- c("Area.Catch", "Area.N", "Area.T", "Area.S",
            "fdeg.N", "fdeg.T", "fdeg.S", "fdeg.Bulk",
            "Bstar.N", "Bstar.T", "Bstar.S", "Bstar.Bulk", 
            "Dstar.N", "Dstar.T", "Dstar.S", "Dstar.Bulk", 
-           "dM.g.N", "dM.g.T", "dM.g.S",
-           "Mdeg.g.N", "Mdeg.g.T", "Mdeg.g.S"
+           "dM.g.N", "dM.g.T", "dM.g.S"# ,
+           #"Mdeg.g.N", "Mdeg.g.T", "Mdeg.g.S"
            )
 
 soilsRay <- soils[ , !colnames(soils) %in% dropS]
@@ -525,8 +535,8 @@ $$C_{soil}~[\mu g/L_{H_2O} ] = \frac{ C_{soil} }{\theta_{sat} + \rho_{soil} \cdo
 ```{r}
 # S-metolachlor Mass [g]
 # Conc. [ug/g dry soil] * [g/10^6 ug] * density [g/m3] * depth [m]* A [m2] 
-# Soil bulk density: 2200 or 0.99? -> Leaching experiments: 0.99 [g/cm3]
-rho = 0.99*10^6 # soil density [g/m3]
+# Soil bulk density: 2200 or 0.99? -> Leaching experiments: 0.98 [g/cm3]
+rho = 0.98*10^6 # soil density [g/m3]
 depth = 0.01 # [m]
 theta = 0.4
 # Kd = 2.397/10^6 # m3/g (aged)

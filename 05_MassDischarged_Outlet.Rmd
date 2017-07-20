@@ -367,9 +367,9 @@ The 4 application dates were:
 - 2016-05-25 (Schmidt, Talweg, Corn)
 - 2016-06-04 (Assumed Speich and Mahler, Corn not on transect, Except Speich N1)
 
-To compute initial concentration needed for Rayleigh calculations, the application rates are used to derive the respective concentration at each plot $C_i$, plot area $A$ and the effective transect area $A_tr$ (i.e. proportional to sampling points along transect, not total area represented by transect within the catchment). 
+To compute initial concentration needed for Rayleigh calculations, the application rates are used to derive the respective concentration at each plot $C_i$, plot area $A$ and the effective transect area $A_tr$ (i.e. proportional to sampling points along transect, not total area represented by transect or sub-catchment area). 
 
-Note that initial concentrations at each transect are then extrapolated to the catchment to calculate initial catchment concentrations (bulk), which in turn do take into account the full catchment area.
+Note that initial concentrations at each transect will be later extrapolated to the catchment to calculate initial catchment concentrations (bulk), which in turn do take into account the full catchment area.
 
 $$\sum_i C_{i} \cdot \frac{A_{i}}{A_{tr}}$$
 
