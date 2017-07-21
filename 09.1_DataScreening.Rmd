@@ -172,7 +172,7 @@ soilGrApp$Source <- as.factor(soilGrApp$Source)
 p <- ggplot(data = soilGrApp, aes(x=Conc.mug.g.dry.soil, y=DD13C.comp))+
   geom_errorbar(aes(ymin = DD13C.comp - comp.d13C.SD, ymax = DD13C.comp + comp.d13C.SD)) +
   geom_errorbarh(aes(xmin = Conc.mug.g.dry.soil - Conc.ComSoil.SD, xmax = Conc.mug.g.dry.soil + Conc.ComSoil.SD)) +
-  stat_smooth(data = soilGrApp, 
+  stat_smooth(data = subset(soilGrApp, Conc.mug.g.dry.soil < 7), 
               aes(x=Conc.mug.g.dry.soil, y=DD13C.comp), method = "lm", formula = y ~ poly(x, 2), se=F) +
   geom_point(aes(group = ID, size = timeSinceApp.NoSo)) + # , colour = Source)) +  # , shape = ngC.Label)) +
   theme_bw() +
@@ -524,6 +524,8 @@ wstidier2 = subset(wstidier, SD <= 0.75) #& Source != "Bulk"  ) #& Date < as.POS
 NoBASE <- subset(wstidier2, Week != "W6-1" ) 
 
 pd <- position_dodge(width = 0.4)
+
+
 wsALL_lab <- ggplot(data = wstidier2, aes(x = Date, y = measure, group = Source) )+ 
   geom_errorbar(data=subset(wstidier2, Source == 'Bulk'), limits_DdC, size=0.2) +
   geom_errorbar(data=subset(wstidier2, Source == 'Valley' & 
@@ -588,9 +590,9 @@ wsALL_lab <- ggplot(data = wstidier2, aes(x = Date, y = measure, group = Source)
                      ) +
   scale_size_continuous(range = c(1, 3)) #
 
-
-
-
+# ggplotly(wsALL_lab)
+```
+```{r}
 wsALL_field <- ggplot(data = wstidier2, aes(x = Date, y = measure, group = Source) )+ 
   geom_errorbar(data=subset(wstidier2, Source == 'Bulk'), limits_DdC, size=0.2) +
   geom_errorbar(data=subset(wstidier2, Source == 'Valley' & 
@@ -673,9 +675,9 @@ wsALL_field <- ggplot(data = wstidier2, aes(x = Date, y = measure, group = Sourc
 
 #ggplotly(wsALL_field)
 wsALL_field
-
-
 ```
+
+
 
 ## Join all figures
 ```{r}

@@ -56,7 +56,7 @@ initialDelta = d13Co = -32.253
 # Co <- 6.53 # ug/g dry soil (based on Max conc. measured in soils)
 # Note: Each transect now has individual starting concentration
 
-rho = 0.99*10^6 # soil density [g/m3]
+rho = 0.98*10^6 # soil density [g/m3]
 depth = 0.01 # [m]
 
 # Reference values

@@ -384,8 +384,11 @@ ti = c(as.POSIXct('2016-03-25 00:04:00' , tz="EST"),
        # as.POSIXct('2016-05-24 12:00:00' , tz="EST"),
        as.POSIXct('2016-06-04 15:32:00' , tz="EST"))
 
-# Appl.Mass.g = c(17319.059, 4744.571, 1891.742, 6826.825)
-Appl.Mass.g = c(33242.550, 4744.571, 1891.742, 6826.825) # With Friess applying DG's doses instead of MG's
+# Appl.Mass.g = c(17319.059, 4744.571, 1891.742, 6826.825) # With Friess applying MG's doses for Beet 
+# Appl.Mass.g = c(33242.550, 4744.571, 1891.742, 6826.825) # With Friess applying DG's doses instead of MG's
+# Appl.Mass.g = c(31670.073, 4744.571, 1803.066, 6506.818) # With Friess applying MG's doses for Corn 
+Appl.Mass.g = c(31670.073, 12316.197, 1803.066, 6506.818) # With Kopp applying MG's doses for Corn, not Beet 
+
 # Initial soil concentration (needed for Rayleigh calculations later)
 
 # Effective area [m2] refers to plot area touched by a transect, not sub-catchment area.
@@ -394,19 +397,39 @@ Narea_eff <- 101721.702
 Tarea_eff <- 39247.330
 Sarea_eff <- 94205.501
 
-MGplotConc <- 5.818 # ug/g soil for Mercantor Gold
-DGplotConc <- 20.364 # Dual Gold
+MGplotConc.Corn <- 19.592 # Assume for Friess, as he grew both Corn and Beet 
+MGplotConc.Beet <- 5.878 # ug/g soil for Mercantor Gold
+DGplotConc <- 19.607 # Dual Gold
 
-north_first <- DGplotConc*(43903.301/Narea_eff)
-talweg_first <- DGplotConc*(14204.800/Tarea_eff)
-south_first <- DGplotConc*(15022.600/Sarea_eff)+DGplotConc*(54313.801/Sarea_eff)
+# Initial concentrations: 
+north_first <- 
+  MGplotConc.Corn*(43903.301/Narea_eff) # Friess Area fraction, ug/g
+talweg_first <- 
+  DGplotConc*(14204.800/Tarea_eff) # Friess
+south_first <- 
+  DGplotConc*((15022.6+15697.6)/Sarea_eff)+ # Friess
+  DGplotConc*(54313.801/Sarea_eff) # Mathis
   
-north_second <- north_first+MGplotConc*(9452.500/Narea_eff+13776.500/Narea_eff+17448.600/Narea_eff)
-talweg_second <- talweg_first+MGplotConc*(2965.980/Tarea_eff + 5336.080/Tarea_eff + 7356.830/Tarea_eff)
-south_second <- south_first+MGplotConc*(24869.100/Sarea_eff)
+north_second <- 
+  north_first+
+  MGplotConc.Corn*(9452.500/Narea_eff+ # Kopp
+                     13776.500/Narea_eff+
+                     17448.600/Narea_eff)
+talweg_second <- 
+  talweg_first+
+  MGplotConc.Corn*(2965.980/Tarea_eff # Kopp, T-4
+                   + 5336.080/Tarea_eff # Kopp, T-7
+                   + 7356.830/Tarea_eff) # Kopp, T-8
 
-talweg_third <- talweg_second+DGplotConc*(9383.640/Tarea_eff)
-north_fourth <- north_second+DGplotConc*(17140.801/Narea_eff)
+south_second <- 
+  south_first+
+  MGplotConc.Beet*(24869.100/Sarea_eff)
+
+talweg_third <- 
+  talweg_second+DGplotConc*(9383.640/Tarea_eff)
+
+north_fourth <- 
+  north_second+DGplotConc*(17140.801/Narea_eff)
 
 applics = as.data.frame(ti)
 applics$Appl.Mass.g = Appl.Mass.g

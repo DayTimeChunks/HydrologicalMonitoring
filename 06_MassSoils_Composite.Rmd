@@ -19,8 +19,7 @@ This file merges weekly composite concentrations and isotope data.
 Imports: 
 
 - **SoilCompConc_W1toW15.csv** 
-- **SoilCompIsotopes_W1toW15.csv** (old, not used)
-- **SoilCompIsotopes_W1toW15ng.csv**
+- **SoilCompIsotopes_W1toW15.csv** 
 
 Generates:
 
@@ -110,6 +109,7 @@ head(weeklySoilConc)
 weeklySoilConc$Date.ti <- as.POSIXct(strptime(weeklySoilConc$Date.Soil, "%d/%m/%Y %H:%M", tz="EST")) 
 sum(is.na(weeklySoilConc$Date.ti))
 # View(weeklySoilConc)
+names(weeklySoilConc)
 weeklySoilConc <- weeklySoilConc[,c("Filename",
                                     "Transect",
                                     "Wnum",
@@ -122,43 +122,39 @@ colnames(weeklySoilConc)[colnames(weeklySoilConc) == "Filename"] <- "ID"
 print("Soil Composites- Concentrations")
 str(weeklySoilConc)
 
-# JESIUM data (before nangoram revision)
-# weeklySoilIso = read.csv2("Data/SoilCompIsotopes_W1toW15.csv", header = TRUE) 
-
 # After nanogram revision
-weeklySoilIso  = read.csv2("Data/SoilCompIsotopes_W1toW15ng.csv", header = TRUE, dec = ".")
+weeklySoilIso  = read.csv2("Data/SoilCompIsotopes_W1toW15.csv", header = TRUE, dec = ".")
 if (length(weeklySoilIso) == 1){
-  weeklySoilIso = read.csv("Data/SoilCompIsotopes_W1toW15ng.csv", header = T)
+  weeklySoilIso = read.csv("Data/SoilCompIsotopes_W1toW15.csv", header = T)
 }
-head(weeklySoilIso)
 colnames(weeklySoilIso)
+weeklySoilIso$ID <- NULL
 weeklySoilIso <- weeklySoilIso[complete.cases(weeklySoilIso[, "d.13C.12C"]), ]
-colnames(weeklySoilIso)[colnames(weeklySoilIso) == "DD13.32.253."] <- "DD13"
 weeklySoilIso$DD13 <- weeklySoilIso$d.13C.12C - -32.253
-colnames(weeklySoilIso)[colnames(weeklySoilIso) == "ng..C."] <- "ngC"
 colnames(weeklySoilIso)[colnames(weeklySoilIso) == "Filename"] <- "ID"
 
 weeklySoilIso <- weeklySoilIso[, c("ID",
                                    # "Repl",
                                    "d.13C.12C",
-                                   "DD13", 
-                                   "ngC")]
+                                   "DD13"
+                                   )]
 
 isoCompSummary = ddply(weeklySoilIso, c("ID"), summarise,
                          N_compsoil    = length(d.13C.12C),
                          comp.d13C = mean(d.13C.12C),
                          comp.d13C.SD = sd(d.13C.12C),
+                         N_isoComp = length(d.13C.12C)
                          # comp.d13C.SE = comp.d13C.SD / sqrt(N_compsoil),
-                         N_ngC = length(ngC),
-                         ngC.mean = mean(ngC),
-                         ngC.SD = sd(ngC) #,
+                         # N_ngC = length(ngC),
+                         # ngC.mean = mean(ngC),
+                         # ngC.SD = sd(ngC) #,
                          # ngC.SE = ngC.SD/sqrt(N_ngC)
                        )
 
 isoCompSummary$prctError <- (isoCompSummary$comp.d13C.SD/isoCompSummary$comp.d13C)*-100
 mean(!is.na(isoCompSummary$prctError))
 
-sum(isoCompSummary$N_ngC == 2)/(sum(isoCompSummary$N_ngC == 2) + sum(isoCompSummary$N_ngC > 2))
+# sum(isoCompSummary$N_ngC == 2)/(sum(isoCompSummary$N_ngC == 2) + sum(isoCompSummary$N_ngC > 2))
 
 
 print("Soil Composites - Isotopes All")
@@ -174,16 +170,16 @@ str(isoCompSummary)
 comp.CoIs = merge(weeklySoilConc, isoCompSummary, by = "ID", all = T)
 comp.CoIs$Wnum = as.numeric(comp.CoIs$Wnum)
 comp.CoIs <- comp.CoIs[order(comp.CoIs$Wnum),]
+comp.CoIs$DD13C.comp <- (comp.CoIs$comp.d13C - (d13Co))
 
 comp.CoIs$comp.IMP.d13C <- comp.CoIs$comp.d13C
-comp.CoIs$comp.IMP.d13C[is.na(comp.CoIs$comp.d13C)] <- ave(comp.CoIs$comp.d13C,
-                                                           comp.CoIs$Wnum,
-                                                           FUN= function(x) mean(x, na.rm = T))[is.na(comp.CoIs$comp.d13C)] 
+comp.CoIs$comp.IMP.d13C[is.na(comp.CoIs$comp.d13C)] <- 
+  ave(comp.CoIs$comp.d13C,
+      comp.CoIs$Wnum,
+      FUN= function(x) mean(x, na.rm = T))[is.na(comp.CoIs$comp.d13C)] 
 
 
 # comp.CoIs$comp.d13C <- ifelse(is.na(comp.CoIs$comp.d13C), comp.CoIs$comp.IMP.d13C, comp.CoIs$comp.d13C) 
-
-comp.CoIs$DD13C.comp <- (comp.CoIs$comp.d13C - (d13Co))
 
 print("Merged Soil Concentrations and Isotopes")
 str(comp.CoIs)  
