@@ -12,7 +12,7 @@ Sys.setlocale("LC_ALL", "English")
 
 ## Purpose
 
-This file computes the discharged mass observed at the outlet. To do that it imports the weekly discharge summary and lab results for isotopes ($^{13}C$) and s-metolachlor concentrations.
+This file computes the discharged mass observed at the outlet. To do that it imports lab results for isotopes ($^{13}C$) and s-metolachlor concentrations, as well as the weekly discharge summary.
 
 Imports: 
 
@@ -159,15 +159,12 @@ outletIso = read.csv2("Data/Outlet_Isotopes_W0toW17.csv", header = T, dec = ".")
 if (length(outletIso) == 1){
   outletIso = read.csv("Data/Outlet_Isotopes_W0toW17.csv", header = T)
 }
-head(outletIso)
-
+str(outletIso)
 
 colnames(outletIso)
-colnames(outletIso)[colnames(outletIso) == "DD13...32.25."] <- "DD13"
-colnames(outletIso)[colnames(outletIso) == "ng..C."] <- "ngC"
+outletIso$DD13 <- outletIso$d.13C.12C - -32.253
 
 # Filter isotope data:
-
 filtersIso = read.csv2("Data/MESAlteck_FilterIsotopes.csv", header = T, dec = ".")
 #filtersIso <- filtersIso[filtersIso$Levl != "J+7", ]
 if (length(filtersIso) == 1){
@@ -178,7 +175,7 @@ filtersIso$WeekSubWeek = paste(filtersIso$Week, filtersIso$Num, sep = "-")
 colnames(filtersIso)[colnames(filtersIso) == "DD13.32.253."] <- "DD13"
 colnames(filtersIso)[colnames(filtersIso) == "ng..C."] <- "ngC"
 
-head(filtersIso)
+str(filtersIso)
 
 ```
 
@@ -211,27 +208,19 @@ isoOutSummary = ddply(outletIso, c("WeekSubWeek"), summarise,
                          N    = length(d.13C.12C),
                          diss.d13C = mean(d.13C.12C),
                          SD.d13C = sd(d.13C.12C),
-                         se.d13C = SD.d13C / sqrt(N), 
-                         N_ngC.diss = length(ngC),
-                         ngC.mean.diss = mean(ngC),
-                         ngC.SD.diss = sd(ngC))
+                         # se.d13C = SD.d13C / sqrt(N), 
+                         N_d13C.diss = length(d.13C.12C))
                       
-
-
-head(isoOutSummary)
-
-sum(isoOutSummary$N_ngC.diss == 2)
-sum(isoOutSummary$N_ngC.diss > 2)
-sum(isoOutSummary$N_ngC.diss == 2) /(sum(isoOutSummary$N_ngC.diss == 2) + sum(isoOutSummary$N_ngC.diss > 2))
 
 isoFiltSummary = ddply(filtersIso, c("WeekSubWeek"), summarise,
                          N    = length(d.13C.12C),
                          filt.d13C = mean(d.13C.12C),
-                         filt.SD.d13C = sd(d.13C.12C),
-                         filt.se.d13C = filt.SD.d13C / sqrt(N),
-                         N_ngC.fl = length(ngC),
-                         ngC.mean.fl = mean(ngC),
-                         ngC.SD.fl = sd(ngC))
+                         filt.SD.d13C = sd(d.13C.12C) #,
+                         # filt.se.d13C = filt.SD.d13C / sqrt(N),
+                         # N_ngC.fl = length(ngC),
+                         # ngC.mean.fl = mean(ngC),
+                         # ngC.SD.fl = sd(ngC)
+                       )
 head(isoFiltSummary)
 ```
 
@@ -389,6 +378,9 @@ ti = c(as.POSIXct('2016-03-25 00:04:00' , tz="EST"),
 # Appl.Mass.g = c(31670.073, 4744.571, 1803.066, 6506.818) # With Friess applying MG's doses for Corn 
 Appl.Mass.g = c(31670.073, 12316.197, 1803.066, 6506.818) # With Kopp applying MG's doses for Corn, not Beet 
 
+Appl.Mass.g.N <- c(8429.434, 7810.101, 0, 5346.189)
+Appl.Mass.g.T <- c(6903.610, 3073.636, 1803.066, 0)
+Appl.Mass.g.S <- c(16337.030, 1432.460, 0, 1160.628)
 # Initial soil concentration (needed for Rayleigh calculations later)
 
 # Effective area [m2] refers to plot area touched by a transect, not sub-catchment area.
@@ -433,6 +425,9 @@ north_fourth <-
 
 applics = as.data.frame(ti)
 applics$Appl.Mass.g = Appl.Mass.g
+applics$Appl.Mass.g.N = Appl.Mass.g.N
+applics$Appl.Mass.g.T = Appl.Mass.g.T
+applics$Appl.Mass.g.S = Appl.Mass.g.S
 applics$iniCo.ug.g.N = c(north_first, north_second, north_second, north_fourth)
 applics$iniCo.ug.g.T = c(talweg_first, talweg_second, talweg_third, talweg_third)
 applics$iniCo.ug.g.S = c(south_first, south_second, south_second, south_second)
@@ -440,6 +435,9 @@ applics$iniCo.ug.g.S = c(south_first, south_second, south_second, south_second)
 out.CoIs = merge(out.CoIs, applics, by = "ti", all = T)
 
 out.CoIs$Appl.Mass.g <- ifelse(is.na(out.CoIs$Appl.Mass.g), 0.0, out.CoIs$Appl.Mass.g)
+out.CoIs$Appl.Mass.g.N <- ifelse(is.na(out.CoIs$Appl.Mass.g.N), 0.0, out.CoIs$Appl.Mass.g.N)
+out.CoIs$Appl.Mass.g.T <- ifelse(is.na(out.CoIs$Appl.Mass.g.T), 0.0, out.CoIs$Appl.Mass.g.T)
+out.CoIs$Appl.Mass.g.S <- ifelse(is.na(out.CoIs$Appl.Mass.g.S), 0.0, out.CoIs$Appl.Mass.g.S)
 
 out.CoIs$timeSinceApp <- NA
 for (i in 1:length(out.CoIs$Duration.Hrs)){
@@ -450,6 +448,34 @@ for (i in 1:length(out.CoIs$Duration.Hrs)){
   }
 }
 
+out.CoIs$timeSinceApp.N <- NA
+for (i in 1:length(out.CoIs$Duration.Hrs)){
+  if (out.CoIs[i, ]['Appl.Mass.g.N'] != 0){
+    out.CoIs[i,]['timeSinceApp.N'] = out.CoIs[i, ]['Duration.Hrs']
+  } else {
+    out.CoIs[i, ]['timeSinceApp.N'] = out.CoIs[i ,]['Duration.Hrs'] + out.CoIs[i-1,]['timeSinceApp.N']
+  }
+}
+
+out.CoIs$timeSinceApp.T <- NA
+for (i in 1:length(out.CoIs$Duration.Hrs)){
+  if (out.CoIs[i, ]['Appl.Mass.g.T'] != 0){
+    out.CoIs[i,]['timeSinceApp.T'] = out.CoIs[i, ]['Duration.Hrs']
+  } else {
+    out.CoIs[i, ]['timeSinceApp.T'] = out.CoIs[i ,]['Duration.Hrs'] + out.CoIs[i-1,]['timeSinceApp.T']
+  }
+}
+
+out.CoIs$timeSinceApp.S <- NA
+for (i in 1:length(out.CoIs$Duration.Hrs)){
+  if (out.CoIs[i, ]['Appl.Mass.g.S'] != 0){
+    out.CoIs[i,]['timeSinceApp.S'] = out.CoIs[i, ]['Duration.Hrs']
+  } else {
+    out.CoIs[i, ]['timeSinceApp.S'] = out.CoIs[i ,]['Duration.Hrs'] + out.CoIs[i-1,]['timeSinceApp.S']
+  }
+}
+
+# Not in South
 out.CoIs$Appl.Mass.g.NoSo <- out.CoIs$Appl.Mass.g
 out.CoIs$Appl.Mass.g.NoSo[which(out.CoIs$ti == as.POSIXct('2016-05-23 18:02:00' , tz="EST"))] <- 0
 out.CoIs$timeSinceApp.NoSo <- NA
@@ -464,9 +490,15 @@ for (i in 1:length(out.CoIs$Duration.Hrs)){
 
 out.CoIs$timeSinceApp <- round(out.CoIs$timeSinceApp/24, 1) # Convert to days
 out.CoIs$timeSinceApp.NoSo <- round(out.CoIs$timeSinceApp.NoSo/24, 1)
+out.CoIs$timeSinceApp.N <- round(out.CoIs$timeSinceApp.N/24, 1) # Convert to days
+out.CoIs$timeSinceApp.T <- round(out.CoIs$timeSinceApp.T/24, 1) # Convert to days
+out.CoIs$timeSinceApp.S <- round(out.CoIs$timeSinceApp.S/24, 1) # Convert to days
 
 # Cumulative (Continous)
 out.CoIs$CumAppMass.g = cumsum(out.CoIs$Appl.Mass.g)
+out.CoIs$CumAppMass.g.N = cumsum(out.CoIs$Appl.Mass.g.N)
+out.CoIs$CumAppMass.g.T = cumsum(out.CoIs$Appl.Mass.g.T)
+out.CoIs$CumAppMass.g.S = cumsum(out.CoIs$Appl.Mass.g.S)
 out.CoIs$iniCo.ug.g.N = na.locf(out.CoIs$iniCo.ug.g.N)
 out.CoIs$iniCo.ug.g.T = na.locf(out.CoIs$iniCo.ug.g.T)
 out.CoIs$iniCo.ug.g.S = na.locf(out.CoIs$iniCo.ug.g.S)

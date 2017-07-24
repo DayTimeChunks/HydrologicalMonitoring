@@ -375,42 +375,77 @@ soils$dM.g.N =  (soils$iniCo.ug.g.N*rho*soils$Area.N*depth - soils$Conc.mug.g.dr
 soils$dM.g.T =  (soils$iniCo.ug.g.T*rho*soils$Area.T*depth - soils$Conc.mug.g.dry.soil.T*rho*soils$Area.T*depth)*1/10^6
 soils$dM.g.S =  (soils$iniCo.ug.g.S*rho*soils$Area.S*depth - soils$Conc.mug.g.dry.soil.S*rho*soils$Area.S*depth)*1/10^6
 
-soils$Mdeg.g.N <- soils$dM.g.N*soils$Bstar.N
-soils$Mdeg.g.T <- soils$dM.g.T*soils$Bstar.T
-soils$Mdeg.g.S <- soils$dM.g.S*soils$Bstar.S
-soils$SumDeg.g <- soils$Mdeg.g.N + soils$Mdeg.g.T + soils$Mdeg.g.S
+# Doubt, Don't think this formula is applicable to mass calculations, 
+# as mass is not affected by dilution, only concentration is
+if (FALSE) {
+  soils$Mdeg.g.N <- soils$dM.g.N*soils$Bstar.N
+  soils$Mdeg.g.T <- soils$dM.g.T*soils$Bstar.T
+  soils$Mdeg.g.S <- soils$dM.g.S*soils$Bstar.S
+  soils$SumDeg.g <- soils$Mdeg.g.N + soils$Mdeg.g.T + soils$Mdeg.g.S
 
-soils$Mdil.g.N <- soils$dM.g.N*soils$Dstar.N
-soils$Mdil.g.T <- soils$dM.g.T*soils$Dstar.T
-soils$Mdil.g.S <- soils$dM.g.S*soils$Dstar.S
-soils$SumDil.g <- soils$Mdil.g.N + soils$Mdil.g.T + soils$Mdil.g.S
+  soils$Mdil.g.N <- soils$dM.g.N*soils$Dstar.N
+  soils$Mdil.g.T <- soils$dM.g.T*soils$Dstar.T
+  soils$Mdil.g.S <- soils$dM.g.S*soils$Dstar.S
+  soils$SumDil.g <- soils$Mdil.g.N + soils$Mdil.g.T + soils$Mdil.g.S
+  
+} else {
+  soils$Mdeg.g.N <- soils$CumAppMass.g.N*soils$Belsner.N/100
+  soils$Mdeg.g.T <- soils$CumAppMass.g.T*soils$Belsner.T/100
+  soils$Mdeg.g.S <- (soils$CumAppMass.g.S)*soils$Belsner.S/100
+  soils$SumDeg.g <- soils$Mdeg.g.N + soils$Mdeg.g.T + soils$Mdeg.g.S
+}
 
 soils$Mrem.g <- 
   (soils$Conc.mug.g.dry.soil.N*rho*soils$Area.N*depth +
      soils$Conc.mug.g.dry.soil.T*rho*soils$Area.T*depth +
      soils$Conc.mug.g.dry.soil.S*rho*soils$Area.S*depth)*1/10^6
 
+soils$Mrem.g.N <- soils$Conc.mug.g.dry.soil.N*rho*soils$Area.N*depth*1/10^6
+soils$Mrem.g.T <- soils$Conc.mug.g.dry.soil.N*rho*soils$Area.T*depth*1/10^6
+soils$Mrem.g.S <- soils$Conc.mug.g.dry.soil.N*rho*soils$Area.S*depth*1/10^6
+
+soils$Mloss.g.N <- soils$CumAppMass.g.N - (soils$Mdeg.g.N + soils$Mrem.g.N)
+soils$Mloss.g.T <- soils$CumAppMass.g.T - (soils$Mdeg.g.T + soils$Mrem.g.T)
+soils$Mloss.g.S <- soils$CumAppMass.g.S - (soils$Mdeg.g.S + soils$Mrem.g.S)
+
+soils$PrctRem.N <- (soils$Mrem.g.N/soils$CumAppMass.g.N)*100
+soils$PrctRem.T <- (soils$Mrem.g.T/soils$CumAppMass.g.T)*100
+soils$PrctRem.S <- (soils$Mrem.g.S/(soils$CumAppMass.g.S))*100
+
 soils$PrctDeg <- (soils$SumDeg.g/soils$CumAppMass.g)*100 # Sum of transect degradations relative to Applied mass
+soils$PrctDeg.N <- (soils$Mdeg.g.N/soils$CumAppMass.g.N)*100
+soils$PrctDeg.T <- (soils$Mdeg.g.T/soils$CumAppMass.g.T)*100
+soils$PrctDeg.S <- (soils$Mdeg.g.S/(soils$CumAppMass.g.S))*100
 
+soils$PrctRem <- (soils$Mrem.g/soils$CumAppMass.g)*100
+soils$PrctLoss <- 100 - (soils$PrctRem + soils$PrctDeg)
+soils$PrctLoss.N <- 100 - (soils$PrctRem.N + soils$PrctDeg.N)
+soils$PrctLoss.T <- 100 - (soils$PrctRem.T + soils$PrctDeg.T)
+soils$PrctLoss.S <- 100 - (soils$PrctRem.S + soils$PrctDeg.S)
 
-# soils$Area.Catch <- soils$Area.N + soils$Area.S + soils$Area.T
-# soils$dM.g.Bulk <- (soils$iniCo.Bulk*rho*soils$Area.Catch*depth - soils$BulkCatch.Conc*rho*soils$Area.Catch*depth)*1/10^6
-# soils$Mdeg.g.Bulk <- soils$dM.g.Bulk*soils$Bstar.Bulk
-# soils$PrctDeg.Bulk <- (soils$Mdeg.g.Bulk /soils$CumAppMass.g)*100 # Bulk deg. rel. to app. mass (shouldbe = Elsner Bulk)
-
-
-soils$DiffToB.breukelen <- soils$Bprct.Bulk - soils$PrctDeg
-soils$DiffToB.elsner <- soils$Belsner.Bulk - soils$PrctDeg.Bulk
-#soils$Mdeg.g.N <- ifelse(is.na(soils$Mdeg.g.N), 0, soils$Mdeg.g.N)
-#soils$Mdeg.g.T <- ifelse(is.na(soils$Mdeg.g.T), 0, soils$Mdeg.g.T)
-#soils$Mdeg.g.S <- ifelse(is.na(soils$Mdeg.g.S), 0, soils$Mdeg.g.S)
-#soils$SumDeg.g.N <- cumsum(soils$Mdeg.g.N)
-#soils$SumDeg.g.T <- cumsum(soils$Mdeg.g.T)
-#soils$SumDeg.g.S <- cumsum(soils$Mdeg.g.S)
-
+names(soils)
 dropS <- c("Area.Catch", "Area.N", "Area.T", "Area.S", 
+            "WeekSubWeek", 
+           # Isotopes Soils
+           "comp.d13C.North", "comp.d13C.SD.North",
+           "comp.d13C.Talweg", "comp.d13C.SD.Talweg"  ,
+           "comp.d13C.South", "comp.d13C.SD.South",
+           "BulkCatch.d13", "BulkCatch.d13.SD",
            "DD.N", "DD.T", "DD.S","DD.Bulk", 
+           # ISotopes Water
+            "diss.d13C", "SD.d13C",
+           # Concentrations
+           "BulkCatch.Conc" ,
+           "Conc.mug.g.dry.soil.N", "Conc.mug.g.dry.soil.T", "Conc.mug.g.dry.soil.S", 
+      
+           "iniCo.Bulk", "iniCo.ug.g.N" , "iniCo.ug.g.T",  "iniCo.ug.g.S",
+           
+           # Mass
+           "CatchMassSoil.g", "CatchMassSoil.g.SD",
+           
+           # VanBreukelen
            "Fdil.N", "Fdil.T", "Fdil.S", "Fdil.Bulk",
+            "ftot.N","ftot.T", "ftot.S", "ftot.Bulk",  
            "fdil.N", "fdil.T", "fdil.S", "fdil.Bulk",
            "fdeg.N", "fdeg.T", "fdeg.S", "fdeg.Bulk",
            "Bstar.N", "Bstar.T", "Bstar.S", "Bstar.Bulk", 
@@ -420,6 +455,23 @@ dropS <- c("Area.Catch", "Area.N", "Area.T", "Area.S",
            )
 
 soilsRay <- soils[ , !colnames(soils) %in% dropS]
+soilsRay <- soilsRay[complete.cases(soilsRay[ , "ID.N"]), ]
+soilsRay$ID.N.x <- soilsRay$ID.N
+names(soilsRay)
+
+# soils$Area.Catch <- soils$Area.N + soils$Area.S + soils$Area.T
+# soils$dM.g.Bulk <- (soils$iniCo.Bulk*rho*soils$Area.Catch*depth - soils$BulkCatch.Conc*rho*soils$Area.Catch*depth)*1/10^6
+# soils$Mdeg.g.Bulk <- soils$dM.g.Bulk*soils$Bstar.Bulk
+# soils$PrctDeg.Bulk <- (soils$Mdeg.g.Bulk /soils$CumAppMass.g)*100 # Bulk deg. rel. to app. mass (shouldbe = Elsner Bulk)
+
+#soils$Mdeg.g.N <- ifelse(is.na(soils$Mdeg.g.N), 0, soils$Mdeg.g.N)
+#soils$Mdeg.g.T <- ifelse(is.na(soils$Mdeg.g.T), 0, soils$Mdeg.g.T)
+#soils$Mdeg.g.S <- ifelse(is.na(soils$Mdeg.g.S), 0, soils$Mdeg.g.S)
+#soils$SumDeg.g.N <- cumsum(soils$Mdeg.g.N)
+#soils$SumDeg.g.T <- cumsum(soils$Mdeg.g.T)
+#soils$SumDeg.g.S <- cumsum(soils$Mdeg.g.S)
+
+
 names(soilsRay)
 ```
 
@@ -447,9 +499,9 @@ sd(soils$Efield, na.rm = T)
 
 ```{r}
 # Check correct:
-soils$Etrue =  soils$Efield/soils$Bstar
+soils$Etrue =  soils$Efield.Bulk/soils$Bstar.Bulk
 median(soils$Etrue, na.rm = T) # Should be close to -2.2, YES.
-
+soils$Etrue <- NULL
 #write.csv2(soils, 
 #           'Data/Rayleigh_Soils.csv', row.names = F)
 

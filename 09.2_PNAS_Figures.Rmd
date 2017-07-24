@@ -91,7 +91,8 @@ weeklySoil$Transect <- factor(weeklySoil$Transect, levels = c("N", "T", "S"))
 
 ## Soil Concentrations
 
-```{r, fig.height=3, fig.width=3}
+```{r}
+#, fig.height=3, fig.width=3}
 
 ###############################
 # Concentrations
@@ -185,11 +186,12 @@ co
 
 initialDelta
 weeklySoil$DD13C.comp <- (weeklySoil$comp.d13C - (initialDelta))
-weeklySoil$ngC.Label <- ifelse(weeklySoil$ngC.mean<5, "< 5 ng", 
-                               ifelse(weeklySoil$ngC.mean<10, "< 10 ng", 
-                               ifelse((weeklySoil$ngC.mean >= 10 & weeklySoil$ngC.mean < 15), "< 15 ng", 
-                               ifelse((weeklySoil$ngC.mean >= 15 & weeklySoil$ngC.mean < 20), "< 20 ng",
-                               ifelse(weeklySoil$ngC.mean >= 20 & weeklySoil$ngC.mean < 30, "< 30 ng C", "> 30 ng")))))
+
+#weeklySoil$ngC.Label <- ifelse(weeklySoil$ngC.mean<5, "< 5 ng", 
+#                               ifelse(weeklySoil$ngC.mean<10, "< 10 ng", 
+#                               ifelse((weeklySoil$ngC.mean >= 10 & weeklySoil$ngC.mean < 15), "< 15 ng", 
+#                               ifelse((weeklySoil$ngC.mean >= 15 & weeklySoil$ngC.mean < 20), "< 20 ng",
+#                               ifelse(weeklySoil$ngC.mean >= 20 & weeklySoil$ngC.mean < 30, "< 30 ng C", "> 30 ng")))))
 
 limits_dCsoil <- aes(ymin=comp.d13C-comp.d13C.SD, ymax=comp.d13C+comp.d13C.SD)
 #limits_dCsoil <- aes(ymin=comp.d13C-0.5, ymax=comp.d13C+0.5)
@@ -287,7 +289,7 @@ limits_DdCsoil <- aes(ymin=comp.d13C-comp.d13C.SE-initialDelta, ymax=comp.d13C+c
 # AOdf[1:27,]
 deltaTime = ggplot(na.omit(weeklySoil), aes(Date.ti, DD13C.comp)) +
   geom_errorbar(limits_DdCsoil) +
-  geom_point(aes(shape = Transect, colour = ngC.Label)) +
+  geom_point(aes(shape = Transect)) +
   labs(shape="Transect", colour = "Mass Carbon") +
   
   # geom_point(weeklySoil[1:48, ], aes(x=Date.ti, y=DD13C.comp, colour=Transect, group = Transect)) +
@@ -357,11 +359,12 @@ deltaTime
 
 ## Delta time final
 
-```{r, fig.height=3, fig.width=3}
+```{r}
+# , fig.height=3, fig.width=3}
 
 limits_DdCsoil <- aes(ymin=comp.d13C-comp.d13C.SD-initialDelta, ymax=comp.d13C+comp.d13C.SD-initialDelta, colour = Transect)
 
-weeklySoil$ngC.Label <- ifelse(weeklySoil$ngC.mean < 10, "< 10 ng", "> 10 ng")
+# weeklySoil$ngC.Label <- ifelse(weeklySoil$ngC.mean < 10, "< 10 ng", "> 10 ng")
                                
                                # ifelse( weeklySoil$ngC.mean >= 10 & weeklySoil$ngC.mean < 15, "< 15 ng", "> 15 ng"))
 wk <- weeklySoil
@@ -373,8 +376,8 @@ wk$Application <- ifelse(wk$Date.ti == as.POSIXct('2016-05-17 09:16:00', tz = "E
 
 deltaTime = ggplot(wk, aes(Date.ti, DD13C.comp)) +
   geom_errorbar(limits_DdCsoil, width = 0.5) +
-  geom_point(aes(colour = Transect, shape = ngC.Label, shape = "Application"), size = 2) +
-  labs(colour="Transect", shape = "Mass Carbon") +
+  geom_point(aes(colour = Transect), size = 2) +
+  labs(colour="Transect")+ #, shape = "Mass Carbon") +
   geom_point(aes(Date.ti, Application, shape = "Application"), 
              size =2 , data = wk,  legend.title = element_blank()) +
   # Themes and axes

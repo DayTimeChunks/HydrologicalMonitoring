@@ -121,7 +121,9 @@ soils <- soils[ , !(names(soils) %in% dropSoil)]
 
 soilsCheck <- soils[complete.cases(soils[ , "ID.N"]),]
 
-timeApps <- soils[ , c("Date.ti", "timeSinceApp", "timeSinceApp.NoSo", "Event")]
+timeApps <- soils[ , c("Date.ti", "timeSinceApp", "timeSinceApp.NoSo", 
+                        "timeSinceApp.N", "timeSinceApp.T" , "timeSinceApp.S",
+                       "Event")]
 
 ```
 
@@ -169,12 +171,29 @@ if (p_value < 0.0001){
 soilGrApp$Source <- ifelse(soilGrApp$Transect == "T", "Valley", "Plateau")
 soilGrApp$Source <- as.factor(soilGrApp$Source)
 
+soilGrApp.N <- subset(soilGrApp, soilGrApp$Transect == "N") 
+soilGrApp.T <- subset(soilGrApp, soilGrApp$Transect == "T") 
+soilGrApp.S <- subset(soilGrApp, soilGrApp$Transect == "S") 
+
+soilGrApp.N$timeSinceApp <- soilGrApp.N$timeSinceApp.N
+soilGrApp.T$timeSinceApp <- soilGrApp.T$timeSinceApp.T
+soilGrApp.S$timeSinceApp <- soilGrApp.S$timeSinceApp.S
+
+dropAppDates <- c("timeSinceApp.NoSo", "timeSinceApp.N", "timeSinceApp.T", "timeSinceApp.S")
+soilGrApp.N <- soilGrApp.N[ , !(names(soilGrApp.N) %in% dropAppDates)]
+soilGrApp.T <- soilGrApp.T[ , !(names(soilGrApp.T) %in% dropAppDates)]
+soilGrApp.S <- soilGrApp.S[ , !(names(soilGrApp.S) %in% dropAppDates)]
+
+soilGrApp <- rbind(soilGrApp.N, soilGrApp.T)
+soilGrApp <- rbind(soilGrApp, soilGrApp.S)
+
 p <- ggplot(data = soilGrApp, aes(x=Conc.mug.g.dry.soil, y=DD13C.comp))+
   geom_errorbar(aes(ymin = DD13C.comp - comp.d13C.SD, ymax = DD13C.comp + comp.d13C.SD)) +
   geom_errorbarh(aes(xmin = Conc.mug.g.dry.soil - Conc.ComSoil.SD, xmax = Conc.mug.g.dry.soil + Conc.ComSoil.SD)) +
-  stat_smooth(data = subset(soilGrApp, Conc.mug.g.dry.soil < 7), 
+  stat_smooth(data = subset(soilGrApp, Conc.mug.g.dry.soil < 8), 
               aes(x=Conc.mug.g.dry.soil, y=DD13C.comp), method = "lm", formula = y ~ poly(x, 2), se=F) +
-  geom_point(aes(group = ID, size = timeSinceApp.NoSo)) + # , colour = Source)) +  # , shape = ngC.Label)) +
+  # geom_point(aes(group = ID, size = timeSinceApp.NoSo)) + # , colour = Source)) +  # , shape = ngC.Label)) +
+  geom_point(aes(group = ID, size = timeSinceApp)) +
   theme_bw() +
   theme(legend.position = "bottom") +
   labs(size="   Days after application", colour="Source" ) + #, shape = "Mass Carbon") +
@@ -263,8 +282,8 @@ water_r_label <- sprintf("Pearson~r == %0.2f", pearson_water_r)
 water_p_value <- cor.test(waterClean$Conc.mug.L, waterClean$DD13C.diss)[3]
 water_p_label <- sprintf("p == %0.2f", water_p_value)
 
-waterIsoConc  <- ggplot(data = subset(waterClean, ngC.mean.diss > 5), aes(x=Conc.mug.L, y=DD13C.diss))+
-  stat_smooth(data = subset(waterClean, ngC.mean.diss > 5), 
+waterIsoConc  <- ggplot(data = subset(waterClean), aes(x=Conc.mug.L, y=DD13C.diss))+
+  stat_smooth(data = subset(waterClean), 
               aes(x=Conc.mug.L, y=DD13C.diss), method = "lm", formula = y~x, se=F) +
   geom_errorbar(aes(ymin = DD13C.diss - SD.d13C, ymax = DD13C.diss + SD.d13C)) +
   geom_errorbarh(aes(xmin = Conc.mug.L - Conc.SD, xmax = Conc.mug.L + Conc.SD)) +
@@ -277,8 +296,8 @@ waterIsoConc  <- ggplot(data = subset(waterClean, ngC.mean.diss > 5), aes(x=Conc
   scale_y_continuous(breaks=seq(1,5,1)) +
   #ylab(expression(paste({Delta~delta}^"13","C", ' (\u2030)'))) +
   xlab(expression(paste("S-MET Outlet Concentration ", {({mu}*g / L)}))) +
-  annotate("text", x = 7.5, y = 2.7, label = as.character(water_r_label), parse = T, size = 3.5) +
-  annotate("text", x = 7.5, y = 2.3, label = water_p_label, parse = T, size = 3.5)
+  annotate("text", x = 20, y = 2.7, label = as.character(water_r_label), parse = T, size = 3.5) +
+  annotate("text", x = 20, y = 2.3, label = water_p_label, parse = T, size = 3.5)
 
 
 waterIsoConc 
@@ -301,7 +320,7 @@ se <- summary(waterModel)$coef[[4]]*1000
 CI95 = maxX - cofwater
 
 
-waterRaleigh <- ggplot(data = subset(waterClean, (!is.na(yRaleigh) & xRaleigh > -7 & ngC.mean.diss > 5)), aes(x=xRaleigh, y=yRaleigh))+
+waterRaleigh <- ggplot(data = subset(waterClean, (!is.na(yRaleigh) & xRaleigh > -7)), aes(x=xRaleigh, y=yRaleigh))+
   geom_point(aes(size = timeSinceApp)) +
   theme_bw() +
   scale_size_continuous(range = c(1, 6)) +
@@ -309,7 +328,7 @@ waterRaleigh <- ggplot(data = subset(waterClean, (!is.na(yRaleigh) & xRaleigh > 
   xlab("ln f") +
   ylab("ln R/Ro") +
   ylab(expression(paste("ln  ",  R / R['0'] ))) +
-  stat_smooth(data= subset(waterClean, (!is.na(yRaleigh) & xRaleigh > -7  & ngC.mean.diss > 5)), method = "lm", formula = y~x, se=T) 
+  stat_smooth(data= subset(waterClean, (!is.na(yRaleigh) & xRaleigh > -7)), method = "lm", formula = y~x, se=T) 
 
 waterRaleigh
 # ggsave(waterRaleigh, filename = "lnDDvslnConc_water.png", width = 8, height = 5, units = "in", scale = 1)
@@ -399,8 +418,7 @@ Or this: https://github.com/tidyverse/ggplot2/wiki/Align-two-plots-on-a-page
 
 ```{r}
 # SD min. selection line 914 (for dissolved)
-waterClean_ng <- subset(waterClean, ngC.mean.diss > 0)
-WaterSoils <- merge(waterClean_ng, soils, by = "Date.ti", all = T)
+WaterSoils <- merge(waterClean, soils, by = "Date.ti", all = T)
 
 WaterSoils$BulkCatch.d13
 WaterSoils$DD13.Bulk
@@ -792,7 +810,7 @@ eventMay12 <- subset(dissolved, Date >= as.POSIXct("2016-05-12 06:34:00", tz = "
                        Date <= as.POSIXct("2016-05-13 12:06:00", tz = "EST"))
 
 # Inspect the required mm / day
-rainMay12 <- subset(rainDay, Month == "May" & (Day == 12 | Day == 13))
+rainMay12 <- subset(rainDay, Month == "May") #  & (Day == 12 | Day == 13))
 eventMay12$Intensity <- c(20.0, 20.0, 8.4)
 eventMay12$Time <- c(0, 3, 24)
 eventMay12$Event <- rep("May 12", 3)

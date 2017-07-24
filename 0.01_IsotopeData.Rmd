@@ -62,8 +62,8 @@ outlet3$d13C <- outlet3$d13C - 1.043
 
 
 out <- rbind(outlet1, outlet2, outlet3)
-
-#detach("package:plyr")
+out$Filename <- as.character(out$Filename)
+detach("package:plyr")
 sumaryOutlet <- na.omit(out) %>% 
   group_by(Filename) %>%
   summarise(mean = mean(d13C), 
