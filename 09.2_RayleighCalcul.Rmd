@@ -61,17 +61,18 @@ depth = 0.01 # [m]
 
 # Reference values
 # Ehssan values:
-epsilon_max = -1.8 
-epsilon_min = -2.6 
 epsilon_mean= -2.2 # ± 0.4
+dE <- 0.4
+epsilon_max = epsilon_mean + dE 
+epsilon_min = epsilon_mean - dE
+
 
 epsilon_lab = epsilon_mean
 
-# Field values, after dilution correction (Van Breukelen 2008):
-# Calculated in Book 9.1
-epsilonField_max = -1.7 + 0.33 
-epsilonField_min = -1.7 - 0.33  
-epsilonField_mean = -1.7 # ± 0.33
+# Calculated in this Book from Bulk signatures and bulk concentrations
+epsilonField_max = -1.3 + 0.24 
+epsilonField_min = -1.3 - 0.24  
+epsilonField_mean = -1.3 # ± 0.24
 
 ```
 
@@ -97,7 +98,8 @@ if (VERTICAL) {
     "DD13C.comp"
   )
 } else {
-  soils = read.csv2("Data/MassBalance_R.csv", 
+  
+  soils = read.csv2("Data/MassBalance_R.csv", # File contains both soils & waters
                        na.strings=c('#DIV/0!', '', 'NA'), header = TRUE)
   names(soils)
   soils$ti <- as.POSIXct(strptime(soils$ti, "%Y-%m-%d %H:%M", tz="EST"))
@@ -283,22 +285,56 @@ if (VERTICAL){
   soils$Dprct.Bulk <- (1- soils$fdil.Bulk)*100
   soils$Bprct.Bulk <- (1-soils$fdeg.Bulk)*100
   soils$Tprct.Bulk <- (1-soils$ftot.Bulk)*100
-
-  # Deg effective
-  soils$DD.N <-  soils$comp.d13C.North - d13Co
-  soils$DD.T <-  soils$comp.d13C.Talweg - d13Co
-  soils$DD.S <-  soils$comp.d13C.South - d13Co
-  soils$DD.Bulk <- soils$BulkCatch.d13 - d13Co
-  
-  soils$Belsner.N <- (1- ((1000 + d13Co + soils$DD.N)/(1000+ d13Co))^(1000/epsilon_lab) )*100
-  soils$Belsner.T <- (1- ((1000 + d13Co + soils$DD.T)/(1000+ d13Co))^(1000/epsilon_lab) )*100
-  soils$Belsner.S <- (1- ((1000 + d13Co + soils$DD.S)/(1000+ d13Co))^(1000/epsilon_lab) )*100
-  soils$Belsner.Bulk <- (1- ((1000 + d13Co + soils$DD.Bulk)/(1000+ d13Co))^(1000/epsilon_lab) )*100
   
 }
 
 
 ```
+
+Calculating degradation and respective statistical variation errors in B, according to [@Thulnner2012]: 
+
+$$ | \Delta B | = \frac{1}{| \epsilon |} \cdot (100 - B[\%]) \cdot \sqrt{(ln(1-B[\%]/100))^2 \cdot (\Delta \epsilon)^2 + (\Delta \delta_x)^2 + (\Delta \delta_0)^2} $$
+
+```{r}
+# Deg effective
+soils$DD.N <-  soils$comp.d13C.North - d13Co
+soils$DD.T <-  soils$comp.d13C.Talweg - d13Co
+soils$DD.S <-  soils$comp.d13C.South - d13Co
+soils$DD.Bulk <- soils$BulkCatch.d13 - d13Co
+
+soils$Belsner.N <- (1- ((1000 + d13Co + soils$DD.N)/(1000+ d13Co))^(1000/epsilon_lab) )*100
+soils$Berr.Stat.N <- (1/-epsilon_lab)*
+  (100-soils$Belsner.N)*( (log(1-soils$Belsner.N/100))^2 * dE^2 + (soils$comp.d13C.SD.North)^2 + (.5)^2 )^(1/2)
+
+soils$Belsner.T <- (1- ((1000 + d13Co + soils$DD.T)/(1000+ d13Co))^(1000/epsilon_lab) )*100
+soils$Berr.Stat.T <- (1/-epsilon_lab)*
+  (100-soils$Belsner.T)*( (log(1-soils$Belsner.T/100))^2 * dE^2 + (soils$comp.d13C.SD.Talweg)^2 + (.5)^2 )^(1/2)
+
+soils$Belsner.S <- (1- ((1000 + d13Co + soils$DD.S)/(1000+ d13Co))^(1000/epsilon_lab) )*100
+soils$Berr.Stat.S <- (1/-epsilon_lab)*
+  (100-soils$Belsner.S)*( (log(1-soils$Belsner.S/100))^2 * dE^2 + (soils$comp.d13C.SD.South)^2 + (.5)^2 )^(1/2)
+
+soils$Belsner.Bulk <- (1- ((1000 + d13Co + soils$DD.Bulk)/(1000+ d13Co))^(1000/epsilon_lab) )*100
+```
+
+
+Calculating errors from systematic variation in input parameters, in this case $\epsilon_{lab}$:
+
+```{r}
+soils$Belsner.BulkField <- (1- ((1000 + d13Co + soils$DD.Bulk)/(1000+ d13Co))^(1000/epsilon_field) )*100
+soils$Bdiff.LabField <- soils$Belsner.BulkField - soils$Belsner.Bulk
+```
+
+
+```{r}
+soils$Berr.Stat.Bulk <- (1/-epsilon_lab)*
+  (100-soils$Belsner.Bulk)*( (log(1-soils$Belsner.Bulk/100))^2 * dE^2 + (0.5)^2 + (.5)^2 )^(1/2)
+
+soils$Berr.Stat.Field <- (1/-epsilon_field)*
+  (100-soils$Belsner.BulkField)*( (log(1-soils$Belsner.BulkField/100))^2 * dE^2 + (0.5)^2 + (.5)^2 )^(1/2)
+```
+
+
 
 As well as the breakdown ($B*$), dilution factors ($D*$):
 
@@ -360,8 +396,11 @@ if (VERTICAL){
 Calculating the cummulative mass that was degraded and transpoted off-site can be done by converting the change in concentration to the change in mass, with the following conversion:
 
 $$ \Delta M_t = M_t - M_0 $$
+don't think this is correct! Should be B% instead of B*...
 
 $$  M_{deg(t)} = \Delta M \cdot B^* $$
+(thinking about dilution in the wrong way? ->  Dilution factor can only be applied to concentrations, not masses) 
+
 because,
 
 $$B^* = 1 - D^*$$
@@ -377,7 +416,8 @@ soils$dM.g.S =  (soils$iniCo.ug.g.S*rho*soils$Area.S*depth - soils$Conc.mug.g.dr
 
 # Doubt, Don't think this formula is applicable to mass calculations, 
 # as mass is not affected by dilution, only concentration is
-if (FALSE) {
+CONC = FALSE
+if (CONC) {
   soils$Mdeg.g.N <- soils$dM.g.N*soils$Bstar.N
   soils$Mdeg.g.T <- soils$dM.g.T*soils$Bstar.T
   soils$Mdeg.g.S <- soils$dM.g.S*soils$Bstar.S
@@ -433,7 +473,7 @@ dropS <- c("Area.Catch", "Area.N", "Area.T", "Area.S",
            "BulkCatch.d13", "BulkCatch.d13.SD",
            "DD.N", "DD.T", "DD.S","DD.Bulk", 
            # ISotopes Water
-            "diss.d13C", "SD.d13C",
+           # "diss.d13C", "SD.d13C",
            # Concentrations
            "BulkCatch.Conc" ,
            "Conc.mug.g.dry.soil.N", "Conc.mug.g.dry.soil.T", "Conc.mug.g.dry.soil.S", 
@@ -459,18 +499,12 @@ soilsRay <- soilsRay[complete.cases(soilsRay[ , "ID.N"]), ]
 soilsRay$ID.N.x <- soilsRay$ID.N
 names(soilsRay)
 
-# soils$Area.Catch <- soils$Area.N + soils$Area.S + soils$Area.T
-# soils$dM.g.Bulk <- (soils$iniCo.Bulk*rho*soils$Area.Catch*depth - soils$BulkCatch.Conc*rho*soils$Area.Catch*depth)*1/10^6
-# soils$Mdeg.g.Bulk <- soils$dM.g.Bulk*soils$Bstar.Bulk
-# soils$PrctDeg.Bulk <- (soils$Mdeg.g.Bulk /soils$CumAppMass.g)*100 # Bulk deg. rel. to app. mass (shouldbe = Elsner Bulk)
+mean(soilsRay$Bdiff.LabField[3:8])
+mean(soilsRay$Bdiff.LabField[12:13])
+mean(soilsRay$Berr.Stat.Bulk[3:8])
+mean(soilsRay$Berr.Stat.Bulk[12:13])
 
-#soils$Mdeg.g.N <- ifelse(is.na(soils$Mdeg.g.N), 0, soils$Mdeg.g.N)
-#soils$Mdeg.g.T <- ifelse(is.na(soils$Mdeg.g.T), 0, soils$Mdeg.g.T)
-#soils$Mdeg.g.S <- ifelse(is.na(soils$Mdeg.g.S), 0, soils$Mdeg.g.S)
-#soils$SumDeg.g.N <- cumsum(soils$Mdeg.g.N)
-#soils$SumDeg.g.T <- cumsum(soils$Mdeg.g.T)
-#soils$SumDeg.g.S <- cumsum(soils$Mdeg.g.S)
-
+mean(soils$Berr.Stat.Field, na.rm = T)
 
 names(soilsRay)
 ```
@@ -495,7 +529,7 @@ sd(soils$Efield, na.rm = T)
 ```
 
 
-## Save soils for Bar Plots
+## Save soils and water for Bar Plots
 
 ```{r}
 # Check correct:
@@ -507,6 +541,9 @@ soils$Etrue <- NULL
 
 write.csv2(soilsRay, 
            'Data/Rayleigh_Soils.csv', row.names = F)
+
+
+
 ```
 
 

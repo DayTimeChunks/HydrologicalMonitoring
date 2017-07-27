@@ -44,45 +44,13 @@ library("cluster")
 # library(xlsx)
 ```
 
-# Lab parameters
+
+# Import Soils
 
 ```{r}
-# Initial signature measured in tank
-d13Co = -32.253
+soils <- read.csv2("Data/MassBalance_R.csv")
+soils$Date.ti <- as.POSIXct(strptime(soils$Date.ti, "%Y-%m-%d %H:%M", tz="EST"))
 
-# Reference values
-# Ehssan values:
-epsilon_lab = -2.2 # ± 0.4
-dE <- 0.4
-epsilon_max = epsilon_lab + dE 
-epsilon_min = epsilon_lab - dE
-
-```
-
-# Import Soils & Waters
-
-```{r}
-sw <- read.csv2("Data/MassBalance_R.csv")
-sw$ti <- as.POSIXct(strptime(sw$ti, "%Y-%m-%d %H:%M", tz="EST"))
-
-colnames(sw)[colnames(sw) == "ti"] <- "Date.ti"
-
-names(sw)
-keepMB <- c("Date.ti", "ID.N", 
-            # Theoretical
-            "CumAppMass.g", 
-            # MB soils 
-            "CatchMassSoil.g", "CatchMassSoil.g.SD",
-            "BulkCatch.Conc", 
-            # MB Waters
-            "CumOutSmeto.g", "CumOutMELsm.g",
-            # CSIA Soils
-            "BulkCatch.d13" , "BulkCatch.d13.SD",
-            # CSIA Waters
-            "diss.d13C" , "SD.d13C"
-            )
-
-swMB <- sw[, (names(sw) %in% keepMB)]
 ```
 
 
@@ -90,72 +58,38 @@ swMB <- sw[, (names(sw) %in% keepMB)]
 
 ```{r}
 
-swMB$DD.diss <- swMB$diss.d13C - d13Co
-swMB$DD.Bulk <- swMB$BulkCatch.d13 - d13Co
+names(soils)
+keepMB <- c("Date.ti", "CumAppMass.g", "CatchMassSoil.g", "CatchMassSoil.g.SD",
+            "B.mean.bulk", "B.min.bulk", "B.max.bulk",
+            "B.mean.bulk.Field" , "B.min.bulk.Field", "B.max.bulk.Field")
 
-# CSIA 
-# Elsner degradation B and non-deg fraction f 
+soilsMB <- soils[, (names(soils) %in% keepMB)]
+soilsMB <- soilsMB[complete.cases(soilsMB[ , "CatchMassSoil.g"]), ]
 
-# ... for Water
-swMB$Bw.measure <- 
-  (1- ((1000 + d13Co + swMB$DD.diss)/(1000+ d13Co))^(1000/epsilon_lab) )*100
-swMB$Bw.SD1 <-
-  (1- ((1000 + d13Co + swMB$DD.diss)/(1000+ d13Co))^(1000/epsilon_max) )*100
-swMB$Bw.SD2 <-
-  (1- ((1000 + d13Co + swMB$DD.diss)/(1000+ d13Co))^(1000/epsilon_min) )*100
+soilsMB$Rem.measure <- (soilsMB$CatchMassSoil.g/soilsMB$CumAppMass.g)*100
 
-swMB$fw.measure <- 100 - swMB$Bw.measure
-swMB$fw.SD1 <- 100 - swMB$Bw.SD2
-swMB$fw.SD2 <- 100 - swMB$Bw.SD1
+#soilsMB$Rem.SD1 <-(soilsMB$Rem.measure + soilsMB$Rem.measure*0.1358)
+#soilsMB$Rem.SD2 <- (soilsMB$Rem.measure - soilsMB$Rem.measure*0.1358)
+soilsMB$Rem.SD1 <- soilsMB$Rem.measure + (soilsMB$CatchMassSoil.g.SD/soilsMB$CumAppMass.g)*100
+soilsMB$Rem.SD2 <- soilsMB$Rem.measure -  (soilsMB$CatchMassSoil.g.SD/soilsMB$CumAppMass.g)*100
 
-# ... for Soils
-swMB$Bs.measure <- 
-  (1- ((1000 + d13Co + swMB$DD.Bulk)/(1000+ d13Co))^(1000/epsilon_lab) )*100
-swMB$Bs.SD1 <-
-  (1- ((1000 + d13Co + swMB$DD.Bulk)/(1000+ d13Co))^(1000/epsilon_max) )*100
-swMB$Bs.SD2 <-
-  (1- ((1000 + d13Co + swMB$DD.Bulk)/(1000+ d13Co))^(1000/epsilon_min) )*100
+soilsMB$Unk.measure <- 100 - soilsMB$Rem.measure
+soilsMB$Unk.SD1 <- 100 - soilsMB$Rem.SD2
+soilsMB$Unk.SD2 <- 100 - soilsMB$Rem.SD1
 
-swMB$fs.measure <- 100 - swMB$Bs.measure
-swMB$fs.SD1 <- 100 - swMB$Bs.SD2
-swMB$fs.SD2 <- 100 - swMB$Bs.SD1
 
-# MB
-swMB$Rem.measure <- (swMB$CatchMassSoil.g/swMB$CumAppMass.g)*100
-swMB$Rem.SD1 <- swMB$Rem.measure + (swMB$CatchMassSoil.g.SD/swMB$CumAppMass.g)*100
-swMB$Rem.SD2 <- swMB$Rem.measure -  (swMB$CatchMassSoil.g.SD/swMB$CumAppMass.g)*100
+soilsMB$CatchMassSoil.g <- NULL
+soilsMB$CatchMassSoil.g.SD <- NULL
+soilsMB$CumAppMass.g <- NULL
 
-swMB$Unk.measure <- 100 - swMB$Rem.measure
-swMB$Unk.SD1 <- 100 - swMB$Rem.SD2
-swMB$Unk.SD2 <- 100 - swMB$Rem.SD1
-
-# Delete variables no longer needed
-swMB$diss.d13C <- NULL
-swMB$SD.d13C <- NULL
-swMB$BulkCatch.d13 <- NULL
-swMB$BulkCatch.d13.SD <- NULL
-swMB$CatchMassSoil.g <- NULL
-swMB$CatchMassSoil.g.SD <- NULL
-swMB$CumAppMass.g <- NULL
-
-April <- subset(swMB, (Date.ti >= as.POSIXct("2016-04-01 11:50:00", tz = "EST") 
+soils.April <- subset(soilsMB, (Date.ti >= as.POSIXct("2016-04-26 11:50:00", tz = "EST") 
                  & Date.ti < as.POSIXct("2016-05-01 00:00:00", tz = "EST"))) 
-#soils.April <- soils.April[complete.cases(soils.April[ , "ID.N"]), ]
+soils.April <- na.omit(soils.April)
 
-June <- subset(swMB, (Date.ti >= as.POSIXct("2016-06-01 00:56:00", tz = "EST") 
+soils.June <- subset(soilsMB, (Date.ti >= as.POSIXct("2016-06-28 08:56:00", tz = "EST") 
                  & Date.ti <= as.POSIXct("2016-06-28 14:52:00", tz = "EST")) )
-#soils.June <- soils.June[complete.cases(soils.June[ , "ID.N"]), ]
+soils.June <- na.omit(soils.June)
 
-April$Month <- "April"
-June$Month <- "June"
-
-
-```
-
-
-deleting:
-
-```{r}
 # CSIA April
 B.mean.aprilSol <- soils.April$B.mean.bulk
 B.sd1.aprilSol <- soils.April$B.min.bulk

@@ -74,14 +74,12 @@ initialDelta = d13Co = -32.253
 epsilon_mean= -2.2 # ± 0.4
 epsilon_lab = epsilon_mean
 
-# Field values, after dilution correction (Van Breukelen 2008):
-# Calculated in Book 9.2
-epsilonField_max = -1.7 + 0.33 
-epsilonField_min = -1.7 - 0.33  
-epsilonField_mean = -1.7 # ± 0.33
+# Calculated in this Book from Bulk signatures and bulk concentrations
+epsilonField_max = -1.3 + 0.24 
+epsilonField_min = -1.3 - 0.24  
+epsilonField_mean = -1.3 # ± 0.24
 
 # Closed system assumption applied to field for demonstration
-
 epsilon_field = epsilonField_mean
 ```
 
@@ -538,7 +536,8 @@ limits_DdC <- aes(ymin=measure-SD, ymax=measure+SD, colour = Source)
 
 
 # Dissolved has been selected, but not soils or filters
-wstidier2 = subset(wstidier, SD <= 0.75) #& Source != "Bulk"  ) #& Date < as.POSIXct('2016-06-14 08:04:00'))
+wstidier2 = subset(wstidier, SD <= 0.54) #& Source != "Bulk"  ) #& Date < as.POSIXct('2016-06-14 08:04:00'))
+
 NoBASE <- subset(wstidier2, Week != "W6-1" ) 
 
 pd <- position_dodge(width = 0.4)
@@ -546,14 +545,19 @@ pd <- position_dodge(width = 0.4)
 
 wsALL_lab <- ggplot(data = wstidier2, aes(x = Date, y = measure, group = Source) )+ 
   geom_errorbar(data=subset(wstidier2, Source == 'Bulk'), limits_DdC, size=0.2) +
-  geom_errorbar(data=subset(wstidier2, Source == 'Valley' & 
-                              Date > as.POSIXct('2016-05-14 08:04:00')), limits_DdC, size=0.2) +
+  geom_errorbar(data=subset(wstidier2, Source == 'Valley' 
+                            # & Date > as.POSIXct('2016-05-14 08:04:00')
+                            ), limits_DdC, size=0.2) +
   geom_errorbar(data=subset(wstidier2, Source == 'Outlet'), limits_DdC) +
   #geom_point(data=subset(wstidier2, Source == 'Outlet'), aes(shape = Type, colour = Source, size = Qmax)) +
   geom_point(data=subset(wstidier2, Source == 'Outlet'), aes(shape = Type, colour = Source, size = Qmean)) +
   geom_point(data=subset(wstidier2, Source == 'Bulk'), aes(shape = Type, colour = Source)) +
-  geom_point(data=subset(wstidier2, Source == 'Valley' & 
-                           Date > as.POSIXct('2016-05-14 08:04:00')), aes(shape = Type, colour = Source)) +
+  geom_point(data=subset(wstidier2, (Source == 'Valley'
+                                     | Source == 'North'
+                                     | Source == 'South'
+                                     ) 
+                         # & Date > as.POSIXct('2016-05-14 08:04:00')
+                         ), aes(shape = Type, colour = Source)) +
   
   #stat_smooth(data=subset(wstidier,
   #                        (Source == "Valley" & Event > 8 )), 
@@ -563,7 +567,7 @@ wsALL_lab <- ggplot(data = wstidier2, aes(x = Date, y = measure, group = Source)
   #            method = "lm", formula = y ~  poly(x, 2), se = F, alpha = 0.1, size=0.2) +
   
   # Water
-  stat_smooth(data=subset(NoBASE,
+  stat_smooth(data=subset(wstidier2,
                           (Source == "Outlet" & Event > 1 & Type == "Dissolved")), 
               method = "lm", formula = y ~ poly(x, 2), se = T, aes(colour = 'Outlet'), alpha = 0.2, size=0.2) +
   # North
@@ -613,14 +617,16 @@ wsALL_lab <- ggplot(data = wstidier2, aes(x = Date, y = measure, group = Source)
 ```{r}
 wsALL_field <- ggplot(data = wstidier2, aes(x = Date, y = measure, group = Source) )+ 
   geom_errorbar(data=subset(wstidier2, Source == 'Bulk'), limits_DdC, size=0.2) +
-  geom_errorbar(data=subset(wstidier2, Source == 'Valley' & 
-                              Date > as.POSIXct('2016-05-14 08:04:00')), limits_DdC, size=0.2) +
+  geom_errorbar(data=subset(wstidier2, Source == 'Valley' 
+                            # & Date > as.POSIXct('2016-05-14 08:04:00')
+                            ), limits_DdC, size=0.2) +
   geom_errorbar(data=subset(wstidier2, Source == 'Outlet'), limits_DdC) +
   #geom_point(data=subset(wstidier2, Source == 'Outlet'), aes(shape = Type, colour = Source, size = Qmax)) +
   geom_point(data=subset(wstidier2, Source == 'Outlet'), aes(shape = Type, colour = Source, size = Qmean)) +
   geom_point(data=subset(wstidier2, Source == 'Bulk'), aes(shape = Type, colour = Source)) +
-  geom_point(data=subset(wstidier2, Source == 'Valley' & 
-                           Date > as.POSIXct('2016-05-14 08:04:00')), aes(shape = Type, colour = Source)) +
+  geom_point(data=subset(wstidier2, Source == 'Valley' 
+                         # &  Date > as.POSIXct('2016-05-14 08:04:00')
+                         ), aes(shape = Type, colour = Source)) +
   
   #stat_smooth(data=subset(wstidier,
   #                        (Source == "Valley" & Event > 8 )), 
@@ -630,7 +636,7 @@ wsALL_field <- ggplot(data = wstidier2, aes(x = Date, y = measure, group = Sourc
   #            method = "lm", formula = y ~  poly(x, 2), se = F, alpha = 0.1, size=0.2) +
   
   # Water
-  stat_smooth(data=subset(NoBASE, #wstidier2, #NoBASE,
+  stat_smooth(data=subset(wstidier2, #NoBASE,
                           (Source == "Outlet" & Event > 1 & Type == "Dissolved")), 
               method = "lm", formula = y ~ poly(x, 2), se = T, aes(colour = 'Outlet'), alpha = 0.2, size=0.2) +
   # North
@@ -678,16 +684,16 @@ wsALL_field <- ggplot(data = wstidier2, aes(x = Date, y = measure, group = Sourc
                             #title=expression("Source"),
                             #title.vjust = -1,
                             nrow = 2, 
-                            title.position = "left"
+                            title.position = "top"
                             ), 
          shape=guide_legend(#title=expression("Type"), 
                             order = 2,
                             nrow=2, 
-                            title.position = "left", 
+                            title.position = "top", 
                             keyheight = NULL, title.vjust = NULL, label.vjust = NULL), 
          size = guide_legend(order = 3, 
-                             title=expression("Mean\nDischarge " ~ (m^3 / h) ), 
-                             nrow=2, title.position = "left", title.vjust = .26
+                             title=expression("Mean Discharge " ~ (m^3 / h) ), 
+                             nrow=2, title.position = "top", title.vjust = .26
                               ))# +
   # scale_shape_manual(name= )
 
@@ -714,10 +720,10 @@ wsAll_field_Leg  <- get_legend(wsALL_field)
 label <- substitute(paste(epsilon, " = ", epsilon_f, ", Field", epsilon, " = " , epsilon_l),
                     list(epsilon_f = signif(epsilon_field, 2), epsilon_l = signif(epsilon_lab, 2) ))
 
-label2 <- substitute(paste(epsilon ["field"] , " = ", epsilon_f),
+label2 <- substitute(paste(epsilon ["field"] , " = ", epsilon_f, "\u00B1", "0.2" ,"\u2030"),
                      list(epsilon_f = signif(epsilon_field, 3)))
 
-label3 <- substitute(paste(epsilon ["lab"] , " = ", epsilon_l),
+label3 <- substitute(paste(epsilon ["lab"] , " = ", epsilon_l, "\u00B1", "0.4" ,"\u2030"),
                      list(epsilon_l = signif(epsilon_lab, 3)))
 # adding label via ggdraw, in the ggdraw coordinates
 
@@ -725,8 +731,8 @@ label3 <- substitute(paste(epsilon ["lab"] , " = ", epsilon_l),
 wsALL <- ggdraw() +
   draw_plot(wsALL_lab_noLeg, x=0, y = 0.2, width = 1, height = 0.8) + # bottom
   draw_plot(wsALL_field_noLeg, x=0, y=.2, width = 0.935, height = .8) + # top
-  draw_label(label2, x= .89, y = .2, size = 8) +
-  draw_label(label3, x= .94, y = .15, size = 8) +
+  draw_label(label2, x= .85, y = .2, size = 10) +
+  draw_label(label3, x= .92, y = .15, size = 10) +
   draw_plot(wsAll_field_Leg, x=0.2, y=0.0, width = 0.50, height = 0.15)
  
 wsALL 
