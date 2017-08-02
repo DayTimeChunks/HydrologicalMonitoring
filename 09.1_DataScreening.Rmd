@@ -20,9 +20,14 @@ Reference:
 https://sites.google.com/site/mb3gustame/home
 Buttigieg PL, Ramette A (2014) A Guide to Statistical Analysis in Microbial Ecology: a community-focused, living review of multivariate data analyses. FEMS Microbiol Ecol. 90: 543-550.
 
-# Files
+# Files Used
 
-- **WaterDay_R.csv** (Book 02)
+- **MassBalance_R.csv**
+- **WeeklySoils_Rng.csv** 
+
+# Files Written
+
+- **OutletData4Lutz_R.csv** (Data to compare against Lutz 2013 article)
 
 # Packages
 
@@ -791,104 +796,10 @@ sum(wstidier2$Location == "Talweg")  # 12
 sum(wstidier2$Source == "Bulk")  # 9
 
 
-
-```
-
-
-## Comparison to Lutz et al. (2013)
-
-```{r}
-
-rainDay = read.csv2("Data/WaterDay_R.csv", header = T)
-rainDay$DayMoYr <-as.character(rainDay$DayMoYr)
-rainDay$Month <-as.character(rainDay$Month)
-split2 <- strsplit(rainDay$DayMoYr, "-", fixed = TRUE)
-rainDay$Day <- as.numeric(sapply(split2, "[", 3))
-
-# Subset only dissolved measures and select events 
-dissolved <- subset(wstidier2, Location == "diss" &
-                  Date >= as.POSIXct("2016-05-12 06:34:00", tz = "EST") & 
-                    Date <= as.POSIXct("2016-06-07 12:00:00", tz = "EST"))
-dissolved <- subset(dissolved, Date != as.POSIXct("2016-05-24 12:00:00", tz = "EST"))
-
-# May 12 event
-eventMay12 <- subset(dissolved, Date >= as.POSIXct("2016-05-12 06:34:00", tz = "EST") & 
-                       Date <= as.POSIXct("2016-05-13 12:06:00", tz = "EST"))
-
-# Inspect the required mm / day
-rainMay12 <- subset(rainDay, Month == "May") #  & (Day == 12 | Day == 13))
-eventMay12$Intensity <- c(20.0, 20.0, 8.4)
-eventMay12$Time <- c(0, 3, 24)
-eventMay12$Event <- rep("May 12", 3)
-eventMay12$Approach <- rep("Outlet, 2016", 3)
-
-# May 30 event
-eventMay30 <- subset(dissolved, Date >= as.POSIXct("2016-05-30 05:48:00", tz = "EST") & 
-                       Date <= as.POSIXct("2016-05-31 12:00:00", tz = "EST"))
-
-rainMay30 <- subset(rainDay, Month == "May" & (Day == 30 | Day == 31))
-eventMay30$Intensity <- c(20.4, 20.4, 0)
-eventMay30$Time <- c(0, 6, 24)
-eventMay30$Event <- rep("May 30", 3)
-eventMay30$Approach <- rep("Outlet, 2016", 3)
-
-# June 2 event
-eventJune2 <- subset(dissolved, Date >= as.POSIXct("2016-06-02 12:58:00", tz = "EST") & 
-                       Date < as.POSIXct("2016-06-03 12:06:00", tz = "EST")) 
-
-rainJune2 <- subset(rainDay, Month == "June" & Day == 2)
-eventJune2$Intensity <- c(5)
-eventJune2$Time <- c(0)
-eventJune2$Event <- rep("June 2", 1)
-eventJune2$Approach <- rep("Outlet, 2016", 1)
-
-eventJune3 <- subset(dissolved, Date >= as.POSIXct("2016-06-03 12:06:00", tz = "EST") & 
-                       Date <= as.POSIXct("2016-06-07 12:00:00", tz = "EST"))
-
-rainJune3 <- subset(rainDay, Month == "June" & (Day > 2 & Day <= 7 ))
-eventJune3$Intensity <- c(15.2, 18.0, 18.0, 0.8)
-eventJune3$Time <- c(0, 20, 23, 96)
-eventJune3$Event <- rep("June 3", 4)
-eventJune3$Approach <- rep("Outlet, 2016", 4)
-
-eventsField <- rbind(eventMay12, eventMay30, eventJune3) # eventJune2, 
-
-names(eventsField)
-eventsField <- eventsField[c("Time", "Intensity", "measure", "SD" ,  "Event", "Approach")]
+write.csv2(wstidier2, 
+           'Data/OutletData4Lutz_R.csv', row.names = F)
 
 
-Time <- c(0, 4, 6, 12, 24, 48, 72, 96)
-Intensity <- c(30, 0, 0, 0, 0, 0, 0, 0)
-measure <- c(0, 2, 3, 3.2, 3.4, 3.5, 3.5, 3.5)
-SD <- rep(NA, 8)
-Event <- rep("Simulation", 8)
-Approach <- rep("Simulation (Lutz et al., 2013)", 8)
-
-events <- data.frame(Time, Intensity, measure, SD, Event, Approach)
-
-allEvents <- rbind (events, eventsField)
-
-LutzEvents <- ggplot(data = allEvents, aes(x= Time, y=measure, colour = Event))+
-  theme_bw() +
-  geom_point(aes(size = Intensity)) +
-  geom_line(data = subset(allEvents, Event == "Simulation"), aes(colour = Event), linetype = "dashed") +
-  geom_errorbar(data = allEvents, aes(ymin = measure-SD, ymax = measure+SD),
-                 width=.2 , # ) + #,                    # Width of the error bars
-                  position=position_dodge(.5)) +
-  geom_smooth(data=subset(allEvents, Event != "Simulation"), aes(group = Event, colour = Event) ,
-              se = F, alpha = 0.2, size=0.2, span = 0.74, linetype = "dashed") +
-  ylab(expression(paste({Delta~delta}^"13","C", ' (\u2030)'))) +
-  xlab("Hours after 1st pulse") +
-  guides(size = guide_legend(order = 4, 
-                             title=expression("Intensity " ~ (mm/d) ), 
-                             ncol=1, title.position = "top", title.vjust = .26
-                              )) +
-  #theme(axis.title.x = element_blank() ) +
-  facet_wrap(~ Approach)#, scale="free") 
-
-LutzEvents
-  
-# ggsave(LutzEvents, filename = "LutzEvents.png", width = 8, height = 5, units = "in", scale = 1)
 ```
 
 

@@ -96,6 +96,7 @@ rain$DayMoYr = as.POSIXct(strptime(rain$V1,
 sum(is.na(rain$Date))
 naDates = rain[is.na(rain$Date == TRUE),]
 
+
 ```
 
 ## Compare discharge to rainfall

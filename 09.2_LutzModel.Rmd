@@ -1,0 +1,200 @@
+---
+title: "Lutz Model Comparison"
+author: "PAZ"
+date: "06/04/2017"
+output: pdf_document
+bibliography: library.bib
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, warning=FALSE, message = FALSE)
+Sys.setlocale("LC_ALL", "English")
+```
+
+# Introduction
+
+This notebook compares Lutz et al [@Lutz2013] simulations to catchment outlet data. 
+
+# Files
+
+- **WaterDay_R.csv** (Book 02)
+
+
+# Packages
+
+```{r, warning=FALSE,}
+library(sm)
+library(vioplot)
+
+library(dplyr)
+library(tidyr)
+library(zoo)
+library(reshape)
+library(ggplot2)
+library("ggrepel")
+
+library("plotly")
+library("cowplot")
+library("gridExtra")
+library("Cairo")
+library("GGally")
+library("scales")
+
+library("plotKML")
+
+# Stats
+library("vegan")
+library("cluster")
+
+# Saving a xlxs file
+# library(xlsx)
+```
+
+
+## Comparison to Lutz et al. (2013)
+
+To choose field events, cummulative rainfalls over a 30 minute interval exceeding at least 4 mm/hr were selected. The start of the event is considered to be the most recent maximum rainfall intensity associated to the aliquots making up the composite sample. Therefore, signatures represent the flow proportional average of the discharge taking place at the outlet over the course of the event.     
+
+```{r}
+
+wstidier <- read.csv2("Data/OutletData4Lutz_R.csv", header = TRUE)
+                      # na.strings=c('#DIV/0!', '', 'NA'), header = TRUE)
+wstidier$Date <- as.character(wstidier$Date)
+wstidier$Date <- as.POSIXct(strptime(wstidier$Date, 
+                                          "%Y-%m-%d %H:%M", tz="EST")) 
+names(wstidier)
+
+
+rainDay30min <- read.csv2("Data/30minRain.csv", header = T, dec =".")
+rainDay30min$Time <- as.character(rainDay30min$Time) 
+rainDay30min$Date <-  as.POSIXct(strptime(rainDay30min$Time, 
+                                          "%d/%m/%Y %H:%M", tz="EST")) 
+
+rainDay30min$Time <- NULL
+rainDay30min$Cumm.mm <- as.numeric(rainDay30min$Cumm.mm)
+
+rainDay30min <- subset(rainDay30min, Cumm.mm > 0)
+rainDay30min$mm.hr <- rainDay30min$Cumm.mm*(60/30) # mm/min -> mm/hr
+rainDay30min$Cumm.mm <- NULL
+
+#rainDay = read.csv2("Data/WaterDay_R.csv", header = T)
+#rainDay$DayMoYr <-as.character(rainDay$DayMoYr)
+#rainDay$Month <-as.character(rainDay$Month)
+#split2 <- strsplit(rainDay$DayMoYr, "-", fixed = TRUE)
+#rainDay$Day <- as.numeric(sapply(split2, "[", 3))
+
+# Subset only dissolved measures and select events 
+dissolved <- subset(wstidier, Location == "diss" &
+                     # Date >= as.POSIXct( "2016-03-30 12:18:00" , tz = "EST") &
+                  Date >= as.POSIXct("2016-05-12 06:34:00", tz = "EST") & 
+                    Date <= as.POSIXct("2016-06-24 14:52:00", tz = "EST"))
+
+# dissolved <- subset(dissolved, Date != as.POSIXct("2016-05-24 12:00:00", tz = "EST"))
+
+rdiss <- merge(dissolved, rainDay30min, by = "Date", all = T)
+
+# May 11 event
+eventMay11 <- subset(rdiss, Date >= as.POSIXct("2016-05-11 19:32:00", tz = "EST") & 
+                       Date <= as.POSIXct("2016-05-12 06:34:00", tz = "EST"))
+
+  # Take the max rainfall that generated the sample
+eventMay11[which(is.na(eventMay11$mm.hr)), "mm.hr"] <- max(eventMay11$mm.hr, na.rm = T)
+eventMay11 <- eventMay11[complete.cases(eventMay11[ , "measure"]),]
+eventMay11$Date.Ini <- eventMay11$Date[1]
+eventMay11$Event <- rep("May 11", nrow(eventMay11))
+eventMay11$Approach <- rep("Outlet, 2016", nrow(eventMay11))
+
+# May 12 event 
+eventMay12 <- subset(rdiss, Date >= as.POSIXct("2016-05-12 08:02:00", tz = "EST") & 
+                       Date <= as.POSIXct("2016-05-12 09:12:00", tz = "EST"))
+eventMay12[which(is.na(eventMay12$mm.hr)), "mm.hr"] <- max(eventMay12$mm.hr, na.rm = T)
+eventMay12 <- eventMay12[complete.cases(eventMay12[ , "measure"]),]
+eventMay12$Date.Ini <- eventMay12$Date[1]
+eventMay12$Event <- rep("May 12", nrow(eventMay12))
+eventMay12$Approach <- rep("Outlet, 2016", nrow(eventMay12))
+
+# May 29 event
+eventMay29 <- subset(rdiss, Date >= as.POSIXct("2016-05-29 03:32:00", tz = "EST") & 
+                       Date <= as.POSIXct("2016-05-31 12:00:00", tz = "EST"))
+                       # Date <= as.POSIXct("2016-06-02 12:58:00", tz = "EST"))
+
+eventMay29 <- eventMay29 %>%
+  mutate(mm.hr = lead(mm.hr))
+eventMay29$mm.hr <- na.locf(eventMay29$mm.hr)
+eventMay29 <- eventMay29[complete.cases(eventMay29[, "measure"]), ]
+eventMay29$Date.Ini <- eventMay29$Date[1]
+eventMay29$Event <- rep("May 29", nrow(eventMay29))
+eventMay29$Approach <- rep("Outlet, 2016", nrow(eventMay29))
+
+# June 3rd event 
+eventJune3 <- subset(rdiss, Date >= as.POSIXct("2016-06-03 03:32:00", tz = "EST") & 
+                       Date <= as.POSIXct("2016-06-03 12:06:00", tz = "EST"))
+
+eventJune3[which(is.na(eventJune3$mm.hr)), "mm.hr"] <- max(eventJune3$mm.hr, na.rm = T)
+eventJune3 <- eventJune3[complete.cases(eventJune3[, "measure"]), ]
+eventJune3$Date.Ini <- eventJune3$Date[1]
+eventJune3$Event <- rep("June 3", nrow(eventJune3))
+eventJune3$Approach <- rep("Outlet, 2016", nrow(eventJune3))
+
+
+eventJune4 <- subset(rdiss, Date >= as.POSIXct("2016-06-04 06:02:00", tz = "EST") & 
+                       Date <= as.POSIXct("2016-06-07 12:00:00", tz = "EST"))
+
+eventJune4[which(is.na(eventJune4$mm.hr))[1], "mm.hr"] <- max(eventJune4$mm.hr[1:7], na.rm = T)
+eventJune4[which(is.na(eventJune4$mm.hr))[1], "mm.hr"] <- max(eventJune4$mm.hr[8:12], na.rm = T)
+eventJune4[which(is.na(eventJune4$mm.hr))[1], "mm.hr"] <- max(eventJune4$mm.hr[13:nrow(eventJune4)], na.rm = T)
+eventJune4 <- eventJune4[complete.cases(eventJune4[, "measure"]), ]
+eventJune4$Date.Ini <- eventJune4$Date[1]
+eventJune4$Event <- rep("June 4", nrow(eventJune4))
+eventJune4$Approach <- rep("Outlet, 2016", nrow(eventJune4))
+
+
+events <- rbind(# eventMay11, eventMay12, 
+                eventMay29, 
+                # eventJune3, 
+                eventJune4)
+
+events$Duration.Hrs = 
+  as.numeric(difftime(events$Date, events$Date.Ini, units = "hours"), units = "hours")
+
+
+names(events)
+events <- events[c("Duration.Hrs", "mm.hr", "measure", "SD" ,  "Event", "Approach")]
+
+# Lutz reproduction
+Duration.Hrs <- c(0, 4, 6, 12, 24, 48, 72, 96)
+mm.hr <- c(60, 0, 0, 0, 0, 0, 0, 0)
+measure <- c(0, 2, 3, 3.2, 3.4, 3.5, 3.5, 3.5)
+SD <- rep(NA, 8)
+Event <- rep("Simulation", 8)
+Approach <- rep("Simulation (Lutz et al., 2013)", 8)
+
+eventLutz <- data.frame(Duration.Hrs, mm.hr, measure, SD, Event, Approach)
+
+allEvents <- rbind(eventLutz, events)
+
+LutzEvents <- ggplot(data = allEvents, aes(x= Duration.Hrs, y=measure, colour = Event))+
+  theme_bw() +
+  geom_point(aes(size = mm.hr)) +
+  geom_line(aes(colour = Event), linetype = "dashed") +
+  # geom_line(data = subset(allEvents, Event == "Simulation"), aes(colour = Event), linetype = "dashed") +
+  geom_errorbar(data = allEvents, aes(ymin = measure-SD, ymax = measure+SD),
+                 width=.2 , # ) + #,                    # Width of the error bars
+                  position=position_dodge(.5)) +
+  # geom_smooth(data=subset(allEvents, Event != "Simulation"), aes(group = Event, colour = Event) ,
+  #            se = F, alpha = 0.2, size=0.2, span = 0.74, linetype = "dashed") +
+  ylab(expression(paste({Delta~delta}^"13","C", ' (\u2030)'))) +
+  xlab("Hours after 1st pulse") +
+  scale_size_continuous(range = c(1, 5), breaks= c(0, 5, 20, 60), limits = c(0, 60)) +
+  guides(size = guide_legend(order = 4, 
+                             title=expression("Intensity " ~ (mm/h) ), 
+                             ncol=1, title.position = "top", title.vjust = .26
+                              )) #+
+  #theme(axis.title.x = element_blank() ) +
+  # facet_wrap(~ Approach)#, scale="free") 
+
+LutzEvents
+  
+# ggsave(LutzEvents, filename = "LutzEvents.png", width = 8, height = 5, units = "in", scale = 1)
+```
+
