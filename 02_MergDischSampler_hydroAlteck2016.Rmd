@@ -86,11 +86,12 @@ dischargeAlteck$Vol2min <- dischargeAlteck$Q.HW1*2/60
 rain = read.csv2("Data/sixMinutePluvioAlteck2016.csv", header = F)
 head(rain)
 
+rain$V1 <- as.character(rain$V1)
 rain$Date = as.POSIXct(strptime(rain$V1,
                                 "%d/%m/%Y %H:%M", tz="EST") )
 
 rain$DayMoYr = as.POSIXct(strptime(rain$V1,
-                                   "%d/%m/%Y", tz="EST")  )
+                                   "%d/%m/%Y", tz="EST")  ) 
 
 sum(is.na(rain$Date))
 naDates = rain[is.na(rain$Date == TRUE),]
@@ -101,6 +102,8 @@ naDates = rain[is.na(rain$Date == TRUE),]
 
 ```{r}
 
+#library(dplyr)
+# detach("package:plyr")
 dischDay <- dischargeAlteck %>%
   group_by(DayMoYr) %>%
   summarize(Disch.mm = (sum(Vol2min)/(47*10000))*10^3 ) # Discharge in mm 
@@ -108,6 +111,8 @@ dischDay <- dischargeAlteck %>%
 rainDay <- rain %>%
   group_by(DayMoYr) %>%
   summarize(Rain.mm = sum(V2))
+
+rainDay$CumRain <- cumsum(rainDay$Rain.mm)
 
 waterDay <- merge(rainDay, dischDay, by = "DayMoYr")
 

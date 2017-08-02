@@ -56,8 +56,9 @@ initialDelta = d13Co = -32.253
 # Co <- 6.53 # ug/g dry soil (based on Max conc. measured in soils)
 # Note: Each transect now has individual starting concentration
 
-rho = 0.98*10^6 # soil density [g/m3]
-depth = 0.01 # [m]
+# rho1 = 0.99*10^6 # soil density [g/m3] (assume for April)
+# rho2 = 2.20*10^6 # soil density [g/m3] (assume for May & June)
+# depth = 0.01 # [m]
 
 # Reference values
 # Ehssan values:
@@ -73,54 +74,42 @@ epsilon_lab = epsilon_mean
 epsilonField_max = -1.3 + 0.24 
 epsilonField_min = -1.3 - 0.24  
 epsilonField_mean = -1.3 # ± 0.24
-
+epsilon_field = epsilonField_mean
 ```
 
 # Soils
 
 ```{r}
 
-VERTICAL = F
-if (VERTICAL) {
-  # Mixed transects in one column (NO bulk)
-  soils = read.csv2("Data/WeeklySoils_Rng.csv", 
-                         na.strings=c('#DIV/0!', '', 'NA'), header = TRUE)
-  soils$Date.ti <- as.POSIXct(strptime(soils$Date.ti, 
-                                            "%Y-%m-%d %H:%M", tz="EST")) # csv typos, option 1
-  sum(is.na(soils$Date.ti)) == 0
-  
-  names(soils)
-  
-  keepSoils <- c(
-    "ID","Transect","Wnum",  "Date.ti", 
-    "Conc.mug.g.dry.soil", "Conc.ComSoil.SD" ,
-    "comp.d13C", "comp.d13C.SD", "comp.IMP.d13C", 
-    "DD13C.comp"
-  )
-} else {
-  
-  soils = read.csv2("Data/MassBalance_R.csv", # File contains both soils & waters
-                       na.strings=c('#DIV/0!', '', 'NA'), header = TRUE)
-  names(soils)
-  soils$ti <- as.POSIXct(strptime(soils$ti, "%Y-%m-%d %H:%M", tz="EST"))
-  colnames(soils)[colnames(soils) == "ti"] <- "Date.ti"
-  
-  keepSoils <- c(
-    "Date.ti", "WeekSubWeek", "ID.N",
-    "Area.N", "Area.T", "Area.S",
-    "iniCo.ug.g.N", "iniCo.ug.g.T", "iniCo.ug.g.S",
-    "CumAppMass.g.N", "CumAppMass.g.T", "CumAppMass.g.S",
-    "diss.d13C", "SD.d13C", 
-    "CumAppMass.g" , 
-    "CatchMassSoil.g", "CatchMassSoil.g.SD", 
-    "comp.d13C.North" , "comp.d13C.SD.North", 
-    "comp.d13C.Talweg", "comp.d13C.SD.Talweg", 
-    "comp.d13C.South" , "comp.d13C.SD.South",
-    "BulkCatch.d13", "BulkCatch.d13.SD",
-    "Conc.mug.g.dry.soil.N", "Conc.mug.g.dry.soil.T", "Conc.mug.g.dry.soil.S",  
-    "BulkCatch.Conc", "iniCo.Bulk"
-  )
-}
+
+soils = read.csv2("Data/MassBalance_R.csv", # File contains both soils & waters
+                     na.strings=c('#DIV/0!', '', 'NA'), header = TRUE)
+names(soils)
+soils$ti <- as.POSIXct(strptime(soils$ti, "%Y-%m-%d %H:%M", tz="EST"))
+colnames(soils)[colnames(soils) == "ti"] <- "Date.ti"
+
+keepSoils <- c(
+  "Date.ti", "WeekSubWeek", "ID.N",
+  "Area.N", "Area.T", "Area.S",
+  "iniCo.ug.g.N", "iniCo.ug.g.T", "iniCo.ug.g.S",
+  # Applied
+  #"CumAppMass.g.N", "CumAppMass.g.T", "CumAppMass.g.S",
+  #"CumAppMass.g" , 
+  "CumAppMass.g.OT", "CumAppMass.g.N.OT", "CumAppMass.g.T.OT" , "CumAppMass.g.S.OT", 
+  # Concentrations
+  "BulkCatch.Conc", "iniCo.Bulk",
+  "Conc.mug.g.dry.soil.N", "Conc.mug.g.dry.soil.T", "Conc.mug.g.dry.soil.S",
+  # Masses
+  "CatchMassSoil.g", "CatchMassSoil.g.SD", 
+  "MassSoil.g.North", "MassSoil.g.Talweg", "MassSoil.g.South" ,
+  "MassSoil.g.SD.North" , "MassSoil.g.SD.Talweg", "MassSoil.g.SD.South",
+  # Isotopes
+  "diss.d13C", "SD.d13C", 
+  "comp.d13C.North" , "comp.d13C.SD.North", 
+  "comp.d13C.Talweg", "comp.d13C.SD.Talweg", 
+  "comp.d13C.South" , "comp.d13C.SD.South",
+  "BulkCatch.d13", "BulkCatch.d13.SD")
+
 # Test
 sum(is.na(soils$Date.ti)) == 0
 
@@ -153,86 +142,39 @@ $$F = e^{(\Delta/\epsilon_{lab}-lnf_{total})}$$
 were,
 
 $$\Delta = 1000 \cdot ln \Big( \frac{ 10^{-3} \delta^{13}_t C + 1}{10^{-3} \delta^{13}_0 C + 1}  \Big)$$
-# Soils
-
-### Initial soil concentration(s)
-
-Estimation of initial concentrations followed breaking down the fraction of the catchment receiving application by transect, then 
-
-```{r}
-
-if (VERTICAL) {
-  iniCo <- 12.17
-# soils$iniCo <- 12.17 # Average for plots with application 1+ day
-# soils$iniCo <- 9.96 # Median for plots with application 1+ day
-# soils$iniCo <- 22.7 # MAX for plots with application 1+ day
-
-# Based on mean plot Day +1, by Transect
-# soils$iniCo <- ifelse(soils$Transect == "N", 16.2, 
-#                          ifelse(soils$Transect == "T", 8.9, 
-#                                 ifelse(soils$Transect == "S", 10.0, NA)))
-
-} else {
-# Already defined in book 05  
-}
-
-
-```
 
 ### Dilution factor ($F$)
 
 ```{r}
 
-if (VERTICAL) {
-  soils$ftot <- soils$Conc.mug.g.dry.soil/soils$iniCo
+soils$ftot.N <-soils$Conc.mug.g.dry.soil.N/soils$iniCo.ug.g.N
+soils$ftot.T <-soils$Conc.mug.g.dry.soil.T/soils$iniCo.ug.g.T
+soils$ftot.S <-soils$Conc.mug.g.dry.soil.S/soils$iniCo.ug.g.S
 
-  # Van Breukelen notation
-  soils$Delta <- 1000*log( (10^-3*soils$comp.d13C+1)/(10^-3*d13Co+1) )
-  
-  # Elsner notation
-  # soils$DeltaX <- log(1000+d13Co+soils$DD13C.comp)/(1000+d13Co)
-  
-  soils$Fdil = 
-    exp( soils$Delta/epsilon_lab -log(soils$ftot) ) 
-  median(soils$Fdil, na.rm = T)
-  
-  # Fdil < 1, otherwise this 
-  soils$Fdil <- ifelse(soils$Fdil < 1, NA, soils$Fdil)
-  
-  # In case lab E is not appropriate, an adjustment may be necessary
-  adj_epsilon = -3.5
-  
-  #soils$FdilAdj = 
-  #  exp( soils$Delta/adj_epsilon -log(soils$ftot) ) 
-} else {
-  soils$ftot.N <-soils$Conc.mug.g.dry.soil.N/soils$iniCo.ug.g.N
-  soils$ftot.T <-soils$Conc.mug.g.dry.soil.T/soils$iniCo.ug.g.T
-  soils$ftot.S <-soils$Conc.mug.g.dry.soil.S/soils$iniCo.ug.g.S
-  
-  soils$ftot.Bulk <-soils$BulkCatch.Conc/soils$iniCo.Bulk
-  
-  # Van Breukelen notation
-  soils$Delta.N <- 1000*log( (10^-3*soils$comp.d13C.North +1)/(10^-3*d13Co+1) )
-  soils$Delta.T <- 1000*log( (10^-3*soils$comp.d13C.Talweg +1)/(10^-3*d13Co+1) )
-  soils$Delta.S <- 1000*log( (10^-3*soils$comp.d13C.South +1)/(10^-3*d13Co+1) )
-  soils$Delta.Bulk <- 1000*log( (10^-3*soils$BulkCatch.d13 +1)/(10^-3*d13Co+1) )
-  
-  soils$Fdil.N = 
-    exp( soils$Delta.N/epsilon_lab -log(soils$ftot.N) ) 
-  soils$Fdil.T = 
-    exp( soils$Delta.T/epsilon_lab -log(soils$ftot.T) ) 
-  soils$Fdil.S = 
-    exp( soils$Delta.S/epsilon_lab -log(soils$ftot.S) ) 
-  
-  soils$Fdil.Bulk = 
-        exp( soils$Delta.Bulk/epsilon_lab -log(soils$ftot.Bulk) ) 
-  median(soils$Fdil.N, na.rm = T)
-  median(soils$Fdil.T, na.rm = T)
-  median(soils$Fdil.S, na.rm = T)
-  median(soils$Fdil.Bulk, na.rm = T)
+soils$ftot.Bulk <-soils$BulkCatch.Conc/soils$iniCo.Bulk
+
+# Van Breukelen notation
+soils$Delta.N <- 1000*log( (10^-3*soils$comp.d13C.North +1)/(10^-3*d13Co+1) )
+soils$Delta.T <- 1000*log( (10^-3*soils$comp.d13C.Talweg +1)/(10^-3*d13Co+1) )
+soils$Delta.S <- 1000*log( (10^-3*soils$comp.d13C.South +1)/(10^-3*d13Co+1) )
+soils$Delta.Bulk <- 1000*log( (10^-3*soils$BulkCatch.d13 +1)/(10^-3*d13Co+1) )
+
+soils$Fdil.N = 
+  exp( soils$Delta.N/epsilon_lab -log(soils$ftot.N) ) 
+soils$Fdil.T = 
+  exp( soils$Delta.T/epsilon_lab -log(soils$ftot.T) ) 
+soils$Fdil.S = 
+  exp( soils$Delta.S/epsilon_lab -log(soils$ftot.S) ) 
+
+soils$Fdil.Bulk = 
+      exp( soils$Delta.Bulk/epsilon_lab -log(soils$ftot.Bulk) ) 
+median(soils$Fdil.N, na.rm = T)
+median(soils$Fdil.T, na.rm = T)
+median(soils$Fdil.S, na.rm = T)
+median(soils$Fdil.Bulk, na.rm = T)
   
   # soils$Fdil <- ifelse(soils$Fdil < 1, NA, soils$Fdil)
-}
+
 
 ```
 
@@ -240,54 +182,36 @@ We can now obtain $f_{dilution}$ and $f_{degradation}$:
 
 ```{r}
 
-if (VERTICAL){
-  soils$fdil <- 1/soils$Fdil
-  soils$fdeg <- soils$ftot * soils$Fdil 
-  
-  #soils$fdilAdj <- 1/soils$FdilAdj
-  #soils$fdegAdj <- soils$ftot * soils$FdilAdj 
-  
-  soils$Dprct <- (1- soils$fdil)*100
-  #soils$DprctAdj <- (1- soils$fdilAdj)*100
-  
-  soils$Bprct <- (1-soils$fdeg)*100
-  #soils$BprctAdj <- (1-soils$fdegAdj)*100
-  
-  soils$Tprct <- (1-soils$ftot)*100
-} else {
-  soils$fdil.N <- 1/soils$Fdil.N
-  soils$fdeg.N <- soils$ftot.N * soils$Fdil.N 
-  
-  soils$Dprct.N <- (1- soils$fdil.N)*100
-  soils$Bprct.N <- (1-soils$fdeg.N)*100
-  soils$Tprct.N <- (1- (1 - soils$Bprct.N/100) * (1 - soils$Dprct.N/100)  )*100
-  
-  # Talweg
-  soils$fdil.T <- 1/soils$Fdil.T
-  soils$fdeg.T <- soils$ftot.T * soils$Fdil.T 
-  
-  soils$Dprct.T <- (1- soils$fdil.T)*100
-  soils$Bprct.T <- (1-soils$fdeg.T)*100
-  soils$Tprct.T <- (1-soils$ftot.T)*100
+soils$fdil.N <- 1/soils$Fdil.N
+soils$fdeg.N <- soils$ftot.N * soils$Fdil.N 
 
-  #South
-  soils$fdil.S <- 1/soils$Fdil.S
-  soils$fdeg.S <- soils$ftot.S * soils$Fdil.S 
-  
-  soils$Dprct.S <- (1- soils$fdil.S)*100
-  soils$Bprct.S <- (1-soils$fdeg.S)*100
-  soils$Tprct.S <- (1-soils$ftot.S)*100
-  
-  # Bulk
-  soils$fdil.Bulk <- 1/soils$Fdil.Bulk
-  soils$fdeg.Bulk <- soils$ftot.Bulk * soils$Fdil.Bulk 
-  
-  soils$Dprct.Bulk <- (1- soils$fdil.Bulk)*100
-  soils$Bprct.Bulk <- (1-soils$fdeg.Bulk)*100
-  soils$Tprct.Bulk <- (1-soils$ftot.Bulk)*100
-  
-}
+soils$Dprct.N <- (1- soils$fdil.N)*100
+soils$Bprct.N <- (1-soils$fdeg.N)*100
+soils$Tprct.N <- (1- (1 - soils$Bprct.N/100) * (1 - soils$Dprct.N/100)  )*100
 
+# Talweg
+soils$fdil.T <- 1/soils$Fdil.T
+soils$fdeg.T <- soils$ftot.T * soils$Fdil.T 
+
+soils$Dprct.T <- (1- soils$fdil.T)*100
+soils$Bprct.T <- (1-soils$fdeg.T)*100
+soils$Tprct.T <- (1-soils$ftot.T)*100
+
+#South
+soils$fdil.S <- 1/soils$Fdil.S
+soils$fdeg.S <- soils$ftot.S * soils$Fdil.S 
+
+soils$Dprct.S <- (1- soils$fdil.S)*100
+soils$Bprct.S <- (1-soils$fdeg.S)*100
+soils$Tprct.S <- (1-soils$ftot.S)*100
+
+# Bulk
+soils$fdil.Bulk <- 1/soils$Fdil.Bulk
+soils$fdeg.Bulk <- soils$ftot.Bulk * soils$Fdil.Bulk 
+
+soils$Dprct.Bulk <- (1- soils$fdil.Bulk)*100
+soils$Bprct.Bulk <- (1-soils$fdeg.Bulk)*100
+soils$Tprct.Bulk <- (1-soils$ftot.Bulk)*100
 
 ```
 
@@ -343,51 +267,46 @@ $$B^* = \frac{log(f_{dil})}{log(f_{tot})} $$
 and their relationship $D*/B*$ which relates the extent of dilution relative to degradation.
 
 ```{r}
-if (VERTICAL){
+
+soils$Dstar.N = log(soils$fdil.N)/log(soils$ftot.N)
+soils$Bstar.N = log(soils$fdeg.N)/log(soils$ftot.N)
+soils$DB.N = soils$Dstar.N/soils$Bstar.N
+
+soils$Dstar.T = log(soils$fdil.T)/log(soils$ftot.T)
+soils$Bstar.T = log(soils$fdeg.T)/log(soils$ftot.T)
+soils$DB.T = soils$Dstar.T/soils$Bstar.T
+
+soils$Dstar.S = log(soils$fdil.S)/log(soils$ftot.S)
+soils$Bstar.S = log(soils$fdeg.S)/log(soils$ftot.S)
+soils$DB.S = soils$Dstar.S/soils$Bstar.S
+
+soils$Dstar.Bulk = log(soils$fdil.Bulk)/log(soils$ftot.Bulk)
+soils$Bstar.Bulk = log(soils$fdeg.Bulk)/log(soils$ftot.Bulk)
+soils$DB.Bulk = soils$Dstar.Bulk/soils$Bstar.Bulk
+
+median(soils$DB.N, na.rm = T)
+median(soils$DB.T, na.rm = T)
+median(soils$DB.S, na.rm = T)
+
+mean(soils$DB.N, na.rm = T)
+mean(soils$DB.T, na.rm = T)
+mean(soils$DB.S, na.rm = T)
+
   
-  
-  #soils$DstarAdj = log(soils$fdilAdj)/log(soils$ftot)
-  #soils$BstarAdj = log(soils$fdegAdj)/log(soils$ftot)
-} else {
-  soils$Dstar.N = log(soils$fdil.N)/log(soils$ftot.N)
-  soils$Bstar.N = log(soils$fdeg.N)/log(soils$ftot.N)
-  soils$DB.N = soils$Dstar.N/soils$Bstar.N
-  
-  soils$Dstar.T = log(soils$fdil.T)/log(soils$ftot.T)
-  soils$Bstar.T = log(soils$fdeg.T)/log(soils$ftot.T)
-  soils$DB.T = soils$Dstar.T/soils$Bstar.T
-  
-  soils$Dstar.S = log(soils$fdil.S)/log(soils$ftot.S)
-  soils$Bstar.S = log(soils$fdeg.S)/log(soils$ftot.S)
-  soils$DB.S = soils$Dstar.S/soils$Bstar.S
+ggplot(data = soils , aes(x=Date.ti))+
+  geom_point(aes(y = Dstar.N, colour = "D*N")) + 
+  geom_point(aes(y = Dstar.T, colour = "D*T")) +
+  geom_point(aes(y = Dstar.S, colour = "D*S")) +
+  theme_bw() 
 
-  soils$Dstar.Bulk = log(soils$fdil.Bulk)/log(soils$ftot.Bulk)
-  soils$Bstar.Bulk = log(soils$fdeg.Bulk)/log(soils$ftot.Bulk)
-  soils$DB.Bulk = soils$Dstar.Bulk/soils$Bstar.Bulk
 
-  median(soils$DB.N, na.rm = T)
-  median(soils$DB.T, na.rm = T)
-  median(soils$DB.S, na.rm = T)
+ggplot(data = soils , aes(x=Date.ti))+
+  geom_point(aes(y = Bstar.N, colour = "B*N")) + 
+  geom_point(aes(y = Bstar.T, colour = "B*T")) +
+  geom_point(aes(y = Bstar.S, colour = "B*S")) +
+  theme_bw()
 
-  mean(soils$DB.N, na.rm = T)
-  mean(soils$DB.T, na.rm = T)
-  mean(soils$DB.S, na.rm = T)
 
-    
-  ggplot(data = soils , aes(x=Date.ti))+
-    geom_point(aes(y = Dstar.N, colour = "D*N")) + 
-    geom_point(aes(y = Dstar.T, colour = "D*T")) +
-    geom_point(aes(y = Dstar.S, colour = "D*S")) +
-    theme_bw() 
-  
-
-  ggplot(data = soils , aes(x=Date.ti))+
-    geom_point(aes(y = Bstar.N, colour = "B*N")) + 
-    geom_point(aes(y = Bstar.T, colour = "B*T")) +
-    geom_point(aes(y = Bstar.S, colour = "B*S")) +
-    theme_bw()
-
-}
 
 
   
@@ -410,59 +329,130 @@ Note here that $A_T$ refers to the representative catchment area (subcatchment) 
 
 ```{r}
 
-soils$dM.g.N =  (soils$iniCo.ug.g.N*rho*soils$Area.N*depth - soils$Conc.mug.g.dry.soil.N*rho*soils$Area.N*depth)*1/10^6
-soils$dM.g.T =  (soils$iniCo.ug.g.T*rho*soils$Area.T*depth - soils$Conc.mug.g.dry.soil.T*rho*soils$Area.T*depth)*1/10^6
-soils$dM.g.S =  (soils$iniCo.ug.g.S*rho*soils$Area.S*depth - soils$Conc.mug.g.dry.soil.S*rho*soils$Area.S*depth)*1/10^6
+soils$Mdeg.g.N <- soils$CumAppMass.g.N.OT*soils$Belsner.N/100
+soils$Mdeg.g.T <- soils$CumAppMass.g.T.OT*soils$Belsner.T/100
+soils$Mdeg.g.S <- soils$CumAppMass.g.S.OT*soils$Belsner.S/100
+soils$SumDeg.g <- soils$Mdeg.g.N + soils$Mdeg.g.T + soils$Mdeg.g.S
+soils$Mdeg.g <- soils$CumAppMass.g.OT*soils$Belsner.Bulk/100
 
-# Doubt, Don't think this formula is applicable to mass calculations, 
-# as mass is not affected by dilution, only concentration is
-CONC = FALSE
-if (CONC) {
-  soils$Mdeg.g.N <- soils$dM.g.N*soils$Bstar.N
-  soils$Mdeg.g.T <- soils$dM.g.T*soils$Bstar.T
-  soils$Mdeg.g.S <- soils$dM.g.S*soils$Bstar.S
-  soils$SumDeg.g <- soils$Mdeg.g.N + soils$Mdeg.g.T + soils$Mdeg.g.S
+#soils$Mdeg.g.N.eff <- soils$Mdeg.g.N/soils$Area.N
+#soils$Mdeg.g.T.eff <- soils$Mdeg.g.T/soils$Area.T
+#soils$Mdeg.g.S.eff <- soils$Mdeg.g.S/soils$Area.S
 
-  soils$Mdil.g.N <- soils$dM.g.N*soils$Dstar.N
-  soils$Mdil.g.T <- soils$dM.g.T*soils$Dstar.T
-  soils$Mdil.g.S <- soils$dM.g.S*soils$Dstar.S
-  soils$SumDil.g <- soils$Mdil.g.N + soils$Mdil.g.T + soils$Mdil.g.S
-  
-} else {
-  soils$Mdeg.g.N <- soils$CumAppMass.g.N*soils$Belsner.N/100
-  soils$Mdeg.g.T <- soils$CumAppMass.g.T*soils$Belsner.T/100
-  soils$Mdeg.g.S <- (soils$CumAppMass.g.S)*soils$Belsner.S/100
-  soils$SumDeg.g <- soils$Mdeg.g.N + soils$Mdeg.g.T + soils$Mdeg.g.S
-}
+# Mass remaining needs to be calculated based on 
+# increasing bulk density between early and late season
+# otherwise, mass balances don't add up.
 
-soils$Mrem.g <- 
-  (soils$Conc.mug.g.dry.soil.N*rho*soils$Area.N*depth +
-     soils$Conc.mug.g.dry.soil.T*rho*soils$Area.T*depth +
-     soils$Conc.mug.g.dry.soil.S*rho*soils$Area.S*depth)*1/10^6
+colnames(soils)[colnames(soils) == "CatchMassSoil.g"] <- "Mrem.g" # Sum of N, T & S
+colnames(soils)[colnames(soils) == "MassSoil.g.North"] <- "Mrem.g.N"
+colnames(soils)[colnames(soils) == "MassSoil.g.Talweg"] <- "Mrem.g.T"
+colnames(soils)[colnames(soils) == "MassSoil.g.South"] <- "Mrem.g.S"
 
-soils$Mrem.g.N <- soils$Conc.mug.g.dry.soil.N*rho*soils$Area.N*depth*1/10^6
-soils$Mrem.g.T <- soils$Conc.mug.g.dry.soil.N*rho*soils$Area.T*depth*1/10^6
-soils$Mrem.g.S <- soils$Conc.mug.g.dry.soil.N*rho*soils$Area.S*depth*1/10^6
+soils$Mloss.g.N <- soils$CumAppMass.g.N.OT - (soils$Mdeg.g.N + soils$Mrem.g.N)
+soils$Mloss.g.T <- soils$CumAppMass.g.T.OT - (soils$Mdeg.g.T + soils$Mrem.g.T)
+soils$Mloss.g.S <- soils$CumAppMass.g.S.OT - (soils$Mdeg.g.S + soils$Mrem.g.S)
+soils$Mloss.g <- soils$CumAppMass.g.OT - (soils$Mdeg.g + soils$Mrem.g) 
 
-soils$Mloss.g.N <- soils$CumAppMass.g.N - (soils$Mdeg.g.N + soils$Mrem.g.N)
-soils$Mloss.g.T <- soils$CumAppMass.g.T - (soils$Mdeg.g.T + soils$Mrem.g.T)
-soils$Mloss.g.S <- soils$CumAppMass.g.S - (soils$Mdeg.g.S + soils$Mrem.g.S)
+length(soils)
+names(soils)
+#View(soils[, c(1, 17:20, 5:8,  12,21,26,31, 15,24,29, 96:ncol(soils)) ])
 
-soils$PrctRem.N <- (soils$Mrem.g.N/soils$CumAppMass.g.N)*100
-soils$PrctRem.T <- (soils$Mrem.g.T/soils$CumAppMass.g.T)*100
-soils$PrctRem.S <- (soils$Mrem.g.S/(soils$CumAppMass.g.S))*100
+library(reshape2)
+s <- soils[, c(1, 12,21,26, 96:ncol(soils)) ]
+moltenSoil <- melt(s, id = "Date.ti")
 
-soils$PrctDeg <- (soils$SumDeg.g/soils$CumAppMass.g)*100 # Sum of transect degradations relative to Applied mass
-soils$PrctDeg.N <- (soils$Mdeg.g.N/soils$CumAppMass.g.N)*100
-soils$PrctDeg.T <- (soils$Mdeg.g.T/soils$CumAppMass.g.T)*100
-soils$PrctDeg.S <- (soils$Mdeg.g.S/(soils$CumAppMass.g.S))*100
+# Mass Losses
+ggplot(data = s , aes(x=Date.ti))+
+  geom_point(aes(y = Mloss.g.N, colour = "Mloss*N")) + 
+  geom_point(aes(y = Mloss.g.T, colour = "Mloss*T")) +
+  geom_point(aes(y = Mloss.g.S, colour = "Mloss*S")) +
+  stat_smooth(method = "lm", formula = y ~ x, aes(y = Mloss.g.N, colour = "Mloss*N")) +
+  stat_smooth(method = "lm", formula = y ~ x, aes(y = Mloss.g.T, colour = "Mloss*T")) +
+  stat_smooth(method = "lm", formula = y ~ x, aes(y = Mloss.g.S, colour = "Mloss*S")) +
+  theme_bw() +
+  theme(# legend.position = "top",
+        axis.text.x=element_text(angle = 45, hjust = 1)) +
+  scale_x_datetime(breaks = date_breaks("1 weeks"), labels = date_format("%b %d")) 
 
-soils$PrctRem <- (soils$Mrem.g/soils$CumAppMass.g)*100
+# cor.test(soils$Mloss.g.N, soils$Mloss.g.T)
+
+```
+
+### Summary absolute percent mass loss
+
+```{r}
+soilsApril <- subset(soils, (Date.ti >= as.POSIXct("2016-04-18 20:30:00", tz = "EST") 
+                 & Date.ti < as.POSIXct("2016-05-01 00:00:00", tz = "EST"))) 
+                     # & Date.ti <= as.POSIXct("2016-05-03 13:11:00", tz = "EST"))) 
+
+#soils.April <- soils.April[complete.cases(soils.April[ , "ID.N"]), ]
+
+soilsJune <- subset(soils, (Date.ti >= as.POSIXct("2016-06-01 00:56:00", tz = "EST") 
+                 & Date.ti <= as.POSIXct("2016-06-28 14:52:00", tz = "EST")) )
+
+library(dplyr)
+sa <- soilsApril %>% 
+  summarise_each(funs(mean(. , na.rm=T) )) 
+
+sj <- soilsJune %>% 
+  summarise_each(funs(mean(. , na.rm=T) )) 
+
+saj <- rbind(sa,sj)
+saj$PrctAbsLoss <- (saj$Mloss.g/soils$CumAppMass.g.OT[nrow(soils)-1])*100
+
+saj$PrctAbsLoss[1]/saj$PrctAbsLoss[2]*100
+```
+
+
+## Mass remaining
+
+```{r}
+ggplot(data = s , aes(x=Date.ti))+
+  geom_point(aes(y = Mrem.g.N, colour = "Mrem*N")) + 
+  geom_point(aes(y = Mrem.g.T, colour = "Mrem*T")) +
+  geom_point(aes(y = Mrem.g.S, colour = "Mrem*S")) +
+  stat_smooth(method = "lm", formula = y ~ x, aes(y = Mrem.g.N, colour = "Mrem*N")) +
+  stat_smooth(method = "lm", formula = y ~ x, aes(y = Mrem.g.T, colour = "Mrem*T")) +
+  stat_smooth(method = "lm", formula = y ~ x, aes(y = Mrem.g.S, colour = "Mrem*S")) +
+  scale_x_datetime(breaks = date_breaks("2 weeks"), labels = date_format("%b %d")) +
+  theme_bw()
+```
+
+## Degradation
+
+```{r}
+ggplot(data = s , aes(x=Date.ti))+
+  geom_point(aes(y = Mdeg.g.N, colour = "Mdeg*N")) + 
+  geom_point(aes(y = Mdeg.g.T, colour = "Mdeg*T")) +
+  geom_point(aes(y = Mdeg.g.S, colour = "Mdeg*S")) +
+  stat_smooth(method = "lm", formula = y ~ x, aes(y = Mdeg.g.N, colour = "Mdeg*N")) +
+  stat_smooth(method = "lm", formula = y ~ x, aes(y = Mdeg.g.T, colour = "Mdeg*T")) +
+  stat_smooth(method = "lm", formula = y ~ x, aes(y = Mdeg.g.S, colour = "Mdeg*S")) +
+  scale_x_datetime(breaks = date_breaks("2 weeks"), labels = date_format("%b %d")) +
+  theme_bw()
+```
+
+
+## Percentages
+
+```{r}
+soils$PrctRem.N <- (soils$Mrem.g.N/soils$CumAppMass.g.N.OT)*100
+soils$PrctRem.T <- (soils$Mrem.g.T/soils$CumAppMass.g.T.OT)*100
+soils$PrctRem.S <- (soils$Mrem.g.S/(soils$CumAppMass.g.S.OT))*100
+
+soils$PrctDeg <- (soils$SumDeg.g/soils$CumAppMass.g.OT)*100 # Sum of transect degradations relative to Applied mass
+soils$PrctDeg.N <- (soils$Mdeg.g.N/soils$CumAppMass.g.N.OT)*100
+soils$PrctDeg.T <- (soils$Mdeg.g.T/soils$CumAppMass.g.T.OT)*100
+soils$PrctDeg.S <- (soils$Mdeg.g.S/(soils$CumAppMass.g.S.OT))*100
+
+soils$PrctRem <- (soils$Mrem.g/soils$CumAppMass.g.OT)*100
 soils$PrctLoss <- 100 - (soils$PrctRem + soils$PrctDeg)
 soils$PrctLoss.N <- 100 - (soils$PrctRem.N + soils$PrctDeg.N)
 soils$PrctLoss.T <- 100 - (soils$PrctRem.T + soils$PrctDeg.T)
 soils$PrctLoss.S <- 100 - (soils$PrctRem.S + soils$PrctDeg.S)
 
+# soils$RemPlusDeg <- soils$PrctRem + soils$PrctDeg
+  
 names(soils)
 dropS <- c("Area.Catch", "Area.N", "Area.T", "Area.S", 
             "WeekSubWeek", 
@@ -509,6 +499,7 @@ mean(soils$Berr.Stat.Field, na.rm = T)
 names(soilsRay)
 ```
 
+
 Calculating a field enrichment after correcting for via breakdown factor ($B^*$),
 
 $$\epsilon_{field} = B^* \cdot \epsilon_{lab} = \frac{\Delta}{ln f _{total} } $$
@@ -551,7 +542,7 @@ In Van Breuklen, the degraded and diluted fractions are plotted against each oth
 
 ```{r}
 
-if (VERTICAL){
+if (FALSE){
   # Van Breuklen plot this 
   soils$degY = -log(soils$fdeg)
   soils$dilX = -log(soils$fdil)
@@ -625,8 +616,8 @@ $$C_{soil}~[\mu g/L_{H_2O} ] = \frac{ C_{soil} }{\theta_{sat} + \rho_{soil} \cdo
 # S-metolachlor Mass [g]
 # Conc. [ug/g dry soil] * [g/10^6 ug] * density [g/m3] * depth [m]* A [m2] 
 # Soil bulk density: 2200 or 0.99? -> Leaching experiments: 0.98 [g/cm3]
-rho = 0.98*10^6 # soil density [g/m3]
-depth = 0.01 # [m]
+#rho = 0.98*10^6 # soil density [g/m3]
+#depth = 0.01 # [m]
 theta = 0.4
 # Kd = 2.397/10^6 # m3/g (aged)
 Kd = 3.99/10^6 #m3/g (fresh)

@@ -129,12 +129,12 @@ co = ggplot(weeklySoil[4:48, ],
         #axis.title.x=element_blank()
         ) +
   
-  scale_x_datetime(breaks = date_breaks("2 weeks"), labels = date_format("%b %d")) +
+  # scale_x_datetime(breaks = date_breaks("2 weeks"), labels = date_format("%b %d")) +
   ylab(expression(paste("Conc. S-Meto.  ", {({mu}*g / g.soil.dry)}))) +
   # facet_wrap(~Transect, nrow = 3) +
   # xlab("Date") +
   # theme() +
-  scale_x_datetime(breaks = date_breaks("2 weeks"), labels = date_format("%b %d")) +
+  scale_x_datetime(breaks = date_breaks("1 weeks"), labels = date_format("%b %d")) +
   
   # Smooth linear models
   # stat_smooth(method = "lm", formula = y ~ poly(x, 2)) +

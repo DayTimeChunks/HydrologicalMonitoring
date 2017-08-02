@@ -1,0 +1,715 @@
+---
+title: "Rayleigh Calculations"
+author: "PAZ"
+date: "06/04/2017"
+output: pdf_document
+bibliography: library.bib
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, warning=FALSE, message = FALSE)
+Sys.setlocale("LC_ALL", "English")
+```
+
+# Introduction
+
+Degradation extent is calculated based on closed and open system Rayleigh equations
+
+# Packages
+
+```{r, warning=FALSE,}
+library(sm)
+library(vioplot)
+
+library(dplyr)
+library(tidyr)
+library(zoo)
+library(reshape)
+library(ggplot2)
+library("ggrepel")
+
+library("plotly")
+library("cowplot")
+library("gridExtra")
+library("Cairo")
+library("GGally")
+library("scales")
+
+library("plotKML")
+
+# Stats
+library("vegan")
+library("cluster")
+
+# Saving a xlxs file
+# library(xlsx)
+```
+
+# Lab parameters
+
+```{r}
+# Initial signature measured in tank
+initialDelta = d13Co = -32.253
+
+# Define initial concentration (for Raleigh plots)
+#Co <- 8 # ug/g dry soil (based on Corn applications)
+# Co <- 6.53 # ug/g dry soil (based on Max conc. measured in soils)
+# Note: Each transect now has individual starting concentration
+
+rho = 0.99*10^6 # soil density [g/m3]
+depth = 0.01 # [m]
+
+# Reference values
+# Ehssan values:
+epsilon_mean= -2.2 # ± 0.4
+dE <- 0.4
+epsilon_max = epsilon_mean + dE 
+epsilon_min = epsilon_mean - dE
+
+
+epsilon_lab = epsilon_mean
+
+# Calculated in this Book from Bulk signatures and bulk concentrations
+epsilonField_max = -1.3 + 0.24 
+epsilonField_min = -1.3 - 0.24  
+epsilonField_mean = -1.3 # ± 0.24
+epsilon_field = epsilonField_mean
+```
+
+# Soils
+
+```{r}
+
+VERTICAL = F
+if (VERTICAL) {
+  # Mixed transects in one column (NO bulk)
+  soils = read.csv2("Data/WeeklySoils_Rng.csv", 
+                         na.strings=c('#DIV/0!', '', 'NA'), header = TRUE)
+  soils$Date.ti <- as.POSIXct(strptime(soils$Date.ti, 
+                                            "%Y-%m-%d %H:%M", tz="EST")) # csv typos, option 1
+  sum(is.na(soils$Date.ti)) == 0
+  
+  names(soils)
+  
+  keepSoils <- c(
+    "ID","Transect","Wnum",  "Date.ti", 
+    "Conc.mug.g.dry.soil", "Conc.ComSoil.SD" ,
+    "comp.d13C", "comp.d13C.SD", "comp.IMP.d13C", 
+    "DD13C.comp"
+  )
+} else {
+  
+  soils = read.csv2("Data/MassBalance_R.csv", # File contains both soils & waters
+                       na.strings=c('#DIV/0!', '', 'NA'), header = TRUE)
+  names(soils)
+  soils$ti <- as.POSIXct(strptime(soils$ti, "%Y-%m-%d %H:%M", tz="EST"))
+  colnames(soils)[colnames(soils) == "ti"] <- "Date.ti"
+  
+  keepSoils <- c(
+    "Date.ti", "WeekSubWeek", "ID.N",
+    "Area.N", "Area.T", "Area.S",
+    "iniCo.ug.g.N", "iniCo.ug.g.T", "iniCo.ug.g.S",
+    "CumAppMass.g.N", "CumAppMass.g.T", "CumAppMass.g.S",
+    "diss.d13C", "SD.d13C", 
+    "CumAppMass.g" , 
+    "CatchMassSoil.g", "CatchMassSoil.g.SD", 
+    "comp.d13C.North" , "comp.d13C.SD.North", 
+    "comp.d13C.Talweg", "comp.d13C.SD.Talweg", 
+    "comp.d13C.South" , "comp.d13C.SD.South",
+    "BulkCatch.d13", "BulkCatch.d13.SD",
+    "Conc.mug.g.dry.soil.N", "Conc.mug.g.dry.soil.T", "Conc.mug.g.dry.soil.S",  
+    "BulkCatch.Conc", "iniCo.Bulk"
+  )
+}
+# Test
+sum(is.na(soils$Date.ti)) == 0
+
+soils <- soils[, colnames(soils) %in% keepSoils]
+```
+
+
+## Rayleigh (closed system, Elsner's notation)
+
+
+$$ ln (\frac{1000 + \delta ^{13}C_0 + \Delta\delta^{13}C }{1000 + \delta^{13} C_0 }) = (\alpha - 1) \cdot ln f = \frac{\epsilon}{1000} \cdot ln f $$
+were, 
+
+$$ f = \frac{C_t}{C_0} $$
+
+### Accounting for dilution
+
+The Rayleigh equation above assumes that $f$ reflects solely reduction in concentrations due to degradation and should thus be expressed as $f_{degradation}$. Accounting for dilution processes, the remaining fraction that is measured in the field sample becomes then $f_{total}$, where:
+
+$$ f_{total} = f_{degradation} \cdot f_{dilution} $$
+
+Following Van Breukelen [-@VanBreukelen2007],
+
+$$f_{degradation} = f_{total} \cdot F$$
+
+where the dilution factor $F$ (i.e. the number of times the source volume has become diluted at the observation location) can be calculated if $\epsilon_{lab}$ is known:
+
+$$F = e^{(\Delta/\epsilon_{lab}-lnf_{total})}$$
+
+were,
+
+$$\Delta = 1000 \cdot ln \Big( \frac{ 10^{-3} \delta^{13}_t C + 1}{10^{-3} \delta^{13}_0 C + 1}  \Big)$$
+# Soils
+
+### Initial soil concentration(s)
+
+Estimation of initial concentrations followed breaking down the fraction of the catchment receiving application by transect, then 
+
+```{r}
+
+if (VERTICAL) {
+  iniCo <- 12.17
+# soils$iniCo <- 12.17 # Average for plots with application 1+ day
+# soils$iniCo <- 9.96 # Median for plots with application 1+ day
+# soils$iniCo <- 22.7 # MAX for plots with application 1+ day
+
+# Based on mean plot Day +1, by Transect
+# soils$iniCo <- ifelse(soils$Transect == "N", 16.2, 
+#                          ifelse(soils$Transect == "T", 8.9, 
+#                                 ifelse(soils$Transect == "S", 10.0, NA)))
+
+} else {
+# Already defined in book 05  
+}
+
+
+```
+
+### Dilution factor ($F$)
+
+```{r}
+
+if (VERTICAL) {
+  soils$ftot <- soils$Conc.mug.g.dry.soil/soils$iniCo
+
+  # Van Breukelen notation
+  soils$Delta <- 1000*log( (10^-3*soils$comp.d13C+1)/(10^-3*d13Co+1) )
+  
+  # Elsner notation
+  # soils$DeltaX <- log(1000+d13Co+soils$DD13C.comp)/(1000+d13Co)
+  
+  soils$Fdil = 
+    exp( soils$Delta/epsilon_lab -log(soils$ftot) ) 
+  median(soils$Fdil, na.rm = T)
+  
+  # Fdil < 1, otherwise this 
+  soils$Fdil <- ifelse(soils$Fdil < 1, NA, soils$Fdil)
+  
+  # In case lab E is not appropriate, an adjustment may be necessary
+  adj_epsilon = -3.5
+  
+  #soils$FdilAdj = 
+  #  exp( soils$Delta/adj_epsilon -log(soils$ftot) ) 
+} else {
+  soils$ftot.N <-soils$Conc.mug.g.dry.soil.N/soils$iniCo.ug.g.N
+  soils$ftot.T <-soils$Conc.mug.g.dry.soil.T/soils$iniCo.ug.g.T
+  soils$ftot.S <-soils$Conc.mug.g.dry.soil.S/soils$iniCo.ug.g.S
+  
+  soils$ftot.Bulk <-soils$BulkCatch.Conc/soils$iniCo.Bulk
+  
+  # Van Breukelen notation
+  soils$Delta.N <- 1000*log( (10^-3*soils$comp.d13C.North +1)/(10^-3*d13Co+1) )
+  soils$Delta.T <- 1000*log( (10^-3*soils$comp.d13C.Talweg +1)/(10^-3*d13Co+1) )
+  soils$Delta.S <- 1000*log( (10^-3*soils$comp.d13C.South +1)/(10^-3*d13Co+1) )
+  soils$Delta.Bulk <- 1000*log( (10^-3*soils$BulkCatch.d13 +1)/(10^-3*d13Co+1) )
+  
+  soils$Fdil.N = 
+    exp( soils$Delta.N/epsilon_lab -log(soils$ftot.N) ) 
+  soils$Fdil.T = 
+    exp( soils$Delta.T/epsilon_lab -log(soils$ftot.T) ) 
+  soils$Fdil.S = 
+    exp( soils$Delta.S/epsilon_lab -log(soils$ftot.S) ) 
+  
+  soils$Fdil.Bulk = 
+        exp( soils$Delta.Bulk/epsilon_lab -log(soils$ftot.Bulk) ) 
+  median(soils$Fdil.N, na.rm = T)
+  median(soils$Fdil.T, na.rm = T)
+  median(soils$Fdil.S, na.rm = T)
+  median(soils$Fdil.Bulk, na.rm = T)
+  
+  # soils$Fdil <- ifelse(soils$Fdil < 1, NA, soils$Fdil)
+}
+
+```
+
+We can now obtain $f_{dilution}$ and $f_{degradation}$:
+
+```{r}
+
+if (VERTICAL){
+  soils$fdil <- 1/soils$Fdil
+  soils$fdeg <- soils$ftot * soils$Fdil 
+  
+  #soils$fdilAdj <- 1/soils$FdilAdj
+  #soils$fdegAdj <- soils$ftot * soils$FdilAdj 
+  
+  soils$Dprct <- (1- soils$fdil)*100
+  #soils$DprctAdj <- (1- soils$fdilAdj)*100
+  
+  soils$Bprct <- (1-soils$fdeg)*100
+  #soils$BprctAdj <- (1-soils$fdegAdj)*100
+  
+  soils$Tprct <- (1-soils$ftot)*100
+} else {
+  soils$fdil.N <- 1/soils$Fdil.N
+  soils$fdeg.N <- soils$ftot.N * soils$Fdil.N 
+  
+  soils$Dprct.N <- (1- soils$fdil.N)*100
+  soils$Bprct.N <- (1-soils$fdeg.N)*100
+  soils$Tprct.N <- (1- (1 - soils$Bprct.N/100) * (1 - soils$Dprct.N/100)  )*100
+  
+  # Talweg
+  soils$fdil.T <- 1/soils$Fdil.T
+  soils$fdeg.T <- soils$ftot.T * soils$Fdil.T 
+  
+  soils$Dprct.T <- (1- soils$fdil.T)*100
+  soils$Bprct.T <- (1-soils$fdeg.T)*100
+  soils$Tprct.T <- (1-soils$ftot.T)*100
+
+  #South
+  soils$fdil.S <- 1/soils$Fdil.S
+  soils$fdeg.S <- soils$ftot.S * soils$Fdil.S 
+  
+  soils$Dprct.S <- (1- soils$fdil.S)*100
+  soils$Bprct.S <- (1-soils$fdeg.S)*100
+  soils$Tprct.S <- (1-soils$ftot.S)*100
+  
+  # Bulk
+  soils$fdil.Bulk <- 1/soils$Fdil.Bulk
+  soils$fdeg.Bulk <- soils$ftot.Bulk * soils$Fdil.Bulk 
+  
+  soils$Dprct.Bulk <- (1- soils$fdil.Bulk)*100
+  soils$Bprct.Bulk <- (1-soils$fdeg.Bulk)*100
+  soils$Tprct.Bulk <- (1-soils$ftot.Bulk)*100
+  
+}
+
+
+```
+
+Calculating degradation and respective statistical variation errors in B, according to [@Thulnner2012]: 
+
+$$ | \Delta B | = \frac{1}{| \epsilon |} \cdot (100 - B[\%]) \cdot \sqrt{(ln(1-B[\%]/100))^2 \cdot (\Delta \epsilon)^2 + (\Delta \delta_x)^2 + (\Delta \delta_0)^2} $$
+
+```{r}
+# Deg effective
+soils$DD.N <-  soils$comp.d13C.North - d13Co
+soils$DD.T <-  soils$comp.d13C.Talweg - d13Co
+soils$DD.S <-  soils$comp.d13C.South - d13Co
+soils$DD.Bulk <- soils$BulkCatch.d13 - d13Co
+
+soils$Belsner.N <- (1- ((1000 + d13Co + soils$DD.N)/(1000+ d13Co))^(1000/epsilon_lab) )*100
+soils$Berr.Stat.N <- (1/-epsilon_lab)*
+  (100-soils$Belsner.N)*( (log(1-soils$Belsner.N/100))^2 * dE^2 + (soils$comp.d13C.SD.North)^2 + (.5)^2 )^(1/2)
+
+soils$Belsner.T <- (1- ((1000 + d13Co + soils$DD.T)/(1000+ d13Co))^(1000/epsilon_lab) )*100
+soils$Berr.Stat.T <- (1/-epsilon_lab)*
+  (100-soils$Belsner.T)*( (log(1-soils$Belsner.T/100))^2 * dE^2 + (soils$comp.d13C.SD.Talweg)^2 + (.5)^2 )^(1/2)
+
+soils$Belsner.S <- (1- ((1000 + d13Co + soils$DD.S)/(1000+ d13Co))^(1000/epsilon_lab) )*100
+soils$Berr.Stat.S <- (1/-epsilon_lab)*
+  (100-soils$Belsner.S)*( (log(1-soils$Belsner.S/100))^2 * dE^2 + (soils$comp.d13C.SD.South)^2 + (.5)^2 )^(1/2)
+
+soils$Belsner.Bulk <- (1- ((1000 + d13Co + soils$DD.Bulk)/(1000+ d13Co))^(1000/epsilon_lab) )*100
+```
+
+
+Calculating errors from systematic variation in input parameters, in this case $\epsilon_{lab}$:
+
+```{r}
+soils$Belsner.BulkField <- (1- ((1000 + d13Co + soils$DD.Bulk)/(1000+ d13Co))^(1000/epsilon_field) )*100
+soils$Bdiff.LabField <- soils$Belsner.BulkField - soils$Belsner.Bulk
+```
+
+
+```{r}
+soils$Berr.Stat.Bulk <- (1/-epsilon_lab)*
+  (100-soils$Belsner.Bulk)*( (log(1-soils$Belsner.Bulk/100))^2 * dE^2 + (0.5)^2 + (.5)^2 )^(1/2)
+
+soils$Berr.Stat.Field <- (1/-epsilon_field)*
+  (100-soils$Belsner.BulkField)*( (log(1-soils$Belsner.BulkField/100))^2 * dE^2 + (0.5)^2 + (.5)^2 )^(1/2)
+```
+
+
+
+As well as the breakdown ($B*$), dilution factors ($D*$):
+
+$$B^* = \frac{log(f_{dil})}{log(f_{tot})} $$
+
+and their relationship $D*/B*$ which relates the extent of dilution relative to degradation.
+
+```{r}
+if (VERTICAL){
+  
+  
+  #soils$DstarAdj = log(soils$fdilAdj)/log(soils$ftot)
+  #soils$BstarAdj = log(soils$fdegAdj)/log(soils$ftot)
+} else {
+  soils$Dstar.N = log(soils$fdil.N)/log(soils$ftot.N)
+  soils$Bstar.N = log(soils$fdeg.N)/log(soils$ftot.N)
+  soils$DB.N = soils$Dstar.N/soils$Bstar.N
+  
+  soils$Dstar.T = log(soils$fdil.T)/log(soils$ftot.T)
+  soils$Bstar.T = log(soils$fdeg.T)/log(soils$ftot.T)
+  soils$DB.T = soils$Dstar.T/soils$Bstar.T
+  
+  soils$Dstar.S = log(soils$fdil.S)/log(soils$ftot.S)
+  soils$Bstar.S = log(soils$fdeg.S)/log(soils$ftot.S)
+  soils$DB.S = soils$Dstar.S/soils$Bstar.S
+
+  soils$Dstar.Bulk = log(soils$fdil.Bulk)/log(soils$ftot.Bulk)
+  soils$Bstar.Bulk = log(soils$fdeg.Bulk)/log(soils$ftot.Bulk)
+  soils$DB.Bulk = soils$Dstar.Bulk/soils$Bstar.Bulk
+
+  median(soils$DB.N, na.rm = T)
+  median(soils$DB.T, na.rm = T)
+  median(soils$DB.S, na.rm = T)
+
+  mean(soils$DB.N, na.rm = T)
+  mean(soils$DB.T, na.rm = T)
+  mean(soils$DB.S, na.rm = T)
+
+    
+  ggplot(data = soils , aes(x=Date.ti))+
+    geom_point(aes(y = Dstar.N, colour = "D*N")) + 
+    geom_point(aes(y = Dstar.T, colour = "D*T")) +
+    geom_point(aes(y = Dstar.S, colour = "D*S")) +
+    theme_bw() 
+  
+
+  ggplot(data = soils , aes(x=Date.ti))+
+    geom_point(aes(y = Bstar.N, colour = "B*N")) + 
+    geom_point(aes(y = Bstar.T, colour = "B*T")) +
+    geom_point(aes(y = Bstar.S, colour = "B*S")) +
+    theme_bw()
+
+}
+
+
+  
+```
+
+Calculating the cummulative mass that was degraded and transpoted off-site can be done by converting the change in concentration to the change in mass, with the following conversion:
+
+$$ \Delta M_t = M_t - M_0 $$
+don't think this is correct! Should be B% instead of B*...
+
+$$  M_{deg(t)} = \Delta M \cdot B^* $$
+(thinking about dilution in the wrong way? ->  Dilution factor can only be applied to concentrations, not masses) 
+
+because,
+
+$$B^* = 1 - D^*$$
+
+$$ M_t ~ [\mu g] = C_t ~ [\mu g/ g~soil] * \rho ~ [g~soil / m^3 ] * A_{T} [m^2] * D~[m]    $$
+Note here that $A_T$ refers to the representative catchment area (subcatchment) of the given transect, and depth is 0.01 $m$. 
+
+```{r}
+
+soils$dM.g.N =  (soils$iniCo.ug.g.N*rho*soils$Area.N*depth -
+                   soils$Conc.mug.g.dry.soil.N*rho*soils$Area.N*depth)*1/10^6
+soils$dM.g.T =  (soils$iniCo.ug.g.T*rho*soils$Area.T*depth -
+                   soils$Conc.mug.g.dry.soil.T*rho*soils$Area.T*depth)*1/10^6
+soils$dM.g.S =  (soils$iniCo.ug.g.S*rho*soils$Area.S*depth -
+                   soils$Conc.mug.g.dry.soil.S*rho*soils$Area.S*depth)*1/10^6
+
+# Doubt, Don't think this formula is applicable to mass calculations, 
+# as mass is not affected by dilution, only concentration is
+CONC = FALSE
+if (CONC) {
+  soils$Mdeg.g.N <- soils$dM.g.N*soils$Bstar.N
+  soils$Mdeg.g.T <- soils$dM.g.T*soils$Bstar.T
+  soils$Mdeg.g.S <- soils$dM.g.S*soils$Bstar.S
+  soils$SumDeg.g <- soils$Mdeg.g.N + soils$Mdeg.g.T + soils$Mdeg.g.S
+
+  soils$Mdil.g.N <- soils$dM.g.N*soils$Dstar.N
+  soils$Mdil.g.T <- soils$dM.g.T*soils$Dstar.T
+  soils$Mdil.g.S <- soils$dM.g.S*soils$Dstar.S
+  soils$SumDil.g <- soils$Mdil.g.N + soils$Mdil.g.T + soils$Mdil.g.S
+  
+} else {
+  soils$Mdeg.g.N <- soils$CumAppMass.g.N*soils$Belsner.N/100
+  soils$Mdeg.g.T <- soils$CumAppMass.g.T*soils$Belsner.T/100
+  soils$Mdeg.g.S <- (soils$CumAppMass.g.S)*soils$Belsner.S/100
+  soils$SumDeg.g <- soils$Mdeg.g.N + soils$Mdeg.g.T + soils$Mdeg.g.S
+}
+
+soils$Mrem.g <- 
+  (soils$Conc.mug.g.dry.soil.N*rho*soils$Area.N*depth +
+     soils$Conc.mug.g.dry.soil.T*rho*soils$Area.T*depth +
+     soils$Conc.mug.g.dry.soil.S*rho*soils$Area.S*depth)*1/10^6
+
+soils$Mrem.g.N <- soils$Conc.mug.g.dry.soil.N*rho*soils$Area.N*depth*1/10^6
+soils$Mrem.g.T <- soils$Conc.mug.g.dry.soil.N*rho*soils$Area.T*depth*1/10^6
+soils$Mrem.g.S <- soils$Conc.mug.g.dry.soil.N*rho*soils$Area.S*depth*1/10^6
+
+soils$Mloss.g.N <- soils$CumAppMass.g.N - (soils$Mdeg.g.N + soils$Mrem.g.N)
+soils$Mloss.g.T <- soils$CumAppMass.g.T - (soils$Mdeg.g.T + soils$Mrem.g.T)
+soils$Mloss.g.S <- soils$CumAppMass.g.S - (soils$Mdeg.g.S + soils$Mrem.g.S)
+
+soils$PrctRem.N <- (soils$Mrem.g.N/soils$CumAppMass.g.N)*100
+soils$PrctRem.T <- (soils$Mrem.g.T/soils$CumAppMass.g.T)*100
+soils$PrctRem.S <- (soils$Mrem.g.S/(soils$CumAppMass.g.S))*100
+
+soils$PrctDeg <- (soils$SumDeg.g/soils$CumAppMass.g)*100 # Sum of transect degradations relative to Applied mass
+soils$PrctDeg.N <- (soils$Mdeg.g.N/soils$CumAppMass.g.N)*100
+soils$PrctDeg.T <- (soils$Mdeg.g.T/soils$CumAppMass.g.T)*100
+soils$PrctDeg.S <- (soils$Mdeg.g.S/(soils$CumAppMass.g.S))*100
+
+soils$PrctRem <- (soils$Mrem.g/soils$CumAppMass.g)*100
+soils$PrctLoss <- 100 - (soils$PrctRem + soils$PrctDeg)
+soils$PrctLoss.N <- 100 - (soils$PrctRem.N + soils$PrctDeg.N)
+soils$PrctLoss.T <- 100 - (soils$PrctRem.T + soils$PrctDeg.T)
+soils$PrctLoss.S <- 100 - (soils$PrctRem.S + soils$PrctDeg.S)
+
+names(soils)
+dropS <- c("Area.Catch", "Area.N", "Area.T", "Area.S", 
+            "WeekSubWeek", 
+           # Isotopes Soils
+           "comp.d13C.North", "comp.d13C.SD.North",
+           "comp.d13C.Talweg", "comp.d13C.SD.Talweg"  ,
+           "comp.d13C.South", "comp.d13C.SD.South",
+           "BulkCatch.d13", "BulkCatch.d13.SD",
+           "DD.N", "DD.T", "DD.S","DD.Bulk", 
+           # ISotopes Water
+           # "diss.d13C", "SD.d13C",
+           # Concentrations
+           "BulkCatch.Conc" ,
+           "Conc.mug.g.dry.soil.N", "Conc.mug.g.dry.soil.T", "Conc.mug.g.dry.soil.S", 
+      
+           "iniCo.Bulk", "iniCo.ug.g.N" , "iniCo.ug.g.T",  "iniCo.ug.g.S",
+           
+           # Mass
+           "CatchMassSoil.g", "CatchMassSoil.g.SD",
+           
+           # VanBreukelen
+           "Fdil.N", "Fdil.T", "Fdil.S", "Fdil.Bulk",
+            "ftot.N","ftot.T", "ftot.S", "ftot.Bulk",  
+           "fdil.N", "fdil.T", "fdil.S", "fdil.Bulk",
+           "fdeg.N", "fdeg.T", "fdeg.S", "fdeg.Bulk",
+           "Bstar.N", "Bstar.T", "Bstar.S", "Bstar.Bulk", 
+           "Dstar.N", "Dstar.T", "Dstar.S", "Dstar.Bulk", 
+           "dM.g.N", "dM.g.T", "dM.g.S"# ,
+           #"Mdeg.g.N", "Mdeg.g.T", "Mdeg.g.S"
+           )
+
+soilsRay <- soils[ , !colnames(soils) %in% dropS]
+soilsRay <- soilsRay[complete.cases(soilsRay[ , "ID.N"]), ]
+soilsRay$ID.N.x <- soilsRay$ID.N
+names(soilsRay)
+
+mean(soilsRay$Bdiff.LabField[3:8])
+mean(soilsRay$Bdiff.LabField[12:13])
+mean(soilsRay$Berr.Stat.Bulk[3:8])
+mean(soilsRay$Berr.Stat.Bulk[12:13])
+
+mean(soils$Berr.Stat.Field, na.rm = T)
+
+names(soilsRay)
+```
+
+Calculating a field enrichment after correcting for via breakdown factor ($B^*$),
+
+$$\epsilon_{field} = B^* \cdot \epsilon_{lab} = \frac{\Delta}{ln f _{total} } $$
+
+```{r}
+soils$Efield.N <- soils$Bstar.N * epsilon_lab
+soils$Efield.T <- soils$Bstar.T * epsilon_lab
+soils$Efield.S <- soils$Bstar.S * epsilon_lab
+soils$Efield.Bulk <- soils$Bstar.Bulk * epsilon_lab
+# soils$EfieldAdj <- soils$BstarAdj * epsilon_lab
+
+Efield.Bulk <- mean(soils$Efield.Bulk, na.rm = T)
+Efield.Bulk
+
+sd(soils$Efield, na.rm = T)
+
+# median(soils$EfieldAdj)
+```
+
+
+## Save soils and water for Bar Plots
+
+```{r}
+# Check correct:
+soils$Etrue =  soils$Efield.Bulk/soils$Bstar.Bulk
+median(soils$Etrue, na.rm = T) # Should be close to -2.2, YES.
+soils$Etrue <- NULL
+#write.csv2(soils, 
+#           'Data/Rayleigh_Soils.csv', row.names = F)
+
+write.csv2(soilsRay, 
+           'Data/Rayleigh_Soils.csv', row.names = F)
+
+
+
+```
+
+
+In Van Breuklen, the degraded and diluted fractions are plotted against each other. They find that in the fringe of the plume, where more dilution occurs, also more degradation occurs, likely associated to oxidant availability and lower toxicity levels.   
+
+```{r}
+
+if (VERTICAL){
+  # Van Breuklen plot this 
+  soils$degY = -log(soils$fdeg)
+  soils$dilX = -log(soils$fdil)
+  
+  
+  DBmodel<-lm( degY ~ dilX , data= soils, subset=(!is.na(Etrue) )) 
+  cof_DB <- as.numeric(coef(DBmodel)[2])
+  # se_DB <- summary(DBmodel)$coef[[4]]*1000
+  summary(DBmodel)
+  
+  ggplot(data = subset(soils, ( !is.na(fdil) & dilX>0 )), aes(x=dilX, y=degY)) +
+    geom_point()
+
+}
+
+```
+
+
+In contrast, in top soils, a slightly negative but not significant relationship between extent of dilution and degradation was found. This is to be expected as concentration in tops soils are lower than in aquifer systems for legacy contaminants. At lower concentrations, lack of sufficient substrate may be associated to lower bacterial communities capable of degradation. 
+
+
+# Waters
+
+Conversion of initial concentration in soils to pore water, assuming all S-met mass is available, may lead to an Fdil_w. 
+
+For waters, no dilution factor can be applied. The degraded fraction of off-site transport must be equivalent to catchment soils, as degradation is negligible within an event. However, it may be of interest to obtain the degradation extent that would be computed if only outlet observations were conducted, without knowledge of dilution extent in catchment soils. As such, the fraction degraded in outlet waters will be obtained via $\epsilon_{lab}$ and with the closed system Rayleigh equation, without making use of concentration data. 
+
+
+```{r}
+waters = read.csv2("Data/WeeklyHydroContam_R.csv")
+waters$ti <- as.POSIXct(strptime(waters$ti, "%Y-%m-%d %H:%M", tz="EST"))
+colnames(waters)[colnames(waters) == "ti"] <- "Date.ti"
+waters$Events <- factor(waters$Events, levels = unique(waters$Events))
+waters$Event <- factor(waters$Event, levels = unique(waters$Event))
+
+names(waters)
+
+keepWater <- c(
+  "Date.ti", "WeekSubWeek", "Sampled" , "Volume.m3", "AveDischarge.m3.h",
+  "Markers" , "TimeDiff", "Duration.Hrs", 
+  "Conc.mug.L", "Conc.SD" ,
+  "OXA_mean", "OXA_SD", 
+  "ESA_mean", "ESA_SD", 
+  "diss.d13C", "SD.d13C",
+  "filt.d13C", "filt.SD.d13C",
+  "DD13C.diss", "DD13C.filt",  
+  "Appl.Mass.g",  "CumAppMass.g",
+  "DissSmeto.g", "DissSmeto.g.SD", 
+  "DissOXA.g", "DissOXA.g.SD",
+  "DissESA.g", "DissESA.g.SD",
+  "FiltSmeto.g", "FiltSmeto.g.SD",
+  "TotSMout.g",  "TotSMout.g.SD", 
+  "MELsm.g", "MELsm.g.SD",
+  "CumOutDiss.g", "CumOutFilt.g",
+  "CumOutSmeto.g", "CumOutMELsm.g", 
+  "Events"
+)
+waters <- waters[ , colnames(waters) %in% keepWater]
+```
+
+## Field Assumptions
+
+Converting soil to volumetric concentrations in soils, 
+
+$$ C_{soil}~[\mu g/L_{soil}] = C_{soil}[\frac{\mu g~_{S-met}}{g_{soil}}] \cdot\rho_{soil}[\frac{g_{soil}}{m^3}] \cdot \frac{ 1 m^3}{ 10^3 L_{soil}} $$
+
+
+$$C_{soil}~[\mu g/L_{H_2O} ] = \frac{ C_{soil} }{\theta_{sat} + \rho_{soil} \cdot K_d } $$
+
+```{r}
+# S-metolachlor Mass [g]
+# Conc. [ug/g dry soil] * [g/10^6 ug] * density [g/m3] * depth [m]* A [m2] 
+# Soil bulk density: 2200 or 0.99? -> Leaching experiments: 0.98 [g/cm3]
+rho = 0.98*10^6 # soil density [g/m3]
+depth = 0.01 # [m]
+theta = 0.4
+# Kd = 2.397/10^6 # m3/g (aged)
+Kd = 3.99/10^6 #m3/g (fresh)
+```
+
+
+
+```{r}
+
+# Cosed vs. Open system Rayleigh
+OPEN = T
+
+if (OPEN) {
+  waters$f.diss <- 
+  ((10^(-3)*waters$diss.d13C + 1)/(10^(-3)*d13Co + 1))^(1000/(epsilon_lab))
+  
+  waters$f.diss.min <- 
+    ((10^(-3)*waters$diss.d13C + 1)/(10^(-3)*d13Co + 1))^(1000/(epsilon_max))
+  
+  waters$f.diss.max <- 
+    ((10^(-3)*waters$diss.d13C + 1)/(10^(-3)*d13Co + 1))^(1000/(epsilon_min))
+  
+  waters$B.diss <- (1-waters$f.diss)*100
+  waters$B.diss.max <- (1-waters$f.diss.min)*100
+  waters$B.diss.min <- (1-waters$f.diss.max)*100
+} else if (!VERTICAL){
+  ws <- merge(waters, soils, by = "Date.ti", all = T )
+  
+  # Assume Bulk soils conc. doesn't evolve close to event
+  ws$BulkCatch.Conc <- na.locf(ws$BulkCatch.Conc)
+  
+  # Convert concentrations from mass to vol H20, assuming linear sorption
+  ws$poolCo_w <- (ws$BulkCatch.Conc*rho/10^3)/(theta + rho*Kd)
+  ws$iniCo_w <- (iniCo*rho/10^3)/(theta + rho*Kd)
+  
+  # f_tot
+  # Problem here is initial Co is not applied but, available at time of discharge
+  ws$ftot_w <- ws$Conc.mug.L/ws$poolCo_w
+
+  # Van Breukelen notation
+  ##########################
+  ##########################
+  # Do we need to change d13Co to initial at event or initial product ??
+  ws$Delta_w <- 1000*log( (10^-3*ws$diss.d13C.x + 1)/(10^-3*d13Co+1) )
+  
+  ws$Fdil_w = 
+    exp( ws$Delta_w/epsilon_lab -log(ws$ftot_w) ) 
+  median(ws$Fdil_w, na.rm = T)
+  
+  # Fdil < 1, otherwise this 
+  ws$Fdil_w <- ifelse(ws$Fdil_w < 1, NA, ws$Fdil_w)
+  
+  ws$fdil_w <- 1/ws$Fdil_w
+  ws$fdeg_w <- ws$ftot_w * ws$Fdil_w 
+  
+  ws$Dprct_w <- (1- ws$fdil_w)*100
+  #ws$DprctAdj <- (1- ws$fdilAdj)*100
+  
+  ws$Bprct_w <- (1-ws$fdeg_w)*100
+  #ws$BprctAdj <- (1-ws$fdegAdj)*100
+  
+  ws$Tprct_w <- (1-ws$ftot_w)*100
+  
+  ws$Dstar_w = log(ws$fdil_w)/log(ws$ftot_w)
+  ws$Bstar_w = log(ws$fdeg_w)/log(ws$ftot_w)
+  
+  ws$Dstar_w  <- ifelse(ws$Dstar_w< 0, NA, ws$Dstar_w)
+  ws$Bstar_W  <- ifelse(ws$Bstar_w> 1, NA, ws$Bstar_w)
+  
+  ws$DB_w = ws$Dstar_w/ws$Bstar_w
+}
+
+
+
+```
+
+## Save Waters for Bar Plots
+
+```{r}
+write.csv2(waters, 
+           'Data/Rayleigh_Waters.csv', row.names = F)
+```
+

@@ -356,7 +356,7 @@ The 4 application dates were:
 - 2016-05-25 (Schmidt, Talweg, Corn)
 - 2016-06-04 (Assumed Speich and Mahler, Corn not on transect, Except Speich N1)
 
-To compute initial concentration needed for Rayleigh calculations, the application rates are used to derive the respective concentration at each plot $C_i$, plot area $A$ and the effective transect area $A_tr$ (i.e. proportional to sampling points along transect, not total area represented by transect or sub-catchment area). 
+To compute initial concentration needed for Rayleigh calculations, the application rates are used to derive the respective concentration at each plot $C_i$, plot area $A$ and the effective transect area $A_tr$ (i.e. proportional to sampling points along transect, not extrapolated area represented by transect within entire catchment). 
 
 Note that initial concentrations at each transect will be later extrapolated to the catchment to calculate initial catchment concentrations (bulk), which in turn do take into account the full catchment area.
 
@@ -378,66 +378,132 @@ ti = c(as.POSIXct('2016-03-25 00:04:00' , tz="EST"),
 # Appl.Mass.g = c(31670.073, 4744.571, 1803.066, 6506.818) # With Friess applying MG's doses for Corn 
 Appl.Mass.g = c(31670.073, 12316.197, 1803.066, 6506.818) # With Kopp applying MG's doses for Corn, not Beet 
 
+
+### With Kopp applying MG's doses for Corn, not Beet 
+# Appl.Mass.g.OT = c(24477.491, 12249.068, 1803.066, 4454.233) 
+# Appl.Mass.g.OT = c(14648.725, 12249.068, 1803.066, 6307.544) # Friess's, S-15 on transect
+Appl.Mass.g.OT = c(24477.491, 12249.068, 1803.066, 6307.544) # Friess & Kopp applying MG's doses for Corn, not Beet
+
+### With Kopp applying MG's doses for Corn, not Beet &
+# Matthis applying extra DG's doses for Corn, or using slightly higher MG doses 
+# Appl.Mass.g.OT = c(27076.406, 12249.068, 1803.066, 4454.233) 
+
 Appl.Mass.g.N <- c(8429.434, 7810.101, 0, 5346.189)
+Appl.Mass.g.N.OT <- c(8429.434, 7810.101, 0, 3293.605) # Friess with DG
+# Appl.Mass.g.N.OT <- c(2528.830, 7810.101, 0, 3293.605) # Friess with MG
+
 Appl.Mass.g.T <- c(6903.610, 3073.636, 1803.066, 0)
+Appl.Mass.g.T.OT <- c(2727.322, 3006.507, 1803.066, 0) # Friess with DG
+# Appl.Mass.g.T.OT <- c(818.196, 3006.507, 1803.066, 0) # Friess with MG
+
 Appl.Mass.g.S <- c(16337.030, 1432.460, 0, 1160.628)
+## Options:
+# 1
+# Appl.Mass.g.S.OT <- c(13320.736, 1432.460, 0, 1160.628)
+Appl.Mass.g.S.OT <- c(13320.736, 1432.460, 0, 3016.294) # Friess's S-15 on transect
+# Appl.Mass.g.S.OT <- c(11301.698, 1432.460, 0, 3016.294) # Friess's S-15 on transect, Freiss with MG for Beet
+
+# 2 
+# Matthis applying DG's doses for Corn, but using MG 
+# Appl.Mass.g.S.OT <- c(15919.651, 1432.460, 0, 1160.628)
+
 # Initial soil concentration (needed for Rayleigh calculations later)
 
 # Effective area [m2] refers to plot area touched by a transect, not sub-catchment area.
 # Need this to calculate initial concentration.
 Narea_eff <- 101721.702
 Tarea_eff <- 39247.330
-Sarea_eff <- 94205.501
+Sarea_eff <- 109903.101 # With S-15 (Friess Corn) on Transect
 
 MGplotConc.Corn <- 19.592 # Assume for Friess, as he grew both Corn and Beet 
 MGplotConc.Beet <- 5.878 # ug/g soil for Mercantor Gold
 DGplotConc <- 19.607 # Dual Gold
+# MGbutDG.Matthis <- 24.490
 
-# Initial concentrations: 
+### Initial concentrations: 
+
+# First applciations
 north_first <- 
+  # MGplotConc.Beet*(43903.301/Narea_eff) # Friess Area fraction, ug/g
   MGplotConc.Corn*(43903.301/Narea_eff) # Friess Area fraction, ug/g
+
 talweg_first <- 
-  DGplotConc*(14204.800/Tarea_eff) # Friess
+  # MGplotConc.Beet*(14204.800/Tarea_eff) # Friess
+  MGplotConc.Corn*(14204.800/Tarea_eff) # Friess
+  # DGplotConc*(14204.800/Tarea_eff) # Friess
+
 south_first <- 
-  DGplotConc*((15022.6+15697.6)/Sarea_eff)+ # Friess
-  DGplotConc*(54313.801/Sarea_eff) # Mathis
+  # MGplotConc.Beet*(15022.6/Sarea_eff)+ # Friess, S-11
+  MGplotConc.Corn*(15022.6/Sarea_eff)+ # Friess, S-11
+  # DGplotConc*(15022.6/Sarea_eff)+ # Friess, S-11
+  # DGplotConc*(15697.6/Sarea_eff)+ # Friess, S-15  # Now or in May??
+  # MGplotConc.Beet*(54313.801/Sarea_eff) # Mathis area/area_tot.S
+  DGplotConc*(54313.801/Sarea_eff) # Mathis area/area_tot.S
+  #MGbutDG.Matthis*(54313.801/Sarea_eff) # Mathis area/area_tot.S
   
+# Second applications
 north_second <- 
   north_first+
-  MGplotConc.Corn*(9452.500/Narea_eff+ # Kopp
-                     13776.500/Narea_eff+
-                     17448.600/Narea_eff)
+  MGplotConc.Corn*(9452.500/Narea_eff+ # Kopp, N-4
+                     13776.500/Narea_eff+ # Kopp, N-7
+                     17448.600/Narea_eff) # Kopp, N-8
 talweg_second <- 
   talweg_first+
   MGplotConc.Corn*(2965.980/Tarea_eff # Kopp, T-4
                    + 5336.080/Tarea_eff # Kopp, T-7
                    + 7356.830/Tarea_eff) # Kopp, T-8
-
 south_second <- 
-  south_first+
-  MGplotConc.Beet*(24869.100/Sarea_eff)
+  south_first +
+  MGplotConc.Beet*(24869.100/Sarea_eff) # Burger
+
+# Third applications
+north_third <- north_second
 
 talweg_third <- 
-  talweg_second+DGplotConc*(9383.640/Tarea_eff)
+  talweg_second+
+  DGplotConc*(9383.640/Tarea_eff) # Schmitt, T-10
 
+south_third <- south_second
+
+# Fourth applications
 north_fourth <- 
-  north_second+DGplotConc*(17140.801/Narea_eff)
+  north_second+
+  # MGplotConc.Corn*(17140.801/Narea_eff) # Speich Corn with MG
+  DGplotConc*(17140.801/Narea_eff) # Speich Corn with DG
+
+talweg_fourth <- talweg_third
+# south_fourth <- south_second # If Speich's S-70 not in transect
+south_fourth <- south_second +
+  MGplotConc.Corn*(6040.220/Narea_eff) + # Speich Corn with MG (South Transect)
+  DGplotConc*(15697.6/Sarea_eff) # Friess, S-15  # Now or in April??
 
 applics = as.data.frame(ti)
 applics$Appl.Mass.g = Appl.Mass.g
+applics$Appl.Mass.g.OT = Appl.Mass.g.OT
 applics$Appl.Mass.g.N = Appl.Mass.g.N
 applics$Appl.Mass.g.T = Appl.Mass.g.T
 applics$Appl.Mass.g.S = Appl.Mass.g.S
-applics$iniCo.ug.g.N = c(north_first, north_second, north_second, north_fourth)
-applics$iniCo.ug.g.T = c(talweg_first, talweg_second, talweg_third, talweg_third)
-applics$iniCo.ug.g.S = c(south_first, south_second, south_second, south_second)
+
+applics$Appl.Mass.g.N.OT = Appl.Mass.g.N.OT
+applics$Appl.Mass.g.T.OT = Appl.Mass.g.T.OT
+applics$Appl.Mass.g.S.OT = Appl.Mass.g.S.OT
+
+applics$iniCo.ug.g.N = c(north_first, north_second, north_third, north_fourth)
+applics$iniCo.ug.g.T = c(talweg_first, talweg_second, talweg_third, talweg_fourth)
+applics$iniCo.ug.g.S = c(south_first, south_second, south_third, south_fourth)
 
 out.CoIs = merge(out.CoIs, applics, by = "ti", all = T)
 
 out.CoIs$Appl.Mass.g <- ifelse(is.na(out.CoIs$Appl.Mass.g), 0.0, out.CoIs$Appl.Mass.g)
+out.CoIs$Appl.Mass.g.OT <- ifelse(is.na(out.CoIs$Appl.Mass.g.OT), 0.0, out.CoIs$Appl.Mass.g.OT)
+
 out.CoIs$Appl.Mass.g.N <- ifelse(is.na(out.CoIs$Appl.Mass.g.N), 0.0, out.CoIs$Appl.Mass.g.N)
 out.CoIs$Appl.Mass.g.T <- ifelse(is.na(out.CoIs$Appl.Mass.g.T), 0.0, out.CoIs$Appl.Mass.g.T)
 out.CoIs$Appl.Mass.g.S <- ifelse(is.na(out.CoIs$Appl.Mass.g.S), 0.0, out.CoIs$Appl.Mass.g.S)
+
+out.CoIs$Appl.Mass.g.N.OT <- ifelse(is.na(out.CoIs$Appl.Mass.g.N.OT), 0.0, out.CoIs$Appl.Mass.g.N.OT)
+out.CoIs$Appl.Mass.g.T.OT <- ifelse(is.na(out.CoIs$Appl.Mass.g.T.OT), 0.0, out.CoIs$Appl.Mass.g.T.OT)
+out.CoIs$Appl.Mass.g.S.OT <- ifelse(is.na(out.CoIs$Appl.Mass.g.S.OT), 0.0, out.CoIs$Appl.Mass.g.S.OT)
 
 out.CoIs$timeSinceApp <- NA
 for (i in 1:length(out.CoIs$Duration.Hrs)){
@@ -496,9 +562,14 @@ out.CoIs$timeSinceApp.S <- round(out.CoIs$timeSinceApp.S/24, 1) # Convert to day
 
 # Cumulative (Continous)
 out.CoIs$CumAppMass.g = cumsum(out.CoIs$Appl.Mass.g)
+out.CoIs$CumAppMass.g.OT = cumsum(out.CoIs$Appl.Mass.g.OT)
 out.CoIs$CumAppMass.g.N = cumsum(out.CoIs$Appl.Mass.g.N)
 out.CoIs$CumAppMass.g.T = cumsum(out.CoIs$Appl.Mass.g.T)
 out.CoIs$CumAppMass.g.S = cumsum(out.CoIs$Appl.Mass.g.S)
+out.CoIs$CumAppMass.g.N.OT = cumsum(out.CoIs$Appl.Mass.g.N.OT)
+out.CoIs$CumAppMass.g.T.OT = cumsum(out.CoIs$Appl.Mass.g.T.OT)
+out.CoIs$CumAppMass.g.S.OT = cumsum(out.CoIs$Appl.Mass.g.S.OT)
+
 out.CoIs$iniCo.ug.g.N = na.locf(out.CoIs$iniCo.ug.g.N)
 out.CoIs$iniCo.ug.g.T = na.locf(out.CoIs$iniCo.ug.g.T)
 out.CoIs$iniCo.ug.g.S = na.locf(out.CoIs$iniCo.ug.g.S)

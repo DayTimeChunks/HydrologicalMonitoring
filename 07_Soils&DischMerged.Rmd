@@ -62,11 +62,16 @@ sum(is.na(outlet$ti))
 
 names(outlet)
 # Select variables from Water dataset
-outlet <- outlet[, c("ti", "WeekSubWeek", "Event", 
+outlet <- outlet[, c("ti", "WeekSubWeek", "Event", "Duration.Hrs", 
                      "timeSinceApp", "timeSinceApp.NoSo",
-                      "timeSinceApp.N",  "timeSinceApp.T",  "timeSinceApp.S",
-                     "diss.d13C", "SD.d13C","CumOutDiss.g", "CumOutFilt.g", 
+                     "timeSinceApp.N",  "timeSinceApp.T",  "timeSinceApp.S",
+                     "diss.d13C", "SD.d13C",
+                     "CumOutDiss.g", "CumOutFilt.g", 
+                     "TotSMout.g", "TotSMout.g.SD" , 
+                     "MELsm.g", "MELsm.g.SD",
+                     "Appl.Mass.g" , "Appl.Mass.g.OT",
                      "CumAppMass.g", "CumAppMass.g.N", "CumAppMass.g.T", "CumAppMass.g.S", 
+                     "CumAppMass.g.OT", "CumAppMass.g.N.OT", "CumAppMass.g.T.OT", "CumAppMass.g.S.OT",
                      "iniCo.ug.g.N",  "iniCo.ug.g.T", "iniCo.ug.g.S",  
                      "CumOutSmeto.g", "CumOutMELsm.g")]
 print("Water")

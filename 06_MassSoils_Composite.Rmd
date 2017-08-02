@@ -58,35 +58,67 @@ d13Co = -32.253
 ```{r}
 # S-metolachlor Mass [g]
 # Conc. [ug/g dry soil] * [g/10^6 ug] * density [g/m3] * depth [m]* A [m2] 
-# Soil bulk density: 2200 or 0.99? -> Leaching experiments: 0.99 [g/cm3]
-rho = 0.99*10^6 # soil density [g/m3]
-depth = 0.01 # [m]
+# Soil bulk density: 2.2 [g/cm3] or 0.99 [g/cm3] -> Leaching experiments: 0.99 [g/cm3] or 0.99 x 10^6 g/m3
 
-# Transect Areas pre-corn applications
-Area_Na = 13.92663*10^4 # [m2]
+# Fresh tilled
+rho1 = 0.98*10^6 # soil density [g/m3] Leaching experiment, "freshly tilled" soil
+depth1 = 0.015 # [m] # Fresh tilled
 
+rho1.Sa = 0.98*10^6 # S is different due to less area prop being fresh tilled 
+depth1.Sa = 0.011 # [m]
+
+rho1.Sb = 0.98*10^6 # S is different due to fresh tilling on Burger near April 14 
+depth1.Sb = 0.015 # [m] 
+
+rho1.T = 0.98*10^6 # T is different due to observed early crusting 
+depth1.T = 0.01 # [m] 
+
+# Mid April
+# rho2 = 2.20*10^6 # soil density [g/m3] Lefrancq's measuremnts after major May rainfall event
+rho2 = 0.99*10^6
+depth2 = 0.015 # [m] # Mid april
+
+# Early May
+rho3 = 0.99*10^6 # 0.99*10^6
+depth3 = 0.0046 # [m] # Early may
+
+# Extrapolated Transect Areas pre-corn applications
+# Area_Na = 13.92663*10^4 # [m2]
+
+# Extrapolated
 # Assumptions on Non-measured plots - Transect assignment:
 #Area_Ta = 6.55813*10^4  # [m2] # South Burger's as Talweg
 #Area_Sa = 11.05376*10^4 # [m2] # South Burger's as Talweg
-Area_Ta = 4.37134*10^4  # [m2]
-Area_Sa = 13.3175*10^4 # [m2] # South Burger's as South
+# Area_Ta = 4.37134*10^4  # [m2]
+# Area_Sa = 13.3175*10^4 # [m2] # South Burger's as South
+
+
 
 # Transect Areas post Corn applications (not on transect)
-Area_Nb = 14.9949*10^4 # [m2] 
+#Area_Nb = 14.9949*10^4 # [m2] 
 
 # Assumptions on Non-measured plots - Transect assignment:
 #Area_Tb = 6.55813*10^4  # [m2] # South Burger's as Talweg
 #Area_Sb = 11.65202*10^4 # [m2] # South Burger's as Talweg
-Area_Tb = 4.37134*10^4  # [m2]
-Area_Sb = 13.91767*10^4 # [m2] # South Burger's as South
+#Area_Tb = 4.37134*10^4  # [m2]
+#Area_Sb = 13.91767*10^4 # [m2] # South Burger's as South
+
+# Not extrapolated (only where mass was applied & measured)
+# Area_Na = 84580.901
+# Area_Ta = 29863.690
+# Area_Sa = 94205.501
+
+Area_Nb = 101721.702
+Area_Tb = 39247.330
+Area_Sb = 100245.721
+
+Area_Na = Area_Nb
+Area_Ta = Area_Tb
+Area_Sa = Area_Sb
 
 Area_tot <- Area_Nb + Area_Tb + Area_Sb
-Area_tot 
-
-# Areas touching each transect (respective to)needed for Rayleigh initial concentrations) 
-#Area_Nt <- 101721.702 # [m2] 
-#Area_Tt <- 39247.330
-#Area_St <- 94205.501
+Area_tot/10^4 
+  
 ```
 
 
@@ -214,14 +246,16 @@ $$
 # S-metolachlor Mass [g]
 # Conc. [ug/g dry soil] * [g/10^6 ug] * density [g/m3] * depth [m]* A [m2] 
 # Soil bulk density: 2200 or 0.99? -> Leaching experiments: 0.99 [g/cm3]
-rho # soil density [g/m3]
-depth # [m]
+rho1 # soil density [g/m3]
+rho2 # soil density [g/m3]
+depth1 # [m]
+depth2
 
 # Transect Areas pre-corn applications
 Area_Na # [m2]
 Area_Ta  # [m2]
 Area_Sa # [m2]
-
+Area_early <- Area_Na + Area_Ta + Area_Sa
 # Transect Areas post Corn applications (not on transect)
 Area_Nb # [m2] 
 Area_Tb # [m2]
@@ -231,49 +265,101 @@ Area_Sb # [m2]
 comp.CoIs$MassSoil.g <- NA
 comp.CoIs$MassSoil.g.SD <- NA
 
-# Areas with S-metolachlor before week 9
+# Areas with S-metolachlor before week 9 (no longer used, as Effected Composite Area is used)
+#comp.CoIs$MassSoil.g <- 
+#  ifelse((comp.CoIs$Transect == "N" & comp.CoIs$Wnum < 8), 
+#         comp.CoIs$Conc.mug.g.dry.soil*10^-6*rho*depth*Area_Na,
+#  ifelse((comp.CoIs$Transect == "T" & comp.CoIs$Wnum < 8), 
+#         comp.CoIs$Conc.mug.g.dry.soil*10^-6*rho*depth*Area_Ta, 
+#  ifelse((comp.CoIs$Transect == "S" & comp.CoIs$Wnum < 8), 
+#         comp.CoIs$Conc.mug.g.dry.soil*10^-6*rho*depth*Area_Sa, comp.CoIs$MassSoil.g)))
+
+#comp.CoIs$MassSoil.g.SD <- 
+#  ifelse((comp.CoIs$Transect == "N" & comp.CoIs$Wnum < 8), 
+#         comp.CoIs$Conc.ComSoil.SD*10^-6*rho*depth*Area_Na,
+#  ifelse((comp.CoIs$Transect == "T" & comp.CoIs$Wnum < 8), 
+#         comp.CoIs$Conc.ComSoil.SD*10^-6*rho*depth*Area_Ta, 
+#  ifelse((comp.CoIs$Transect == "S" & comp.CoIs$Wnum < 8), 
+#         comp.CoIs$Conc.ComSoil.SD*10^-6*rho*depth*Area_Sa, comp.CoIs$MassSoil.g.SD)))
+
+# Difference in Bulk Density after 100 mm cumulative rain
 comp.CoIs$MassSoil.g <- 
-  ifelse((comp.CoIs$Transect == "N" & comp.CoIs$Wnum < 9), 
-         comp.CoIs$Conc.mug.g.dry.soil*10^-6*rho*depth*Area_Na,
-  ifelse((comp.CoIs$Transect == "T" & comp.CoIs$Wnum < 9), 
-         comp.CoIs$Conc.mug.g.dry.soil*10^-6*rho*depth*Area_Ta, 
-  ifelse((comp.CoIs$Transect == "S" & comp.CoIs$Wnum < 9), 
-         comp.CoIs$Conc.mug.g.dry.soil*10^-6*rho*depth*Area_Sa, comp.CoIs$MassSoil.g)))
+  ifelse((comp.CoIs$Transect == "N" 
+          & comp.CoIs$Date.ti <= as.POSIXct("2016-04-14 13:52:00", tz = "EST")), 
+         comp.CoIs$Conc.mug.g.dry.soil*10^-6*rho1*depth1*Area_Na,
+  ifelse((comp.CoIs$Transect == "T" 
+          & comp.CoIs$Date.ti <= as.POSIXct("2016-04-14 13:52:00", tz = "EST")), 
+         comp.CoIs$Conc.mug.g.dry.soil*10^-6*rho1.T*depth1.T*Area_Ta, 
+  ifelse((comp.CoIs$Transect == "S" 
+          & comp.CoIs$Date.ti < as.POSIXct("2016-04-14 13:52:00", tz = "EST")), # Note only "<""
+         comp.CoIs$Conc.mug.g.dry.soil*10^-6*rho1.Sa*depth1.Sa*Area_Sa, comp.CoIs$MassSoil.g)))
 
 comp.CoIs$MassSoil.g.SD <- 
-  ifelse((comp.CoIs$Transect == "N" & comp.CoIs$Wnum < 9), 
-         comp.CoIs$Conc.ComSoil.SD*10^-6*rho*depth*Area_Na,
-  ifelse((comp.CoIs$Transect == "T" & comp.CoIs$Wnum < 9), 
-         comp.CoIs$Conc.ComSoil.SD*10^-6*rho*depth*Area_Ta, 
-  ifelse((comp.CoIs$Transect == "S" & comp.CoIs$Wnum < 9), 
-         comp.CoIs$Conc.ComSoil.SD*10^-6*rho*depth*Area_Sa, comp.CoIs$MassSoil.g.SD)))
+  ifelse((comp.CoIs$Transect == "N" & comp.CoIs$Date.ti <= as.POSIXct("2016-04-14 13:52:00", tz = "EST")), 
+         comp.CoIs$Conc.ComSoil.SD*10^-6*rho1*depth1*Area_Na,
+  ifelse((comp.CoIs$Transect == "T" & comp.CoIs$Date.ti <= as.POSIXct("2016-04-14 13:52:00", tz = "EST")), 
+         comp.CoIs$Conc.ComSoil.SD*10^-6*rho1*depth1*Area_Ta, 
+  ifelse((comp.CoIs$Transect == "S" & comp.CoIs$Date.ti < as.POSIXct("2016-04-14 13:52:00", tz = "EST")), 
+         comp.CoIs$Conc.ComSoil.SD*10^-6*rho1*depth1*Area_Sa, comp.CoIs$MassSoil.g.SD)))
 
-# Areas with S-metolachlor after week 9
-comp.CoIs$MassSoil.g <- 
-  ifelse((comp.CoIs$Transect == "N" & comp.CoIs$Wnum >= 9), 
-         comp.CoIs$Conc.mug.g.dry.soil*10^-6*rho*depth*Area_Nb,
-  ifelse((comp.CoIs$Transect == "T" & comp.CoIs$Wnum >= 9), 
-         comp.CoIs$Conc.mug.g.dry.soil*10^-6*rho*depth*Area_Tb, 
-  ifelse((comp.CoIs$Transect == "S" & comp.CoIs$Wnum >= 9), 
-         comp.CoIs$Conc.mug.g.dry.soil*10^-6*rho*depth*Area_Sb, comp.CoIs$MassSoil.g)))
+# Mid april - Mid May
+comp.CoIs$MassSoil.g <-
+  ifelse((comp.CoIs$Transect == "N" 
+          & comp.CoIs$Date.ti > as.POSIXct("2016-04-14 13:52:00", tz = "EST")
+          & comp.CoIs$Date.ti <= as.POSIXct("2016-05-10 00:06:00", tz = "EST")), 
+         comp.CoIs$Conc.mug.g.dry.soil*10^-6*rho2*depth2*Area_Na,
+       ifelse((comp.CoIs$Transect == "T" 
+          & comp.CoIs$Date.ti > as.POSIXct("2016-04-14 13:52:00", tz = "EST")
+          & comp.CoIs$Date.ti <= as.POSIXct("2016-05-10 00:06:00", tz = "EST")), 
+         comp.CoIs$Conc.mug.g.dry.soil*10^-6*rho2*depth2*Area_Ta, 
+       ifelse((comp.CoIs$Transect == "S" 
+               & comp.CoIs$Date.ti == as.POSIXct("2016-04-14 13:52:00", tz = "EST")), 
+              comp.CoIs$Conc.mug.g.dry.soil*10^-6*rho1.Sb*depth1.Sb*Area_Sa,
+          ifelse((comp.CoIs$Transect == "S" 
+            & comp.CoIs$Date.ti > as.POSIXct("2016-04-14 13:52:00", tz = "EST")
+            & comp.CoIs$Date.ti <= as.POSIXct("2016-05-10 00:06:00", tz = "EST")), 
+            comp.CoIs$Conc.mug.g.dry.soil*10^-6*rho2*depth2*Area_Sa, comp.CoIs$MassSoil.g))))
 
 comp.CoIs$MassSoil.g.SD <- 
-  ifelse((comp.CoIs$Transect == "N" & comp.CoIs$Wnum >= 9), 
-         comp.CoIs$Conc.ComSoil.SD*10^-6*rho*depth*Area_Nb,
-  ifelse((comp.CoIs$Transect == "T" & comp.CoIs$Wnum >= 9), 
-         comp.CoIs$Conc.ComSoil.SD*10^-6*rho*depth*Area_Tb, 
-  ifelse((comp.CoIs$Transect == "S" & comp.CoIs$Wnum >= 9), 
-         comp.CoIs$Conc.ComSoil.SD*10^-6*rho*depth*Area_Sb, comp.CoIs$MassSoil.g.SD)))
+  ifelse((comp.CoIs$Transect == "N" 
+          & comp.CoIs$Date.ti > as.POSIXct("2016-04-14 13:52:00", tz = "EST")
+          & comp.CoIs$Date.ti <= as.POSIXct("2016-05-10 00:06:00", tz = "EST")), 
+         comp.CoIs$Conc.ComSoil.SD*10^-6*rho2*depth2*Area_Na,
+  ifelse((comp.CoIs$Transect == "T" 
+          & comp.CoIs$Date.ti > as.POSIXct("2016-04-14 13:52:00", tz = "EST")
+          & comp.CoIs$Date.ti <= as.POSIXct("2016-05-10 00:06:00", tz = "EST")), 
+         comp.CoIs$Conc.ComSoil.SD*10^-6*rho2*depth2*Area_Ta, 
+  ifelse((comp.CoIs$Transect == "S" 
+          & comp.CoIs$Date.ti > as.POSIXct("2016-04-14 13:52:00", tz = "EST")
+          & comp.CoIs$Date.ti <= as.POSIXct("2016-05-10 00:06:00", tz = "EST")), 
+         comp.CoIs$Conc.ComSoil.SD*10^-6*rho2*depth2*Area_Sa, comp.CoIs$MassSoil.g.SD)))
+
+# Mid May onwards
+comp.CoIs$MassSoil.g <- 
+  ifelse((comp.CoIs$Transect == "N" & comp.CoIs$Date.ti > as.POSIXct("2016-05-10 00:06:00", tz = "EST")), 
+         comp.CoIs$Conc.mug.g.dry.soil*10^-6*rho3*depth3*Area_Nb,
+  ifelse((comp.CoIs$Transect == "T" & comp.CoIs$Date.ti >= as.POSIXct("2016-05-10 00:06:00", tz = "EST")), 
+         comp.CoIs$Conc.mug.g.dry.soil*10^-6*rho3*depth3*Area_Tb, 
+  ifelse((comp.CoIs$Transect == "S" & comp.CoIs$Date.ti >= as.POSIXct("2016-05-10 00:06:00", tz = "EST")), 
+         comp.CoIs$Conc.mug.g.dry.soil*10^-6*rho3*depth3*Area_Sb, comp.CoIs$MassSoil.g)))
+
+comp.CoIs$MassSoil.g.SD <- 
+  ifelse((comp.CoIs$Transect == "N" & comp.CoIs$Date.ti >= as.POSIXct("2016-05-10 00:06:00", tz = "EST")), 
+         comp.CoIs$Conc.ComSoil.SD*10^-6*rho3*depth3*Area_Nb,
+  ifelse((comp.CoIs$Transect == "T" & comp.CoIs$Date.ti >= as.POSIXct("2016-05-10 00:06:00", tz = "EST")), 
+         comp.CoIs$Conc.ComSoil.SD*10^-6*rho3*depth3*Area_Tb, 
+  ifelse((comp.CoIs$Transect == "S" & comp.CoIs$Date.ti >= as.POSIXct("2016-05-10 00:06:00", tz = "EST")), 
+         comp.CoIs$Conc.ComSoil.SD*10^-6*rho3*depth3*Area_Sb, comp.CoIs$MassSoil.g.SD)))
 
 # Areas as variables (for later computation of bulk catchment mass)
 comp.CoIs$Area.N <-
-  ifelse((comp.CoIs$Wnum < 9), Area_Na, Area_Nb)
+  ifelse((comp.CoIs$Wnum < 8), Area_Na, Area_Nb)
          
 comp.CoIs$Area.T <-
-  ifelse((comp.CoIs$Wnum < 9), Area_Ta, Area_Tb)
+  ifelse((comp.CoIs$Wnum < 8), Area_Ta, Area_Tb)
 
 comp.CoIs$Area.S <-
-  ifelse((comp.CoIs$Wnum < 9), Area_Sa, Area_Sb)
+  ifelse((comp.CoIs$Wnum < 8), Area_Sa, Area_Sb)
   
 # Needed to compute Transect res
 #comp.CoIs$Area_Nt <- Area_Nt  # [m2] 
