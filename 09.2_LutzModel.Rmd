@@ -50,8 +50,55 @@ library("cluster")
 # library(xlsx)
 ```
 
+# Lutz summary
 
-## Comparison to Lutz et al. (2013)
+## Steady state
+
+- Initial constant concentration (not single application) and recharge input boundaries were maintained until concentrations at the outlet reached a steady state.
+- Recharge rate of 250 mm/yr
+
+### Steady state results
+
+- Mean travel time for groundwater was 6.7 yrs (5 yr for the pesticide)
+- Isotopes are enriched with distance from the source area. Max ($\Delta \delta = 4 ??? $) is reached at the hillslope end in the shallow areas close to outlet.
+
+### Relationships to field data
+
+- Extent of isotope shifts are comparable to the staedy state simulation but only near the end of the season in June. Early season signatures are closer to initial product signatures, thus the role of preferential flow pathways is likely to be important during the early season. 
+
+## Extreme rainfall
+
+- A single event to characterize how the hillslope reacts when an extreme event leads to surface run-off. 
+- Rainfall was applied at a uniform intensity of 60 mm/h for 30 min.
+- Recharge rate was assumed as during steady state.
+- Concentration at the source area wa kept constant (i.e. not single pesticide application)
+
+### Extreme rainfall comparison
+
+## Transient state
+
+- Incorporates periods of baseflow and extreme rainfall events to evaluate how concentrations and isotopes respond throughout the year.
+- Use of daily rainfall and ETP values for a metereological station for 1 yr.
+- Data includes one major event with a maximum intensity of 27 mm/h, total amount of 106.4 mm and lasting 20.8 hrs.
+- Same data was applied to 20 consecutive simulation years (i.e. to faciliatate hydrological interpretation)
+- Pesticide was applied once a year on a dry day in spring (day 100; 11 April); 
+
+### Transient state comparison
+
+- Rainfall events reduce concentrations at the outlet due to dilution (not clear if runoff is considered in this scenario, but don't think so); 
+- and continue to influence concentrations at the outlet because they dilute also the sub-surface
+- So concentration increases are associated to dry periods, where baseflow contributes more to the outlet discharge, without fresh water dilution
+- Pesticide applied during the dry season produces no sudden decrease in isotope signatures at the outelt but rather a slow but steady shift in outlet isotope signatures in the direction of the applied product. Degradation at the outlet is highest durign this period, reflecting discharge of groundwater or baseflow components wwith longer reactivity periods. 
+
+
+### Comparison to Transient
+
+- Our dry period did not lead to concentration increases.
+- Concentration increases where rather seen as a result of large rainfall events
+
+
+
+## Data preparation for comparison to Lutz et al. (2013)
 
 To choose field events, cummulative rainfalls over a 30 minute interval exceeding at least 4 mm/hr were selected. The start of the event is considered to be the most recent maximum rainfall intensity associated to the aliquots making up the composite sample. Therefore, signatures represent the flow proportional average of the discharge taking place at the outlet over the course of the event.     
 
@@ -195,6 +242,6 @@ LutzEvents <- ggplot(data = allEvents, aes(x= Duration.Hrs, y=measure, colour = 
 
 LutzEvents
   
-# ggsave(LutzEvents, filename = "LutzEvents.png", width = 8, height = 5, units = "in", scale = 1)
+  # ggsave(LutzEvents, filename = "LutzEvents.png", width = 8, height = 5, units = "in", scale = 1)
 ```
 

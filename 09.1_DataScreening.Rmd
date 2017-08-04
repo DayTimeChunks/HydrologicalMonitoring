@@ -263,6 +263,9 @@ colnames(waters)[colnames(waters) == "ti"] <- "Date.ti"
 waters$Events <- factor(waters$Events, levels = unique(waters$Events))
 waters$Event <- factor(waters$Event, levels = unique(waters$Event))
 
+# Concentration ranges not being able to quantify CSIA
+low4CSIA <- subset(waters, !is.na(diss.d13C))
+min(low4CSIA$Conc.mug.L)
 
 #waters$remain_maxHalf
 #waters$remain_minHalf
