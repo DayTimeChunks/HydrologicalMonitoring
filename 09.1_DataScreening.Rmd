@@ -426,31 +426,21 @@ Or this: https://github.com/tidyverse/ggplot2/wiki/Align-two-plots-on-a-page
 # SD min. selection line 914 (for dissolved)
 WaterSoils <- merge(waterClean, soils, by = "Date.ti", all = T)
 
-#WaterSoils$BulkCatch.d13
-#WaterSoils$DD13.Bulk
 
-#names(WaterSoils)
-keepWS <- c("Date.ti", "WeekSubWeek", "ID.N", "Event.x",
-            "maxQ", "AveDischarge.m3.h", 
-            "DD13C.diss", "SD.d13C.x",
-            "DD13C.filt", "filt.SD.d13C",
-            "DD13C.Talweg", "comp.d13C.SD.Talweg", 
-            "DD13C.South", "comp.d13C.SD.South", 
-            "DD13C.North", "comp.d13C.SD.North",
-            "DD13.Bulk", "BulkCatch.d13.SD" 
-            #"timeSinceApp.x", "Event.x", "Events"
-            )
-wsSmall <- WaterSoils[ , (names(WaterSoils) %in% keepWS)]
-
-#names(wsSmall)
-wsSmall <- wsSmall[c("Date.ti", "WeekSubWeek", "ID.N", "Event.x",  
+# Choose and rearrange variables
+# names(WaterSoils)
+wsSmall <- WaterSoils[c("Date.ti", "WeekSubWeek", "ID.N", "Event.x",  
                      "maxQ", "AveDischarge.m3.h",
-            "DD13C.diss", "SD.d13C.x",
-            "DD13C.filt", "filt.SD.d13C" ,
-            "DD13C.Talweg", "comp.d13C.SD.Talweg", 
-            "DD13C.South", "comp.d13C.SD.South", 
-            "DD13C.North", "comp.d13C.SD.North",
-            "DD13.Bulk", "BulkCatch.d13.SD")]
+                     "dryHrsIni", "dryHrsMax", "dryHrsAve", "noEventHrsIni", "noEventHrsMax", "noEventHrsAve", # Book 4
+                      "CumRain.mm", "RainInt.mmhr", ## Rainfall is per subsample (See Book 3)
+                      "DD13C.diss", "SD.d13C.x",
+                      "DD13C.filt", "filt.SD.d13C" ,
+                      "DD13C.Talweg", "comp.d13C.SD.Talweg", 
+                      "DD13C.South", "comp.d13C.SD.South", 
+                      "DD13C.North", "comp.d13C.SD.North",
+                      "DD13.Bulk", "BulkCatch.d13.SD")]
+
+names(wsSmall)
 
 keepCorrTest <- c("DD13C.diss", 
                   "DD13C.Talweg", 
@@ -462,13 +452,15 @@ wsTest <- wsSmall[ , (names(wsSmall) %in% keepCorrTest)]
 
 names(wsSmall) <- c("Date", "Week", "IDSoil", "Event", 
                     "Qmax", "Qmean",
-            "diss.measure", "diss.SD",
-            "filt.measure", "filt.SD",
-            "Talweg.measure", "Talweg.SD", 
-            "South.measure", "South.SD", 
-            "North.measure", "North.SD",
-            "BulkDD.measure", "BulkDD.SD"
-            )
+                    "dryHrsIni", "dryHrsMax", "dryHrsAve", "noEventHrsIni", "noEventHrsMax", "noEventHrsAve", # Book 4
+                    "CumRain", "RainInt", ## Rainfall is per subsample (See Book 3)
+                    "diss.measure", "diss.SD",
+                    "filt.measure", "filt.SD",
+                    "Talweg.measure", "Talweg.SD", 
+                    "South.measure", "South.SD", 
+                    "North.measure", "North.SD",
+                    "BulkDD.measure", "BulkDD.SD"
+                    )
 
 wsTest <- wsTest[7:length(wsTest$DD13C.diss) , ]
 wsTest$DD13.Bulk <- na.locf(wsTest$DD13.Bulk)
@@ -492,7 +484,11 @@ cor.test(wsTest$DD13C.South, wsTest$DD13C.diss, method = "pearson", use = "pairw
 #  paste0(names(wsSmall)[-1][seq(1, length(names(wsSmall)) - 1, 2)], "-measure")
 
 wstidier <- wsSmall %>%
-  gather(measure, value, -Date, -IDSoil, -Event, -Week, -Qmax, -Qmean) %>% # Melts data frame
+  gather(measure, value, -Date, -IDSoil, -Event, -Week, 
+         -Qmax, -Qmean, 
+         -CumRain, -RainInt,
+         -dryHrsIni, -dryHrsMax, -dryHrsAve,
+         -noEventHrsIni, -noEventHrsAve) %>% # Melts data frame
   separate(measure, into = c("Location", "temporary_var")) %>% # parses the sep = "." into...
   spread(temporary_var, value) 
 
@@ -540,15 +536,18 @@ wstidier$Location <- as.factor(wstidier$Location)
 #  group_by(Type) %>%
 #  summarise(mean = mean(DegDiff))
 
-limits_DdC <- aes(ymin=measure-SD, ymax=measure+SD, colour = Source)
+```
 
+## Lab Enrichment plot
 
+```{r}
 # Dissolved has been selected, but not soils or filters
 wstidier2 = subset(wstidier, SD <= 0.54) #& Source != "Bulk"  ) #& Date < as.POSIXct('2016-06-14 08:04:00'))
 
-NoBASE <- subset(wstidier2, Week != "W6-1" ) 
+# NoBASE <- subset(wstidier2, Week != "W6-1" ) 
 
 pd <- position_dodge(width = 0.4)
+limits_DdC <- aes(ymin=measure-SD, ymax=measure+SD, colour = Source)
 
 
 wsALL_lab <- ggplot(data = wstidier2, aes(x = Date, y = measure, group = Source) )+ 
@@ -559,6 +558,8 @@ wsALL_lab <- ggplot(data = wstidier2, aes(x = Date, y = measure, group = Source)
   geom_errorbar(data=subset(wstidier2, Source == 'Outlet'), limits_DdC) +
   #geom_point(data=subset(wstidier2, Source == 'Outlet'), aes(shape = Type, colour = Source, size = Qmax)) +
   geom_point(data=subset(wstidier2, Source == 'Outlet'), aes(shape = Type, colour = Source, size = Qmean)) +
+  # geom_point(data=subset(wstidier2, Source == 'Outlet'), aes(shape = Type, colour = Source, size = CumRain)) + 
+  # geom_point(data=subset(wstidier2, Source == 'Outlet'), aes(shape = Type, colour = Source, size = noEventHrsIni)) +
   geom_point(data=subset(wstidier2, Source == 'Bulk'), aes(shape = Type, colour = Source)) +
   geom_point(data=subset(wstidier2, (Source == 'Valley'
                                      | Source == 'North'
@@ -620,8 +621,13 @@ wsALL_lab <- ggplot(data = wstidier2, aes(x = Date, y = measure, group = Source)
                      ) +
   scale_size_continuous(range = c(1, 3)) #
 
+wsALL_lab
 # ggplotly(wsALL_lab)
 ```
+
+
+## Field Enrichment Plot
+
 ```{r}
 wsALL_field <- ggplot(data = wstidier2, aes(x = Date, y = measure, group = Source) )+ 
   geom_errorbar(data=subset(wstidier2, Source == 'Bulk'), limits_DdC, size=0.2) +

@@ -98,6 +98,8 @@ head(weeklyhydro)
 
 weeklyflux = read.csv2("Data/fluxAlteck2016_R.csv", header = TRUE)
 head(weeklyflux)
+
+
 ```
 
 2. Concentration data (dissolved and suspended solids) on a subweekly basis
@@ -249,6 +251,7 @@ out.CoIs = merge(weeklyhydro, out.CoIs, by = "WeekSubWeek", all = T)
 
 # Discharge summary
 out.CoIs = merge(weeklyflux, out.CoIs, by = "WeekSubWeek", all = T)
+
 
 # Hydrochemistrty
 out.CoIs = merge(out.CoIs, hydroChem, by= "WeekSubWeek", all = T)
@@ -776,6 +779,7 @@ head(out.CoIs)
 
 write.csv2(out.CoIs, 
            'Data/WeeklyHydroContam_R.csv', row.names = F)
+sum(is.na(out.CoIs$maxQ))
 
 # out.CoIs = read.csv2("Data/WeeklyHydroContam_R.csv")
 # out.CoIs$ti = as.POSIXct(out.CoIs$ti, "%Y-%m-%d %H:%M", tz = "EST")

@@ -22,6 +22,8 @@ Used files:
 
 3. **sixMinutePluvioAlteck2016.csv**
 
+3. **Data/2minRain.csv** (at the end)
+
 Produced file:
 
 1. **hydroAlteck2016_R.csv** (Used for plotting Sample and Discharge data together).
@@ -295,7 +297,7 @@ head(samplesAlteck)
 
 ## Merge the Discharge and the Samples' dataframes
 
-To merge the two data.frames, we need to correcting minutes in the sample data, some of which took place during odd minutes. 
+To merge the two data.frames, we need to correct minutes in the sample data, some of which took place during odd minutes. 
 
 1. Identify the odd minutes in a temporary data set to discard
 
@@ -373,7 +375,32 @@ hydroAlteck2016 = hydroAlteck2016[order(hydroAlteck2016$Date),]
 hydroAlteck2016$Type = ifelse(is.na(hydroAlteck2016$sampleQ), "Discharge", "Sample")
 
 head(hydroAlteck2016)
+sum(is.na(hydroAlteck2016$Q.HW1))
 
+```
+
+### Merge rainfall data
+
+1. Merge 2 minute pluvio data, handling NA's as 0 
+```{r}
+
+rain2min =  read.csv2("Data/2minRain.csv", header = T, dec = ".")
+
+rain2min$Rain.mm <- as.numeric(rain2min$Rain.mm)
+rain2min$Date <- as.character(rain2min$Date)
+rain2min$Date <- as.POSIXct(strptime(rain2min$Date, 
+                                         "%d/%m/%Y %H:%M", 
+                                         tz="EST"))
+
+hydroAlteck2016 = merge(hydroAlteck2016, rain2min, by = "Date", all = T)
+hydroAlteck2016$Rain.mm <- ifelse(is.na(hydroAlteck2016$Rain.mm), 0, hydroAlteck2016$Rain.mm)
+
+# Should be zero
+sum(is.na(hydroAlteck2016$Rain.mm))
+
+# Check which rainfall minutes do not have Discharge, and if Rain = 0, delete obs.
+# naValues <- subset(hydroAlteck2016, is.na(hydroAlteck2016$Q.HW1)) # Only NA's where Rain == 0 
+hydroAlteck2016 <- subset(hydroAlteck2016, !is.na(hydroAlteck2016$Q.HW1))
 ```
 
 

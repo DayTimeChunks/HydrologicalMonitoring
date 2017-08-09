@@ -58,7 +58,7 @@ getwd()
 debitAlt = read.csv2("Data/hydroAlteck2016_R.csv", header = TRUE)
 head(debitAlt)
 tail(debitAlt)
-
+sum(is.na(debitAlt$Q.HW1))
 ```
 
 ## Convert Date column to a readable Date-time object
@@ -68,15 +68,19 @@ tail(debitAlt)
 class(debitAlt$Date)
 debitAlt$Date = as.POSIXct(strptime(debitAlt$Date, "%Y-%m-%d %H:%M", tz="EST"))
 sum(is.na(debitAlt$Date))
+sum(is.na(debitAlt$Q.HW1))
 
 ```
 
-## Choose the discharge variable to calculate sub-weekly averages
+## Choose the variables to report as sub-weekly summaries
+
+1. Discharge (m3/h) variable to calculate sub-weekly averages
+2. Rainfall (mm) taken every 2 minutes, will become cummulative for the sub-weekly sample
 
 ```{r, message=FALSE}
 
 # Remove all unecessary columns
-debitAlt = debitAlt[,c("Date", "Q.HW1")]
+debitAlt = debitAlt[,c("Date", "Q.HW1", "Rain.mm")]
 head(debitAlt)
 ```
 
@@ -354,8 +358,20 @@ volMinuteListNS = sapply(weeksNS, volMinute)
 
 ```
 
+5. Get total rainfall per sub-week
 
-5. Check results
+```{r}
+rainTot = function(x) {
+  sum(x[,3])
+}
+
+rainList = sapply(weeks, rainTot)
+rainListNS = sapply(weeksNS, rainTot)
+```
+
+
+
+**Check results**
 
 ```{r, message=FALSE}
 
@@ -365,6 +381,8 @@ volMinuteListNS = sapply(weeksNS, volMinute)
 # access the first matrix in the list, the second element in THAT list.
 volMinuteList[[1]][[2]] 
 
+# Cumm rain per sub-sample
+rainList
 ```
 
 
@@ -372,24 +390,27 @@ volMinuteList[[1]][[2]]
 
 ```{r, message=FALSE}
 
-totalDischarge = function(x){
+total = function(x){
   sum(x)
 }
 
-volumesList = sapply(volMinuteList, totalDischarge)
-volumesListNS = sapply(volMinuteListNS, totalDischarge)
+volumesList = sapply(volMinuteList, total)
+volumesListNS = sapply(volMinuteListNS, total)
 
 # Check volumnes for the non-sample list:
 volumesListNS
 
 ```
 
-7. Create an average discharge list for each entry result above
+7. Create an average discharge and an average rainfall intensity list for each entry result above
 
 ```{r, message=FALSE}
 
 AveDischarge = volumesList/sampledHrsList
 AveDischargeNS = volumesListNS/nonSampledHrsList
+
+RainIntensity = rainList/sampledHrsList
+RainIntensityNS = rainListNS/nonSampledHrsList
 
 ```
 
@@ -422,7 +443,8 @@ WeeklyDischarge$AveDischarge.m3.h = AveDischarge
 WeeklyDischarge$Volume.m3 = volumesList
 WeeklyDischarge$Sampled.Hrs = sampledHrsList
 WeeklyDischarge$Sampled = Sampled
-
+WeeklyDischarge$CumRain.mm = rainList
+WeeklyDischarge$RainInt.mmhr = RainIntensity
 
 # Not sampled data frame
 
@@ -437,6 +459,9 @@ WeeklyDischargeNS$AveDischarge.m3.h = AveDischargeNS
 WeeklyDischargeNS$Volume.m3 = volumesListNS
 WeeklyDischargeNS$Sampled.Hrs = nonSampledHrsList
 WeeklyDischargeNS$Sampled = SampledNS
+WeeklyDischargeNS$CumRain.mm = rainListNS
+WeeklyDischargeNS$RainInt.mmhr = RainIntensityNS
+
 colnames(WeeklyDischargeNS)[1] <- "ID"
 
 # Bind both data frames
@@ -457,10 +482,8 @@ head(WeeklyHydro)
 VolNS = sum(WeeklyDischargeNS$Volume.m3)
 VolS = sum(WeeklyDischarge$Volume.m3)
 print("% Not sampled: ")
-VolNS/(VolNS+VolS)*100  
+(VolNS/(VolNS+VolS))*100  
 
-write.csv2(WeeklyHydro, 
-           'D:/Documents/these_pablo/Alteckendorf2016/R/WeeklyHydro_R.csv', row.names = F)
 write.csv2(WeeklyHydro, 
            'Data/WeeklyHydro_R.csv', row.names = F)
 ```

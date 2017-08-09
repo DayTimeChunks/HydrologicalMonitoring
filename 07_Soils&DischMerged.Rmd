@@ -60,6 +60,7 @@ outlet = read.csv2("Data/WeeklyHydroContam_R.csv", header = T)
 outlet$ti <- as.POSIXct(outlet$ti, "%Y-%m-%d %H:%M", tz = "EST")
 sum(is.na(outlet$ti))
 
+
 names(outlet)
 # Select variables from Water dataset
 outlet <- outlet[, c("ti", "WeekSubWeek", "Event", "Duration.Hrs", 
@@ -346,10 +347,5 @@ massBal_MEL <- ggplot(pgSimple) +
 massBal_MEL
   
 ```
-
-```{r}
-
-```
-
 
 

@@ -75,6 +75,9 @@ library("cluster")
 
 ### Extreme rainfall comparison
 
+- Compares well with late season, when crusting has been well developed
+
+
 ## Transient state
 
 - Incorporates periods of baseflow and extreme rainfall events to evaluate how concentrations and isotopes respond throughout the year.

@@ -59,6 +59,7 @@ head(grpAlteck)
 grpAlteck$Date = as.POSIXct(strptime(grpAlteck$Date, "%Y-%m-%d %H:%M", tz="EST"))
 class(grpAlteck$Date)
 sum(is.na(grpAlteck$Date))
+sum(is.na(grpAlteck$Q.HW1))
 
 ```
 
@@ -232,6 +233,7 @@ grpAlteck$SubWeeks[grpAlteck$Date >= as.POSIXct('2016-07-04 14:41:00', tz="EST")
 head(grpAlteck)
 sum(is.na(grpAlteck$Q.m3Hrs))
 sum(is.na(grpAlteck$SubWeeks))
+sum(is.na(grpAlteck$Q.HW1))
 
 ```
 
@@ -327,16 +329,30 @@ resTime$Markers2 <- NULL
 resTime$Q.HW1 <- NULL
 
 grpAlteck <- merge(grpAlteck, resTime, by= "Date", all = T)
-
+sum(is.na(grpAlteck$Q.HW1))
 
 grpAlteck$numNoEvent <- ifelse(grpAlteck$Q.HW1 < 18, 1, 0)
+grpAlteck$numNoEvent <- ifelse(is.na(grpAlteck$numNoEvent), 0, grpAlteck$numNoEvent)
+sum(is.na(grpAlteck$numNoEvent))
+
+# No Event counts the number of hours without a major discharge (i.e. 18 m3/h)
 noEventVect <- grpAlteck$numNoEvent
 aux <- split(noEventVect, cumsum(noEventVect == 0))
 v <- unlist(sapply(aux, cumsum))
-grpAlteck$dryhrs <- v/60
+grpAlteck$noEventHrs <- v/60 # Convert to Hrs
 
+# No rain counts for Hrs without at least 0.2 mm rain (in a 2 minute interval)
+grpAlteck$numNoRain <- ifelse(grpAlteck$Rain.mm < 0.2, 1, 0)
+grpAlteck$numNoRain <- ifelse(is.na(grpAlteck$numNoRain), 1, grpAlteck$numNoRain)
+sum(is.na(grpAlteck$numNoRain))
 
+noRainVect <- grpAlteck$numNoRain
+aux2 <- split(noRainVect, cumsum(noRainVect == 0))
+v2 <- unlist(sapply(aux2, cumsum))
+grpAlteck$dryhrs <- v2/60
 
+#length(grpAlteck$numNoEvent)
+#length(noEventVect)
 
 #grpAlteck$minSinceEvent <- NA
 #cumDuration <- 0
@@ -391,12 +407,12 @@ The data frame produced will include, for each sub-week, the:
 - elapsed time in hours (tdiff)
 
 ```{r}
-
+colnames(grpAlteck)
 
 dflux = grpAlteck %>% 
   group_by(SubWeeks) %>% 
   # filter(Type == 'Sample') %>%
-  select(Date, Q.HW1, SubWeeks, dryhrs) %>%
+  select(Date, Q.HW1, SubWeeks, noEventHrs, dryhrs) %>%
   summarise(ti= Date[1], 
             tf = Date[length(Date)], 
             iflux = Q.HW1[1], 
@@ -404,8 +420,14 @@ dflux = grpAlteck %>%
             changeflux = (Q.HW1[length(Q.HW1)] - Q.HW1[1]), 
             maxQ = max(Q.HW1), 
             minQ = min(Q.HW1)  ,
-            dryHrs = dryhrs[1]
+            dryHrsIni = dryhrs[1],
+            dryHrsMax = max(dryhrs),
+            dryHrsAve = mean(dryhrs),
+            noEventHrsIni = noEventHrs[1],
+            noEventHrsMax = max(noEventHrs),
+            noEventHrsAve = mean(noEventHrs)
             )
+
 
 
 # Time elapsed within sub-week in hrs (sampled and non-sampled)
@@ -416,7 +438,7 @@ dflux$Duration.Hrs =
 # If change in flux within subsample is: 
 # negative, maxQminQ =  (min. discharge) - (initial discharge)
 # positive, maxQminQ =  (max. discharge) - (initial discharge)
-dflux$chExtreme = NA
+dflux$chExtreme <- NA
 
 dflux$chExtreme[dflux$changeflux <= 0] = 
   dflux$minQ[dflux$changeflux <= 0] - dflux$iflux[dflux$changeflux <= 0]
@@ -430,7 +452,6 @@ EventMarker <- EventMarker[!is.na(EventMarker$Event),]
 dflux <- merge(dflux, EventMarker, by = "SubWeeks", all = T)
 
 colnames(dflux)[1] <- "WeekSubWeek"
-
 head(dflux)
 ```
 
@@ -440,5 +461,7 @@ head(dflux)
 ```{r}
 
 write.csv2(dflux, "Data/fluxAlteck2016_R.csv", row.names = F)
+sum(is.na(dflux$maxQ))
+
 ```
 

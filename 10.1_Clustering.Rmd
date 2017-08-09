@@ -14,11 +14,6 @@ Sys.setlocale("LC_ALL", "English")
 
 Imports: 
 
-- **WeeklyHydroContam_R.csv** (water)
-- **MassBalance_R.csv** (soils)
-
-Generates (by merging above):
-
 - **WaterSoils_R.csv**
 
 ## Import packages
@@ -57,392 +52,123 @@ library("reshape2")
 
 ```
 
-
-# Lab parameters
-
-```{r}
-# Initial signature measured in tank
-initialDelta = -31.2144
-```
-
-
-## References
-
-Modified from: D. Borcard & F. Gillet
-Multivariate Analysis in Community Ecology: Constrained ordination and other analysis
-
-Adapted from: Gwena?l Imfeld, LyGeS,2009
-
-
-## Import and merge water and soil data sets
-
+## Import data set to inspect
 
 ```{r}
-
 # Check working directory
 getwd()
 # setwd("D:/Documents/these_pablo/Rscripts/Clustering")
 
-waters = read.csv2("Data/WeeklyHydroContam_R.csv")
+sw = read.csv2("Data/WaterSoils_R.csv")
 
-waters$ti <- as.POSIXct(strptime(waters$ti, "%Y-%m-%d %H:%M", tz="EST"))
-colnames(waters)[colnames(waters) == "ti"] <- "Date.ti"
-waters$Events <- factor(waters$Events, levels = unique(waters$Events))
-waters$Event <- factor(waters$Event, levels = unique(waters$Event))
-
-#colnames(waters)
-
-# Integrate Catchment's Bulk signature for normalization of discharge signatures
-# Soils
-soils = read.csv2("Data/MassBalance_R.csv", 
-                       na.strings=c('#DIV/0!', '', 'NA'), header = TRUE)
-colnames(soils)[colnames(soils) == "ti"] <- "Date.ti"
-soils$Date.ti <- as.POSIXct(strptime(soils$Date.ti, 
-                                          "%Y-%m-%d %H:%M", tz="EST")) # csv typos, option 1
-sum(is.na(soils$Date.ti)) == 0
-#colnames(soils)
-
-keepSoil <- c("WeekSubWeek", "Event", 
-              "comp.d13C.SE.North", "comp.d13C.SE.Talweg", "comp.d13C.SE.South", 
-              "f.max.comp", "f.mean.comp", "f.min.comp", "ngC.SD","ngC.SE", "N_compsoil", "N_ngC")
-soils <- soils[ , !(names(soils) %in% keepSoil)]
-
-
-watSoilMerged <- merge(waters, soils, by = "Date.ti", all = T)
-
-d13obs <- waters$SD.d13C
-totd13obs <- length(d13obs) - sum(is.na(d13obs))
-
-
-# Remove duplicates
-dropDups <- c("Weeks", "N.x", "N.y", 
-              "timeSinceApp.y", 
-              "diss.d13C.y","SD.d13C.y", 
-              "B.diss.y" , "B.filt.y" ,
-              "CumOutDiss.g.y","CumOutFilt.g.y","CumAppMass.g.y", "CumOutMELsm.g.y"
-              )
-
-watSoilMerged <- watSoilMerged[ , !(names(watSoilMerged) %in% dropDups)]
-
-
-watSoilMerged$DD13.Bulk <- watSoilMerged$BulkCatch.d13-initialDelta 
-
-colnames(watSoilMerged)
-
-write.csv2(watSoilMerged, 
-           'Data/WaterSoils_R.csv', row.names = F)
+sw$Date.ti <- as.character(sw$Date.ti)
+sw$Date.ti <- as.POSIXct(strptime(sw$Date.ti, "%Y-%m-%d %H:%M", tz="EST"))
 
 ```
 
-## Reduce variable size 
+## Standardization (transformation)
 
-```{r}
+Occasionally, the variables in a "raw" data set have properties that violate an assumption of a statistical procedure (e.g. normally distributed values) or which cannot be compared to other variables due to differences in scale or variability. For example, principal components analysis (PCA) requires that variables be linearly related to one another and on roughly the same scale or will perform poorly. Rather than abandoning an analysis due to inappropriate data structure, it may be possible to transform the variables so they satisfy the conditions in question. A transformation involves the application of a mathematical procedure to every value of a given variable or set of variables to create a new set of values. The new values of the transformed variables should still represent the data, but will be more amenable to analysis or comparison.
 
-dropNoUse <- c("Markers" , "TimeDiff", 
-               "se.d13C", "MES.mg.L", "MES.sd", "MO.mg.L", "filt.se.d13C", "f.diss", "f.filt",
-               "Appl.Mass.g", 
-               "FracDiss", "FracFilt",
-               # Nanogram obs numbers.
-               "N_ngC.diss", "N_ngC.fl", 
-               # Remove in mg units 
-               "DissSmeto.mg", "DissSmeto.mg.SD" ,
-               "DissOXA.mg", "DissOXA.mg.SD",
-              "DissESA.mg", "DissESA.mg.SD" , 
-              "FiltSmeto.mg", "FiltSmeto.mg.SD" ,
-              "TotSMout.mg","TotSMout.mg.SD",
-              # Transect areas
-              "ID.N", "ID.T", "ID.S", "Area.N", "Area.T", "Area.S",
-              # Standard errors
-              "se.d13C", "filt.se.d13C",
-              # Degradation 
-              "B.diss.x", "B.filt.x",
-              "B.mean.comp.North", "B.max.comp.North" , "B.min.comp.North",
-              "B.mean.comp.Talweg", "B.max.comp.Talweg", "B.min.comp.Talweg",
-              "B.mean.comp.South", "B.max.comp.South" , "B.min.comp.South", 
-              "FracDeltaOut" ,
-              # Isotopes (DD already included)
-               "comp.d13C.North","comp.d13C.SD.North", 
-              "comp.d13C.Talweg", "comp.d13C.SD.Talweg" ,
-              # Masses on transects
-              "MassSoil.g.North", "MassSoil.g.Talweg", "MassSoil.g.South" )
+## Problem and doubts
 
-watSoilMerged <- watSoilMerged[ , !(names(watSoilMerged) %in% dropNoUse)]
+Originally I used "ecologically motivated" transformations available in the **decostand()** package. Eg:
 
+- total: divide by margin total (default MARGIN = 1)
+- hellinger: square root of method = "total" (Legendre & Gallagher 2001).
+- normalize: make margin sum of squares equal to one (default MARGIN = 1).
+- chi.square: divide by row sums and square root of column sums, and adjust for square root of matrix total (Legendre & Gallagher 2001).
 
-# Date conversion correct: 
-sum(is.na(watSoilMerged$Date.ti)) == 0
-colnames(watSoilMerged)
+However, I am unsure about whether the transformations I want to make are relevant to those that are "ecologically motivated". So, given that my original motivation was to transform data to aid comparability of variables (columns) with different magnitudes, scales and different quantities (hrs, m3/h, m3), I've settled for transformations employing both translation (substraction by a scalar quantity) and expansion (ividing (or multiplying) by a scalar quantity) available via the **scale()** function which does:
 
-```
-
-
-## Variable generation  
-
-We would like to determine whether there are different clusters in the data.
-
-Via response variables:
-
-- Concentrations ($\mu g / L$)
-- MEL-sm (g)
-- Loads (SM g)
-- Transformation products (OXA and ESA in $\mu g / L$ and in loads $g$)
-
-Via hydrological characteristics:
-
-- Event index: 
-$$ \frac{I_{max} \cdot R_{tot} } {D} $$
-
-- Event duration ($t_f - t_i$)
-- Volume discharged ($\sum^N_{i=1}Q_i \cdot dt_i$ , N: no. of measurements within the event)
-- Average discharge ($\sum^N_{i=1}Q_i/N$)
-
-Imax = max rainfall intensity mm/h ; 
-Rtot = rainfall amount (mm); 
-D = duration (min)
-
-"A high EVI represents a short but intense rainfall event, whereas a low EVI indicates an event with a low intensity but long duration. The catchment response time is defined as the time between the gravity centre of the rain event and the peak outflow. (Baartman et al., 2013; in Lefrancq etal2017)"
-
-The EVI has been adapted to reflect discharge index such that:
-
-- Discharge index A [m3/h x m3/h]
-$$DIa = \frac{Q_{max} \cdot V_{tot} }{D}  $$  
+- **Z-scoring** (The mean of each variable is subtracted from the original values and the difference divided by the variable's standard deviation). Standardised values differ from one another in units of standard deviation, a key difference to ranging.
 
 
 ```{r}
 
-watSoilMerged$DIa <- watSoilMerged$maxQ*watSoilMerged$Volume.m3/watSoilMerged$Duration.Hrs
-# watSoilMerged$DIb <- watSoilMerged$Volume.m3/watSoilMerged$Duration.Hrs * 1/watSoilMerged$maxQ
-watSoilMerged$TPs.g <- watSoilMerged$MELsm.g-watSoilMerged$TotSMout.g
-```
-
-## Normalization choice - Masses
-
-```{r}
-
-# Option 1. 
-# Divide by estimated mass in catchment available # [-]
-watSoilMerged$SM.g.nrm <- watSoilMerged$TotSMout.g/watSoilMerged$BalMassDisch.g # [-]
-watSoilMerged$MEL.g.nrm <- watSoilMerged$MELsm.g/watSoilMerged$BalMassDisch.g # [-]
-
-# Option 2
-# Divide by estimated prct. mass in catchment available # [g]
-watSoilMerged$CumPrctMassOut <- cumsum(watSoilMerged$prctMassOut)
-watSoilMerged$SM.g.nrm.prc <- watSoilMerged$TotSMout.g/watSoilMerged$CumPrctMassOut # [-]
-watSoilMerged$MEL.g.nrm.prc <- watSoilMerged$MELsm.g/watSoilMerged$CumPrctMassOut # [-]
+names(sw)
+waterX <- sw[, c("Date.ti", "Events",
+                 "dryHrsIni", "dryHrsMax", "dryHrsAve", 
+                 "noEventHrsIni", "noEventHrsMax", "noEventHrsAve", 
+                 "CumRain.mm", "RainInt.mmhr", 
+                 "maxQ", "AveDischarge.m3.h",
+                 "Duration.Hrs",
+                 "Volume.m3" #, "DIa",
+                 #"ExpMES.Kg" #, "Sequence"
+                 #"DD13C.diss",  "DD.diss.norm", "SM.g.nrm.prc", "MEL.g.nrm.prc""
+                 )]
 
 
 
 
-watSoilMerged$DD.Bulk.imp <- watSoilMerged$DD13.Bulk
-if (is.na(watSoilMerged$DD.Bulk.imp[4])){
-  watSoilMerged$DD.Bulk.imp[1:4] <- 1
-} 
-if (is.na(watSoilMerged$DD.Bulk.imp[5])){
-  watSoilMerged$DD.Bulk.imp[5] <- 1
-} 
-watSoilMerged$DD.Bulk.imp[1:nrow(watSoilMerged)-1] <- na.approx(watSoilMerged$DD.Bulk.imp)
+y <- sw[c("Events",
+          # Response variables
+          # "Conc.mug.L", "OXA_mean", "ESA_mean", 
+          "DD.diss.nrm", "SM.g.nrm", "TP.g.nrm")]
 
-watSoilMerged$DD.diss.norm <-  watSoilMerged$DD13C.diss/watSoilMerged$DD.Bulk.imp # Losses values where no BULK was obtained
-watSoilMerged$DD.diff.prc <- ifelse( is.na(watSoilMerged$DD13C.diss) , NA,
-                                    ((watSoilMerged$DD13C.diss-watSoilMerged$DD.Bulk.imp)/watSoilMerged$DD.Bulk.imp)*100)
+names(waterX)
 
-names(watSoilMerged)
-#View(watSoilMerged[, c( 1, 32 , 73, 81:83 )])
-
-```
-
-## Variable reduction for water cluster analysis 
-
-```{r}
-
-# Main data frame -> "waterSmall"
-includeWater <- c(
-  "Events",
-  "Peak",
-  "dryHrs",
-  # Response variables
-  "Conc.mug.L", "OXA_mean", "ESA_mean", 
-  "SM.g.nrm", "MEL.g.nrm", "SM.g.nrm.prc", "MEL.g.nrm.prc",
-  "DD13C.diss", # "diss.d13C",
-  "DD13.Bulk", # "DD.Bulk.imp",
-  "DD.diss.norm",  "DD.diff.prc",
-  "TotSMout.g", "MELsm.g",
-  "TPs.g", "DissOXA.g", "DissESA.g",
-  # "Cl.mM", "NO3..mM",
-  "ExpMES.Kg", 
-  # Independent/event variables
-  "DIa", "DIb", "maxQ", "chExtreme" ,
-  "Duration.Hrs", "Volume.m3", "AveDischarge.m3.h")
-
-waterSmall <- watSoilMerged[ , (names(watSoilMerged) %in% includeWater)]
-
-# Omit Event 0 and assume nearest DD.norm where:
-# bulk DD non-existent & DD13-dissolved is not NA.
-waterSmall <- subset(waterSmall, maxQ > 2)
-
-# Lets reduce the data set even more to only response variables. 
-includeResponse <- c(
-  "Events",
-  # Response variables
-  "Conc.mug.L", "OXA_mean", "ESA_mean", 
-  "SM.g.nrm", "MEL.g.nrm", 
-  "SM.g.nrm.prc", "MEL.g.nrm.prc",
-  #"diss.d13C",
-  "DD13C.diss", 
-  "DD.diss.norm", "DD.diff.prc",
-  "TotSMout.g", "MELsm.g",
-  "TPs.g", "DissOXA.g", "DissESA.g"
-  # "Cl.mM", "NO3..mM",
-  #"ExpMES.Kg"
-  )
-
-hydro <- c(
-  "Events", "dryHrs",
-  # "Peak", #"Sequence",
-  # Response variables
-  #"Conc.mug.L", "OXA_mean", "ESA_mean", 
-  #"SM.g.nrm", "MEL.g.nrm", 
-  # "SM.g.nrm.prc", "MEL.g.nrm.prc", 
-  #"diss.d13C",
-  "DD13C.diss", #"DD.diss.norm",
-  "TotSMout.g", "MELsm.g",
-  #"TPs.g", "DissOXA.g", "DissESA.g",
-  # "Cl.mM", "NO3..mM",
-  "ExpMES.Kg",
-  # Independent/event variables
-  "DIa", "maxQ", # "chExtreme", 
-  "Duration.Hrs", "Volume.m3", "AveDischarge.m3.h")
-
-responseWater <- waterSmall[ , (names(waterSmall) %in% includeResponse)]
-waterXY <-  waterSmall[ , (names(waterSmall) %in% hydro)]
-waterXY.nona <- waterXY[complete.cases(waterXY), ]
-
-```
-
-
-## Transformations
-
-Function: **decostand()**
-
-Methods to test: 
-
-- hellinger
-- normalization
-
-```{r}
-
-#responseWater.hell <- decostand(responseWater, "hellinger", na.rm=T)
-# responseWater.norm <- decostand(responseWater, "norm", na.rm=T)
-ncol(waterXY)
-
-# Re-arrange columns to have "Events" as Index
-colnames(waterXY)
-waterX <- waterXY[c("Events", 
-                   # "dryHrs",
-                   "maxQ", "AveDischarge.m3.h", # "chExtreme",
-                   "Duration.Hrs", 
-                   "Volume.m3" #, "DIa", 
-                    #"ExpMES.Kg" #, "Sequence"
-                     #"DD13C.diss",  "DD.diss.norm", "SM.g.nrm.prc", "MEL.g.nrm.prc"
-                     )]
-if ( class(waterX[, 1])== "factor") {
+if ( class(waterX[, 2])== "factor") {
   # Hellinger
-  water.hell <- decostand(waterX[, 2:ncol(waterX)], "hellinger", na.rm=T, MARGIN = 2)
-  # waterXY.hell.nona <- waterXY.hell[complete.cases(waterXY.hell),]
+  waterX.hell <- decostand(waterX[, 3:ncol(waterX)], "hellinger", na.rm=T, MARGIN = 2) # Margin 2 = columns
   
   # Normalize to 1
   # make margin sum of squares equal to one (default MARGIN = 1)
-  water.norm <- decostand(waterX[, 2:ncol(waterX)], "norm", na.rm=T, MARGIN = 2) # Columns
-  #water.normV <- decostand(waterX[, 2:5], "norm", na.rm=T, MARGIN = 2) 
+
+    
+  # Z-scoring [Mean = 0, SD = 1 (for every column)]
+  waterX.z <- scale(waterX[, 3:ncol(waterX)])
 }
+
+# Test:
+colMeans(waterX.z) # mean = 0
+apply(waterX.z, 2, sd) # SD = 1
 
 
 ```
+
+# Dissimilarity matrix
+
+See: https://sites.google.com/site/mb3gustame/reference/dissimilarity
+
+*Note: The (dis)similarity matrix is computed directly in the NDMS function below (**metaMDS**), so not necessary here. However, it is done before as well to find otpimal clusters for plotting afterwards.* 
+
+Steps following the Gustame dissimilarity wizard (https://sites.google.com/site/mb3gustame/wizards/-dis-similarity-wizard):
+
+1. I'd like to know how (dis)similar my objects (rows) are
+2. The variables (columns) describing my objects (rows) are more like: physicochemical data
+3. Association is to be measured between: individual objects (not group of objects)
+4. For my variables: partial (dis)similarities can be calculated between them (as opposed from being mutually exclusive or prescence/abscence)
+5. Variables are: Quantitative and dimensionally homogeneous (i.e. have the same units) -> Yes, as they have been standardized above.
+
+Results suggest an association for objects described by quantitative and homogeneous variables with four valid alternatives (chosen in **bold**):
+
+I. **Euclidean distance (D1)**
+II. Average distance (D2)
+III. Manhattan metric (D7)
+IV. Mean character difference (D8)
+
+Note: In **D1** double zeros result in decreased distances. This property makes the Euclidean distance unsuitable for many ecological data sets and ecologically-motivated transformations should be considered. 
+
+Package: **daisy()** (can compute a Gower coefficient for both quantitative and categorical variables)
+Package: **dist()** (needed for the ordiplot)
+
+```{r}
+# Compute dissimilarity and distance matrices (Q mode)
+waterX.z.daisy =  daisy(waterX.z, "euclidean")
+
+```
+
 
 ## Clustering
 
 Will be using "eucledian" distances, which are the root sum-of-squares of differences and the defining clusters via hierarchical clustering (hclust) using the "Ward" agglomeration method. Ward's method (Ward, 1963) determines which clusters to merge by evaluating the 'cost' of such a merge against an objective function. Merges with the minimum cost are performed at each stage of the algorithm. Typically, this is implemented by evaluating the sum of squared deviations from cluster centroids. Every possible merge is evaluated at each stage of the algorithm and that which yields the smallest increase in the sum of squared deviations is selected. 
 
-### Dissimilarity 
-
-First compute the dissimilarity matrix of the normalized response variables, which are normalized loads and $\Delta \delta^{13} C$ values.
-
-Functions:
-
-- daisy()
-- vegdist()
-
-Methods:
-
-- euclidian
-
-```{r}
-# Compute dissimilarity and distance matrices (Q mode)
-# resWater.dh = vegdist(responseWater.hell, "euclidean") # Hellinger
-# vegdist doesn't allow for NAs
-# resWater.dh = daisy(responseWater.hell, "euclidean") # Hellinger
-water.hell.daisy = daisy(water.hell, "euclidean")
-water.norm.daisy =  daisy(water.norm, "euclidean")
-# waterXY.dh.nona = dist(waterXY.hell.nona, method = "euclidean")
-```
-
 ### Hierarchical clustering and Ward agglomeration (minimum variance)
 
-Function:
-
-- hclust()
-
-Method:
-
-- Ward
+Find optimal clustering in the X-variables so as to identify groups to inspect. Not necessary for NDMS, but handy to graph afterwards.
 
 ```{r}
-# Clusterings based on the species/rows dataset
-# resWater.hw = hclust(resWater.dh, "ward.D") # Minimum variance clustering
-water.hell.clust = hclust(water.hell.daisy, "ward.D")
-water.norm.clust = hclust(water.norm.daisy, "ward.D")
-
-#waterXY.hw.nona = hclust(waterXY.dh.nona, "ward.D")
-```
-
-## Dendogram plots
-
-```{r}
-
-# Plot dendrograms of Hellinger distance based clusterings
-#windows(5,10)
-# par(mfrow=c(1,1))
-
-# The mar command defines plot margins in order bottom, left, up, right using
-# row height (text height) as a unit.
-par(mar=c(3,4,1,1)+.1)
-
-#plot(resWater.hw, method ="ward.D", xlab="", sub="")
-nrow(waterX) 
-nrow(water.norm)
-
-plot(water.hell.clust, labels = waterX$Events, cex=0.6, 
-     method ="ward.D", xlab="Hellinger", sub="")
-rect.hclust(water.hell.clust, 4)
-
-plot(water.norm.clust, labels = waterX$Events, cex=0.7, 
-     method ="ward.D", xlab="Normalization", sub="")
-rect.hclust(water.norm.clust, 3)
-
-```
-
-### Optimal number of clusters
-
-Method: 
-
-- Hellinger, yields 2 groups
-- Normalization, yields 3 (but lower silhouette value)
-
-```{r}
-# Average silhouette width (Rousseeuw internal quality index) 
-# Hellinger/Ward
-# windows(16,8)
-# par(mfrow=c(1,2))
 
 findOptimal <- function(x, x.hw, x.dh) {
   # 1st arg: dataframe
@@ -460,47 +186,44 @@ findOptimal <- function(x, x.hw, x.dh) {
        xlab="k (number of groups)", ylab="Average silhouette width")
   axis(1, k.best, paste("optimum",k.best,sep="\n"), col="red", col.axis="red")
 }
-par(mfrow=c(2,1))  
+# par(mfrow=c(2,1)) # Plot two rows, one column 
 
-# 
-findOptimal(waterX, water.hell.clust, water.hell.daisy)
-findOptimal(waterX, water.norm.clust, water.norm.daisy)
-#findOptimal(waterXY.nona, waterXY.hw.nona, waterXY.dh.nona)
-# par(mfrow=c(1,1)) 
+# Clusterings based on the species/rows distances 
+waterX.z.clust = hclust(waterX.z.daisy,  "ward.D")
+
+k <- findOptimal(waterX, waterX.z.clust, waterX.z.daisy)[1] # Optimal number of groups
+gr = cutree(waterX.z.clust, k = k)
+
+waterX <- cbind(gr, waterX)
+names(waterX)[names(waterX) == "gr"] <- "Cluster"
+```
+
+## Dendogram plots
+
+```{r}
+
+# Plot dendrograms of Hellinger distance based clusterings
+#windows(5,10)
+# par(mfrow=c(1,1))
+
+# The mar command defines plot margins in order bottom, left, up, right using
+# row height (text height) as a unit.
+par(mar=c(3,4,1,1)+.1)
+
+#plot(resWater.hw, method ="ward.D", xlab="", sub="")
+nrow(waterX) 
+nrow(waterX.z.clust)
+
+plot(waterX.z.clust, labels = waterX$Events, cex=0.6, 
+     method ="ward.D", xlab="Hellinger", sub="")
+rect.hclust(waterX.z.clust, k)
+
+
 ```
 
 ## Extracting labels by group and merging with original data
 
 ```{r}
-clusterGroups.hell = cutree(water.hell.clust, k = 2)
-clusterGroups.norm = cutree(water.norm.clust, k = 2)
-
-# No. of rows/observations
-length(clusterGroups.hell) == lengths(waterXY)[1]
-#length(clusterGroups.norm) == lengths(waterXY)[1]
-
-length(clusterGroups.hell[clusterGroups.hell == 1])
-length(clusterGroups.hell[clusterGroups.hell == 2])
-  
-bindedGroups.K2.X <- cbind2(clusterGroups.hell, waterXY)
-bindedGroups.K2.X.norm <- cbind2(clusterGroups.norm, waterXY)
-
-names(bindedGroups.K2.X)[names(bindedGroups.K2.X) == "x"] <- "Cluster"
-names(bindedGroups.K2.X.norm)[names(bindedGroups.K2.X.norm) == "x"] <- "Cluster"
-
-bindedGroups.K2.X$Cluster <- as.factor(bindedGroups.K2.X$Cluster)
-bindedGroups.K2.X.norm$Cluster <- as.factor(bindedGroups.K2.X.norm$Cluster)
-
-#bindedGroups.K3.X <- cbind2(clusterGroups.norm, waterXY)
-bindedGroups.K2.XY <- merge(bindedGroups.K2.X, responseWater, by = "Events")
-bindedGroups.K2.XY.norm <- merge(bindedGroups.K2.X.norm, responseWater, by = "Events")
-
-#class(bindedGroups.K2.XY$x)
-#group1 <- subset(bindedGroups.K2.XY, x == 1)
-#group2 <- subset(bindedGroups.K2.XY, x == 2)
-
-#x <- group1$DD13C.diss.x
-#y <- group2$DD13C.diss.x
 
 # Parameteric
 ### T.test
@@ -509,33 +232,41 @@ bindedGroups.K2.XY.norm <- merge(bindedGroups.K2.X.norm, responseWater, by = "Ev
 #t.test(group1$maxQ , group2$maxQ, alternative = c("two.sided"),  conf.level = 0.975)
 
 ### MANOVA test
+# Testing differences in cluster groups
 ### Raw response variables
-colnames(bindedGroups.K2.XY)
-colnames(bindedGroups.K2.XY.norm)
+colnames(bGrp.K.XY.hell)
+colnames(bGrp.K.XY.norm)
 
-res.man <- manova(cbind(DD13C.diss.x, DD.diss.norm, # Percent is exactly the same: DD.diff.prc,
-                        TotSMout.g.x, MELsm.g.x,  Conc.mug.L, OXA_mean, ESA_mean, 
-                        ExpMES.Kg,
-                        # responses
-                        maxQ, Duration.Hrs, AveDischarge.m3.h, Volume.m3, DIa
-                        ) 
-                  ~ Cluster, data = bindedGroups.K2.XY)
-                  #~ Cluster, data = bindedGroups.K2.XY.norm)
+
+res.man <- manova(cbind(
+  # DD13C.diss, 
+  DD.diss.nrm, # Percent is exactly the same: DD.diff.prc,
+  SM.g.nrm,         
+  TP.g.nrm, 
+  # TotSMout.g, MELsm.g,  Conc.mug.L, OXA_mean, ESA_mean, 
+  
+  # Responses
+  maxQ, Duration.Hrs, AveDischarge.m3.h, Volume.m3 #, 
+  # DIa
+  ) 
+                  ~ Cluster, data = bGrp.K.XY.hell)
+                  #~ Cluster, data = bGrp.K.XY.norm)
 
 # Test for normality
-shapiro.test(bindedGroups.K2.XY$Conc.mug.L)
-shapiro.test(bindedGroups.K2.XY$TotSMout.g.x)
-shapiro.test(bindedGroups.K2.XY$OXA_mean)
-shapiro.test(bindedGroups.K2.XY$DD.diss.norm)
-shapiro.test(bindedGroups.K2.XY$DD13C.diss.x) # Not significant
+# shapiro.test(bGrp.K.XY.hell$Conc.mug.L)
+# shapiro.test(bGrp.K.XY.hell$TotSMout.g.x)
+# shapiro.test(bGrp.K.XY.hell$OXA_mean)
+shapiro.test(bGrp.K.XY.hell$DD.diss.nrm)
+# shapiro.test(bGrp.K.XY.hell$DD13C.diss.x) # Not significant
 
-n1 <- lengths(subset(bindedGroups.K2.XY, !is.na(DD.diss.norm) & Cluster == 1))[[1]]
-n2 <- lengths(subset(bindedGroups.K2.XY, !is.na(DD.diss.norm) & Cluster == 2))[[1]]
-#n3 <- lengths(subset(bindedGroups.K2.XY, !is.na(DD.diss.norm) & Cluster == 3))[[1]]
-#n4 <- lengths(subset(bindedGroups.K2.XY, !is.na(DD.diss.norm) & Cluster == 4))[[1]]
+# Number of obs per cluster
+n1 <- lengths(subset(bGrp.K.XY.hell, !is.na(DD.diss.nrm) & Cluster == 1))[[1]]
+n2 <- lengths(subset(bGrp.K.XY.hell, !is.na(DD.diss.nrm) & Cluster == 2))[[1]]
+#n3 <- lengths(subset(bGrp.K.XY.hell, !is.na(DD.diss.norm) & Cluster == 3))[[1]]
+#n4 <- lengths(subset(bGrp.K.XY.hell, !is.na(DD.diss.norm) & Cluster == 4))[[1]]
 
 
-# boxplot(bindedGroups.K2.XY$DD.diss.norm)
+# boxplot(bGrp.K.XY.hell$DD.diss.norm)
 
 ### Look to see which differ
 summary.aov(res.man)
@@ -550,10 +281,11 @@ for (i in 1:length(summary.aov(res.man))) {
 dropBox <- c("Events")
 
 # Melt & but remove "Events" variable first
-meltGroupK2 <- melt((bindedGroups.K2.XY[ , !(names(bindedGroups.K2.XY) %in% dropBox)]), id=c("Cluster"))
+meltGroupK2 <- melt((bGrp.K.XY.hell[ , !(names(bGrp.K.XY.hell) %in% dropBox)]), id=c("Cluster"))
 
 subGroupK2 <- subset(meltGroupK2, 
-                     (variable == 'DD13C.diss.x' 
+                     (
+                       variable == 'DD13C.diss.x' 
                       | variable == 'DD.diss.norm'
                       | variable == 'Conc.mug.L'
                       | variable == 'TotSMout.g.x'
@@ -589,13 +321,10 @@ $H_1$: Difference between means is not zero
 
 ```{r}
 
-
-
-
 ### Normalized responses
 #res.man.nrm <- manova(cbind(DD.diss.norm, 
 #                            SM.g.nrm, MEL.g.nrm, 
-#                            SM.g.nrm.prc, MEL.g.nrm.prc) ~ x, data = bindedGroups.K2.XY)
+#                            SM.g.nrm.prc, MEL.g.nrm.prc) ~ x, data = bGrp.K.XY.hell)
 #summary.aov(res.man.nrm)
 
 # Non parameteric
@@ -610,7 +339,7 @@ Kruskal-Wallis test: non-parametric ANOVA (min. 3 samples), test tends to be sig
 
 ```{r}
 
-bindedGroups.K3.XY <- merge(bindedGroups.K3.X, responseWater, by = "Events", all = T)
+#bindedGroups.K3.XY <- merge(bindedGroups.K3.X, waterY, by = "Events", all = T)
 
 x<-c(600, 100, 1000, 2200, 2900, 2400, 700, 2000, 1700)
 y<-c(200, 100, 200, 800, 1000, 700, 1800, 1900, 2400)
@@ -634,221 +363,13 @@ whichDistPlot <- function(x, x.hw){
   text(x.hw$height, nrow(x):2, nrow(x):2, col="red", cex=0.6)
 }
 
-# whichDistPlot(responseWater, resWater.hw)
+# whichDistPlot(waterY, resWater.hw)
 whichDistPlot(waterX, water.hell.clust)
 whichDistPlot(waterX, water.norm.clust)
 
 ```
 
-## PCA Eigenvalues
 
-Note that currently, we have not conducted any data inputation, so we are working with less observations (due to missing isotope observations).
-
-Plot the eigen values for each component and a line depicting the mean eigen value, below which components will not be considered.
-
-```{r}
-
-# Choose method:
-M1 = FALSE
-M2 = FALSE
-M3 = TRUE
-
-# The original data frame
-#waterX.nona <- waterX[complete.cases(waterX), ]
-#head(waterX.nona)
-
-# The transformed data frame
-#waterX.hell.nona = waterX.hell[complete.cases(waterX.hell),]
-
-# PCA Methods
-
-# Method 1
-# PCA on a covariance matrix (default scale=FALSE)
-#waterX.pca = rda(waterX.hell.nona)
-#waterX.pca.H = rda(waterX.hell)
-#waterX.pca.nH = rda(waterX.normH)
-
-# Method 2
-# Automatic scaling with scale = "TRUE" (no need for earlier transformations/normalization)
-#waterX.pca2 <- rda(waterX.nona[2:ncol(waterX.nona)], scale = T)
-#waterX.pca2
-
-# Method 3
-#waterXY.pca.prcomp <- prcomp(waterXY.nona[2:ncol(waterXY.nona)], retx=T, scale.=T) 
-#scores <- waterXY.pca.prcomp$x[,1:3]
-
-water.hell.pca <- prcomp(water.hell[1:ncol(water.hell)], retx=T, scale.=F) 
-scores.hell <- water.hell.pca$x[,1:3]
-
-water.norm.pca <- prcomp(water.norm[1:ncol(water.norm)], retx=T, scale.=F) 
-scores.norm <- water.norm.pca$x[,1:3]
-
-# k-means clustering [assume 3 clusters]
-km2     <- kmeans(scores.hell, centers=4, nstart=10)
-km3     <- kmeans(scores.norm, centers=2, nstart=10)
-# ggdata <- data.frame(scores, Cluster=km$cluster, Species=waterXY.nona$Events)
-
-ggdata.hell <- data.frame(scores.hell, Cluster=km2$cluster, Species=waterX$Events)
-ggdata.norm <- data.frame(scores.norm, Cluster=km3$cluster, Species=waterX$Events)
-
-
-# stat_ellipse is not part of the base ggplot package
-# source("https://raw.github.com/low-decarie/FAAV/master/r/stat-ellipse.R") 
-
-library(proto)
-library(ggplot2)
-ggplot(ggdata.hell) +
-  geom_point(aes(x=PC1, y=PC2, color=factor(Cluster)), size=5, shape=20) +
-  stat_ellipse(aes(x=PC1,y=PC2,fill=factor(Cluster)),
-               geom="polygon", level=0.90, alpha=0.2) +
-  guides(color=guide_legend("Cluster"),fill=guide_legend("Cluster")) +
-  theme_bw()
-
-ggplot(ggdata.norm) +
-  geom_point(aes(x=PC1, y=PC2, color=factor(Cluster)), size=5, shape=20) +
-  stat_ellipse(aes(x=PC1,y=PC2,fill=factor(Cluster)),
-               geom="polygon", level=0.95, alpha=0.2) +
-  guides(color=guide_legend("Cluster"),fill=guide_legend("Cluster"))
-
-   
-```
-
-## Summary of Eigenvalues
-
-```{r}
-
-# Method 2
-
-# plot (waterXY.pca2)
-summary(waterXY.pca2, scaling = 1)
-
-# Eigen values
-(ev <- waterXY.pca2$CA$eig)
-
-# Percentage of variance for each axis
-100*ev/sum(ev)
-
-# Apply Kaiser's rule to select axes
-ev[ev > mean(ev)] 
-
-# Plot eigen values and % variance for each axis
-barplot(ev, main = "Eigenvalues for PCA on ENV", col = "bisque", las=2)
-abline(h=mean(ev), col = "blue")
-legend("topright", "Average Eigenvalue", lwd = 1, col = "blue", bty = "n")
-```
-
-
-## PCA Biplots with clustering
-
-### Scaling 1 
-
-- Distances between object points approximate the Euclidean distances between objects. Thus, objects ordinated closer together can be expected to have similar variable values.
-- The length of a variable vector in the ordination plot reflects its contribution to the ordination
-- Angles between variable vectors are meaningless
-
-### Scaling 2 
-
-- The angles between all vectors approximate their (linear) covariance/correlation.
-- Distances between object points may be non-Euclidean and should not be interpreted with great confidence.
-
-
-```{r}
-# ,echo=FALSE, out.width='.49\\linewidth', fig.width=3, fig.height=3,fig.show='hold',fig.align='center'
-source("cleanplotPCA.R")
-# source ('http://www.davidzeleny.net/anadat-r/doku.php/en:numecolr:cleanplot.pca?do=export_code&codeblock=1')
-# http://www.davidzeleny.net/anadat-r/doku.php/en:numecolr:cleanplot.pca
-cleanplot.pca(waterXY.pca, point = T, 
-              labs = waterXY.nona$Events, k = 3, dfcut = waterXY.hw.nona,
-              cluster = TRUE)
-
-waterXY.pca.prcomp
-
-waterXY.pca # Hellinger scaling 
-waterXY.pca.norm # SS = 1
-waterXY.pca2 # Automatic scaling
-
-# One plot
-#k = 2
-#gr = cutree(waterXY.hw.nona, k)
-## Plot the sites with cluster symbols
-#k = length(levels(factor(gr)))
-#sit.sc = scores(waterXY.pca2, choices = c(1,2), display="wa", scaling=1)
-#pl = plot(waterXY.pca2, display="sites", type="n", scaling=1,
-#          main="PCA cov/Hell + clusters Ward/Hellinger")
-## Plot the points with different symbols and colors
-#points(sit.sc, cex=2, col=1+c(1:k)[gr], pch=15+c(1:k)[gr])
-#text(sit.sc, rownames(waterXY.nona), pos=4, cex=.7)
-#text(sit.sc, labels = waterXY.nona$Events, pos=4, cex=.7)
-#legend(locator(1), paste("Group",c(1:k)), pch=14+c(1:k), col=1+c(1:k), pt.cex=2)
-
-```
-
-Based on Scaling 1, above suggest that... 
-
-
-## Environmental interpretation
-
-```{r}
-
-# A posteriori interpretation of the species by significative environmental variables
-## Selection of the significant variables      
-# windows(8,8)                                    
-# par(mfrow=c(1,1))                                                                          
-fit = envfit(waterXY.pca2, waterXY.nona, perm=1000)                                                           
-fit
-
-plot(waterXY.pca2, type="t", main=paste("PCA/Hellinger"))       
-plot(fit, axis=T) 
-
-# waterXY.pca2
-```
-
-
-## Non-metric Multidimensional Scaling
-
-Non-metric multidimensional scaling (NMDS) is an indirect gradient analysis approach which produces an ordination based on a dissimilarity matrix. In other words, NMDS maps community dissimilarities into ordination space. 
-
-Unlike methods which attempt to maximise the variance between objects in an ordination, NMDS attempts to represent the pairwise dissimilarity between objects in a low-dimensional space. Any dissimilarity coefficient or distance measure may be used to build the distance matrix used as input (so you may need to normalize anyway?).
-
-NMDS is a rank-based approach. This means that the original distance data is substituted with ranks. While information about the magnitude of distances is lost, rank-based methods are generally more robust to data which do not have an identifiable distribution.
-
-NMDS can:
-- tolerate missing pairwise distances
-- be applied to a (dis)similarity matrix built with any (dis)similarity measure and
-- use quantitative, semi-quantitative, qualitative, or mixed variables
-
-### Jargon
-
-- Stress (S): is a goodness of fit statistic 
-
-### How many dimensions?
-
-As a rule of thumb, an NMDS ordination with a stress value around or above 0.2 is deemed suspect and a stress value approaching 0.3 indicates that the ordination is arbitrary. Stress values equal to or below 0.1 are considered fair, while values equal to or below 0.05 indicate good fit. Allowing the algorithm to ordinate in more dimensions can reduce the stress; however, allowing more than 3 dimensions quickly makes interpretation more challenging.
-
-Shepard stress plot shows the relationship between the actual dissimilarities between objects (from the original dissimilarity matrix) and the ordination distances (i.e. the distances on the final plot). If these are well correlated, the ordination stress will be low and the visualisation trustworthy. If there is a large amount of scatter (i.e. a poor linear relationship), then the ordination is not representative of the original distances. Occasionally, specific objects may be ordinated poorly (blue arrow), despite the overall solution being acceptable.
-
-```{r}
-# Normalized data with NAs (waterXY.hell)
-# Dissimilarity matrix (waterXY.dh)
-waterXY.mds0 <- isoMDS(waterXY.dh)
-
-# Sheperd plot
-stressplot(waterXY.mds0, waterXY.dh)
-
-# Plot the NMDS plot, then
-waterXY.mds <- metaMDS(waterXY.hell.nona, trace = FALSE)
-waterXY.mds
-
-ordiplot(waterXY.mds, type= "t")
-
-text(waterXY.mds, labels = waterXY.dh.nona) #, display="wa", choices=c(ax1, ax2), cex=cex, pos=3, scaling=1)
-
-```
-
-
-### Plotting dimensions
-
-Points represent objects. Objects that are more similar to one another are ordinated closer together. The axes are arbitrary as is the orientation of the plot. Stress values should always accompany an NMDS ordination
 
 
 

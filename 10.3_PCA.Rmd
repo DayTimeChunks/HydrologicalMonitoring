@@ -1,0 +1,294 @@
+---
+title: "Principal Component Analysis (PCA)"
+author: "PAZ"
+date: "8 août 2017"
+output: pdf_document
+---
+
+## Import data set to inspect (not standardized).
+
+```{r}
+# Check working directory
+getwd()
+# setwd("D:/Documents/these_pablo/Rscripts/Clustering")
+
+sw = read.csv2("Data/WaterSoils_R.csv")
+
+sw$Date.ti <- as.character(sw$Date.ti)
+sw$Date.ti <- as.POSIXct(strptime(sw$Date.ti, "%Y-%m-%d %H:%M", tz="EST"))
+
+```
+
+## Standardization (transformation)
+
+My intention is to transform data to aid comparability of variables (columns) with different magnitudes, scales and different quantities (hrs, m3/h, m3), I've settled for transformations employing both translation (substraction by a scalar quantity) and expansion (dividing (or multiplying) by a scalar quantity) available via the **scale()** function which does:
+
+- **Z-scoring** (The mean of each variable is subtracted from the original values and the difference divided by the variable's standard deviation). Standardised values differ from one another in units of standard deviation, a key difference to ranging.
+
+
+Variable choice:
+
+- High cummulative rain during sampling, but relative low rainfall intensity controlled the event of May 29, likely leading to slow drainage transport of freshly applied product during the mid season.
+- 
+
+```{r}
+
+names(sw)
+waterX <- sw[c("Date.ti", "Events",
+           #"dryHrsIni", 
+           #"dryHrsMax", #Separates groups better than Average
+           #"dryHrsAve", 
+           #"noEventHrsIni", 
+           #"noEventHrsMax", 
+           #"noEventHrsAve", 
+           "CumRain.mm", 
+           "RainInt.mmhr",  
+           "maxQ", # "minQ",
+           "AveDischarge.m3.h", # "chExtreme",
+           "Duration.Hrs",
+           "Volume.m3", 
+           "DIa",
+           "iflux", # , "fflux",
+           "ExpMES.Kg" # ,
+           # "DD13C.diss",  "DD.diss.norm", 
+           # "SM.g.nrm", "TP.g.nrm"
+           )]
+
+y <- sw[c("Date.ti", "Events",
+          # Response variables
+          # "Conc.mug.L", "OXA_mean", "ESA_mean", 
+          "DD13C.diss" , 
+          "DD.diss.nrm", "SM.g.nrm", "TP.g.nrm")]
+
+names(waterX)
+
+if ( class(waterX[, 2])== "factor") {
+  # Hellinger
+  waterX.hell <- decostand(waterX[, 3:ncol(waterX)], "hellinger", na.rm=T, MARGIN = 2) # Margin 2 = columns
+  
+  # Normalize to 1
+  # make margin sum of squares equal to one (default MARGIN = 1)
+
+    
+  # Z-scoring [Mean = 0, SD = 1 (for every column)]
+  waterX.z <- scale(waterX[, 3:ncol(waterX)])
+}
+
+# Chose standardization to test
+std.Train <- waterX.z
+
+# Test:
+colMeans(waterX.z) # mean = 0
+apply(waterX.z, 2, sd) # SD = 1
+
+```
+
+# Principal Components Plot
+
+```{r}
+
+# Choose method:
+M1 = FALSE
+M2 = FALSE
+M3 = TRUE
+
+# The original data frame
+#waterX.nona <- waterX[complete.cases(waterX), ]
+#head(waterX.nona)
+
+# The transformed data frame
+#waterX.hell.nona = waterX.hell[complete.cases(waterX.hell),]
+
+# PCA Methods
+
+# Method 1
+# PCA on a covariance matrix (default scale=FALSE)
+#waterX.pca = rda(waterX.hell.nona)
+#waterX.pca.H = rda(waterX.hell)
+#waterX.pca.nH = rda(waterX.normH)
+
+# Method 2
+# Automatic scaling with scale = "TRUE" (no need for earlier transformations/normalization)
+#waterX.pca2 <- rda(waterX.nona[2:ncol(waterX.nona)], scale = T)
+#waterX.pca2
+
+# Method 3
+#waterXY.pca.prcomp <- prcomp(waterXY.nona[2:ncol(waterXY.nona)], retx=T, scale.=T) 
+#scores <- waterXY.pca.prcomp$x[,1:3]
+
+std.Train.pca <- prcomp(std.Train, retx=T, scale.=F) 
+scores.z <- std.Train.pca$x[ ,1:2]
+
+# k-means clustering [assume X? clusters]
+km     <- kmeans(scores.z, centers=3, nstart=10)
+
+# Data for GGplot
+ggdata.z <- data.frame(scores.z, Cluster=km$cluster, Species=waterX$Events)
+
+ggdata.z$CompareLutz <- ifelse(ggdata.z$Species == "8-1", as.character(ggdata.z$Species), 
+                               ifelse(ggdata.z$Species == "8-2", as.character(ggdata.z$Species), 
+                                      ifelse(ggdata.z$Species == "8-3", as.character(ggdata.z$Species), 
+                                              ifelse(ggdata.z$Species == "10-1", as.character(ggdata.z$Species), 
+                                                      ifelse(ggdata.z$Species == "10-2", as.character(ggdata.z$Species), 
+                                                              ifelse(ggdata.z$Species == "10-3", as.character(ggdata.z$Species), 
+                                                                      ifelse(ggdata.z$Species == "12-1", as.character(ggdata.z$Species), 
+                                                                             ifelse(ggdata.z$Species == "12-2", as.character(ggdata.z$Species),
+                                                                                    ifelse(ggdata.z$Species == "12-3", as.character(ggdata.z$Species),
+                                                                                           NA)))))))))
+  
+ggdata.z$Quantif <- ifelse(!is.na(y$DD13C.diss), as.character(ggdata.z$Species), NA)
+# stat_ellipse is not part of the base ggplot package
+# source("https://raw.github.com/low-decarie/FAAV/master/r/stat-ellipse.R") 
+
+library(proto)
+library(ggplot2)
+ggplot(ggdata.z) +
+  geom_point(aes(x=PC1, y=PC2, color=factor(Cluster)), size=5, shape=20) +
+  stat_ellipse(aes(x=PC1,y=PC2,fill=factor(Cluster)),
+               geom="polygon", level=0.95, alpha=0.2) +
+  guides(color=guide_legend("Cluster"),fill=guide_legend("Cluster")) +
+  theme_bw() +
+  # geom_text_repel(aes(x=PC1, y=PC2, label=CompareLutz),
+  geom_text_repel(aes(x=PC1, y=PC2, label=Quantif),
+                 arrow = arrow(length = unit(0.005, 'npc'), type = "closed"),
+                 force = 1, 
+                 point.padding = unit(1.0, 'lines'), 
+                 max.iter = 2e3,
+                 nudge_x = .2)
+   
+```
+
+
+## PCA Biplots with clustering
+
+### Scaling 1 
+
+- Distances between object points approximate the Euclidean distances between objects. Thus, objects ordinated closer together can be expected to have similar variable values.
+- The length of a variable vector in the ordination plot reflects its contribution to the ordination
+- Angles between variable vectors are meaningless
+
+### Scaling 2 
+
+- The angles between all vectors approximate their (linear) covariance/correlation.
+- Distances between object points may be non-Euclidean and should not be interpreted with great confidence.
+
+
+```{r}
+# ,echo=FALSE, out.width='.49\\linewidth', fig.width=3, fig.height=3,fig.show='hold',fig.align='center'
+####################################################################
+source("cleanplotPCA.R")
+# A function to draw two biplots (scaling 1 and scaling 2) from an object 
+# of class "rda" (PCA or RDA result from vegan's rda() function)
+#
+# License: GPL-2 
+# Authors: Francois Gillet & Daniel Borcard, 24 August 2012
+#
+# http://www.davidzeleny.net/anadat-r/doku.php/en:numecolr:cleanplot.pca
+####################################################################
+waterXz.pca2 <- rda(waterX.z, scale = F)
+
+waterX.z.daisy =  daisy(waterX.z, "euclidean")
+waterX.z.clust = hclust(waterX.z.daisy,  "ward.D")
+
+cleanplot.pca(waterXz.pca2, point = T, 
+              labs = waterX$Events, k = 3, dfcut = waterX.z.clust,
+              cluster = TRUE)
+
+```
+
+Based on Scaling 1, above suggest that... 
+
+
+## Environmental interpretation
+
+```{r}
+
+# A posteriori interpretation of the species by significative environmental variables
+## Selection of the significant variables      
+# windows(8,8)                                    
+# par(mfrow=c(1,1)) 
+
+#fit = envfit(waterXY.pca2, waterXY.nona, perm=1000)                                       
+#fit
+
+#plot(waterXY.pca2, type="t", main=paste("PCA/Hellinger"))       
+#plot(fit, axis=T) 
+
+# waterXY.pca2
+```
+
+## Summary of Eigenvalues
+
+Plot the eigen values for each component and a line depicting the mean eigen value, below which components will not be considered.
+
+```{r}
+
+# Method 2
+# Automatic scaling with scale = "TRUE" (no need for earlier transformations/normalization)
+
+summary(waterXz.pca2, scaling = 1)
+
+# Eigen values
+(ev <- waterXz.pca2$CA$eig)
+
+# Percentage of variance for each axis
+100*ev/sum(ev)
+
+# Apply Kaiser's rule to select axes
+ev[ev > mean(ev)] 
+
+# Plot eigen values and % variance for each axis
+barplot(ev, main = "Eigenvalues for PCA on ENV", col = "bisque", las=2)
+abline(h=mean(ev), col = "blue")
+legend("topright", "Average Eigenvalue", lwd = 1, col = "blue", bty = "n")
+```
+
+
+## Adding arrows to ggplot
+
+```{r}
+# install.packages("devtools")
+library("devtools")
+
+# install_github("vqv/ggbiplot")
+library(ggbiplot)
+
+fit <- princomp(USArrests, cor=TRUE)
+biplot(fit)
+ggbiplot(fit, labels =  rownames(USArrests))
+
+
+# library(ggbiplot)
+data(wine)
+wine.pca <- prcomp(wine, scale. = TRUE)
+ggbiplot(wine.pca, obs.scale = 1, var.scale = 1,
+  groups = wine.class, ellipse = TRUE, circle = TRUE) +
+  scale_color_discrete(name = '') +
+  theme(legend.direction = 'horizontal', legend.position = 'top') +
+  theme_bw()
+
+
+## Tweak GGbiplot for desired result.
+# std.Train.pca2 <- prcomp(std.Train, retx=T, scale.=T) 
+ggbiplot(std.Train.pca, obs.scale = 1, var.scale = 1,
+  groups = as.factor(km$cluster),
+  varname.abbrev = T,
+  varname.adjust = 1.5,
+  ellipse = TRUE, 
+  circle = FALSE, 
+  ellipse.prob = 0.95) +
+  # scale_color_discrete(name = '') +
+  theme(legend.direction = 'horizontal', legend.position = 'top') +
+  theme_bw() +
+  # geom_point(aes(x=std.Train.pca$x[,1], y=std.Train.pca$x[,2], col = as.factor(km$cluster), size = 0.2)) +
+  geom_text_repel(aes(x=std.Train.pca$x[,1], y=std.Train.pca$x[,2], label=ggdata.z$CompareLutz),
+                 arrow = arrow(length = unit(0.005, 'npc'), type = "closed"),
+                 force = 1, 
+                 point.padding = unit(1.0, 'lines'), 
+                 max.iter = 2e3,
+                 nudge_x = 2)
+
+
+# std.Train.pca$x[,1]
+```
+

@@ -1,0 +1,311 @@
+---
+title: "Data Analysis Prep"
+author: "PAZ"
+date: "8 août 2017"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, warning=FALSE, message = FALSE)
+Sys.setlocale("LC_ALL", "English")
+```
+
+## Files
+
+Imports: 
+
+- **WeeklyHydroContam_R.csv** (water)
+- **MassBalance_R.csv** (soils)
+
+Generates (by merging above):
+
+- **WaterSoils_R.csv**
+
+## Import packages
+
+```{r }
+
+library("ggplot2")
+library("ggrepel")
+library("zoo")
+
+# Melting data sets & changin axes
+library("reshape2")
+
+library("MASS")
+```
+
+
+# Lab parameters
+
+```{r}
+# Initial signature measured in tank
+initialDelta = -32.253
+```
+
+
+## References
+
+Modified from: D. Borcard & F. Gillet
+Multivariate Analysis in Community Ecology: Constrained ordination and other analysis
+
+Adapted from: Gwena?l Imfeld, LyGeS,2009
+
+
+## Import and merge water and soil data sets
+
+
+```{r}
+
+# Check working directory
+getwd()
+# setwd("D:/Documents/these_pablo/Rscripts/Clustering")
+
+waters = read.csv2("Data/WeeklyHydroContam_R.csv")
+
+
+
+waters$ti <- as.POSIXct(strptime(waters$ti, "%Y-%m-%d %H:%M", tz="EST"))
+colnames(waters)[colnames(waters) == "ti"] <- "Date.ti"
+waters$Events <- factor(waters$Events, levels = unique(waters$Events))
+waters$Event <- factor(waters$Event, levels = unique(waters$Event))
+
+#colnames(waters)
+
+# Integrate Catchment's Bulk signature for normalization of discharge signatures
+# Soils
+soils = read.csv2("Data/MassBalance_R.csv", 
+                       na.strings=c('#DIV/0!', '', 'NA'), header = TRUE)
+colnames(soils)[colnames(soils) == "ti"] <- "Date.ti"
+soils$Date.ti <- as.POSIXct(strptime(soils$Date.ti, 
+                                          "%Y-%m-%d %H:%M", tz="EST")) # csv typos, option 1
+sum(is.na(soils$Date.ti)) == 0
+
+#colnames(soils)
+
+keepSoil <- c("WeekSubWeek", "Event", 
+              "comp.d13C.SE.North", "comp.d13C.SE.Talweg", "comp.d13C.SE.South", 
+              "f.max.comp", "f.mean.comp", "f.min.comp", "ngC.SD","ngC.SE", "N_compsoil", "N_ngC")
+soils <- soils[ , !(names(soils) %in% keepSoil)]
+
+names(soils)
+
+repeatsInWater <- names(waters)[(names(waters) %in% names(soils))] # Not unique to waters
+repeatsInWater <- repeatsInWater[2:length(repeatsInWater)]
+waters <- waters[ , !(names(waters) %in% repeatsInWater)]
+
+watSoilMerged <- merge(waters, soils, by = "Date.ti", all = T)
+
+if (is.na(watSoilMerged$WeekSubWeek[nrow(watSoilMerged)])) {
+  watSoilMerged <- watSoilMerged[1:nrow(watSoilMerged)-1, ]
+}
+# d13obs <- waters$SD.d13C
+# totd13obs <- length(d13obs) - sum(is.na(d13obs))
+
+watSoilMerged$DD13.Bulk <- watSoilMerged$BulkCatch.d13-initialDelta 
+
+colnames(watSoilMerged)
+
+
+```
+
+## Reduce variable size 
+
+```{r}
+
+dropNoUse <- c("Markers" , "TimeDiff", 
+               "se.d13C", "MES.mg.L", "MES.sd", "MO.mg.L", "filt.se.d13C", "f.diss", "f.filt",
+               "Appl.Mass.g", 
+               "FracDiss", "FracFilt",
+               # Nanogram obs numbers.
+               "N_ngC.diss", "N_ngC.fl", 
+               # Remove in mg units 
+               "DissSmeto.mg", "DissSmeto.mg.SD" ,
+               "DissOXA.mg", "DissOXA.mg.SD",
+              "DissESA.mg", "DissESA.mg.SD" , 
+              "FiltSmeto.mg", "FiltSmeto.mg.SD" ,
+              "TotSMout.mg","TotSMout.mg.SD",
+              # Transect areas
+              "ID.N", "ID.T", "ID.S", "Area.N", "Area.T", "Area.S",
+              # Standard errors
+              "se.d13C", "filt.se.d13C",
+              # Degradation 
+              "B.diss.x", "B.filt.x",
+              "B.mean.comp.North", "B.max.comp.North" , "B.min.comp.North",
+              "B.mean.comp.Talweg", "B.max.comp.Talweg", "B.min.comp.Talweg",
+              "B.mean.comp.South", "B.max.comp.South" , "B.min.comp.South", 
+              "FracDeltaOut" ,
+              # Isotopes (DD already included)
+               "comp.d13C.North","comp.d13C.SD.North", 
+              "comp.d13C.Talweg", "comp.d13C.SD.Talweg" #,
+              # Masses on transects
+              # "MassSoil.g.North", "MassSoil.g.Talweg", "MassSoil.g.South" 
+              )
+
+watSoilMerged <- watSoilMerged[ , !(names(watSoilMerged) %in% dropNoUse)]
+
+
+# Date conversion correct: 
+sum(is.na(watSoilMerged$Date.ti)) == 0
+colnames(watSoilMerged)
+sum(is.na(watSoilMerged$maxQ))
+```
+
+
+## Variable generation  
+
+We would like to determine whether there are different clusters in the data.
+
+Via response variables:
+
+- Concentrations ($\mu g / L$)
+- MEL-sm (g)
+- Loads (SM g)
+- Transformation products (OXA and ESA in $\mu g / L$ and in loads $g$)
+
+Via hydrological characteristics:
+
+- Event index: 
+$$ \frac{I_{max} \cdot R_{tot} } {D} $$
+
+- Event duration ($t_f - t_i$)
+- Volume discharged ($\sum^N_{i=1}Q_i \cdot dt_i$ , N: no. of measurements within the event)
+- Average discharge ($\sum^N_{i=1}Q_i/N$)
+
+Imax = max rainfall intensity mm/h ; 
+Rtot = rainfall amount (mm); 
+D = duration (min)
+
+"A high EVI represents a short but intense rainfall event, whereas a low EVI indicates an event with a low intensity but long duration. The catchment response time is defined as the time between the gravity centre of the rain event and the peak outflow. (Baartman et al., 2013; in Lefrancq etal2017)"
+
+The EVI has been adapted to reflect discharge index such that:
+
+- Discharge index A [m3/h x m3/h]
+$$DIa = \frac{Q_{max} \cdot V_{tot} }{D}  $$  
+
+
+```{r}
+
+watSoilMerged$DIa <- watSoilMerged$maxQ*watSoilMerged$Volume.m3/watSoilMerged$Duration.Hrs
+# watSoilMerged$DIb <- watSoilMerged$Volume.m3/watSoilMerged$Duration.Hrs * 1/watSoilMerged$maxQ
+
+```
+
+## Normalization by remaining S-met mass and bulk (\\$\Delta \delta$)
+
+This section normalizes outlet response variables (S-met and TPs loadings and $\Delta \delta$ values).
+
+1. Convert date-time to cumuative days since first measurements (needed for step 2)
+2. Compute linear models to predict bulk catchment soils $\Delta \delta$ and mass remaining. 
+3. Normalize outlet $\Delta \delta$ and S-met loadings by predicted values.  
+
+```{r}
+
+watSoilMerged$CumSmpDays <- cumsum(watSoilMerged$Sampled.Hrs)/24
+
+DD.glm1 <- glm(watSoilMerged$DD13.Bulk ~ watSoilMerged$CumSmpDays)
+DD.glm2 <- glm(watSoilMerged$DD13.Bulk ~ (watSoilMerged$CumSmpDays)^2, family = gaussian)
+
+summary(DD.glm1) # Both models were identical
+
+# Input isotope predicted values 
+watSoilMerged$DD.Bulk.imp <- predict(DD.glm1, data.frame(watSoilMerged$CumSmpDays))
+watSoilMerged$CatchMassSoil.g.imp <- na.approx(watSoilMerged$CatchMassSoil.g)
+
+# Isotopes Bulk Soils
+ggplot(data = watSoilMerged, aes(x = CumSmpDays))+
+  geom_point(aes(y = DD13.Bulk)) +
+  geom_point(aes(y = DD.Bulk.imp)) +
+  stat_smooth(aes(x = CumSmpDays, y = DD13.Bulk ), method = "lm", formula = y ~ poly(x, 2), se = T, alpha = 0.2, size=0.2) +
+  theme_bw()
+
+
+ggplot(data = watSoilMerged, aes(x = CumSmpDays))+
+  geom_point(aes(y = CatchMassSoil.g.imp), col = "forestgreen") +
+  geom_point(aes(y = CatchMassSoil.g), col = "red") +
+  theme_bw()
+
+# View(watSoilMerged[, c(1:29, 47:60, 70, 102: ncol(watSoilMerged))])
+
+# Option 1. 
+# Divide by estimated mass in catchment available # [-]
+# watSoilMerged$SM.g.nrm <- watSoilMerged$TotSMout.g/watSoilMerged$BalMassDisch.g # [-]
+# watSoilMerged$MEL.g.nrm <- watSoilMerged$MELsm.g/watSoilMerged$BalMassDisch.g # [-]
+
+# Option 2
+# Divide by estimated prct. mass in catchment available # [g]
+# watSoilMerged$CumPrctMassOut <- cumsum(watSoilMerged$prctMassOut)
+# watSoilMerged$SM.g.nrm.prc <- watSoilMerged$TotSMout.g/watSoilMerged$CumPrctMassOut # [-]
+# watSoilMerged$MEL.g.nrm.prc <- watSoilMerged$MELsm.g/watSoilMerged$CumPrctMassOut # [-]
+
+
+watSoilMerged$SM.g.nrm <- watSoilMerged$TotSMout.g/watSoilMerged$CatchMassSoil.g.imp # [-]
+watSoilMerged$TP.g.nrm <- (watSoilMerged$MELsm.g-watSoilMerged$TotSMout.g)/watSoilMerged$CatchMassSoil.g.imp # [-]
+watSoilMerged$DD.diss.nrm <-  watSoilMerged$DD13C.diss/watSoilMerged$DD.Bulk.imp # Losses values where no BULK was obtained
+# watSoilMerged$DD.diff.prc <- ifelse( is.na(watSoilMerged$DD13C.diss) , NA,
+#                                    ((watSoilMerged$DD13C.diss-watSoilMerged$DD.Bulk.imp)/watSoilMerged$DD.Bulk.imp)*100)
+
+names(watSoilMerged)
+#View(watSoilMerged[, c( 1, 32 , 73, 81:83 )])
+
+```
+
+## Variable reduction for analysis 
+
+```{r}
+
+waterXY <- watSoilMerged
+
+write.csv2(waterXY, 
+           'Data/WaterSoils_R.csv', row.names = F)
+sum(is.na(watSoilMerged$maxQ))
+
+# waterXY <-  waterSmall[ , (names(waterSmall) %in% hydro)]
+# waterXY.nona <- waterXY[complete.cases(waterXY), ]
+
+```
+
+
+## Rainfall by period
+
+## Dry periods revised based on rainfall (not discharge)
+
+```{r}
+
+# Merge different cummulative rains (ignore for now)
+if (FALSE){
+  rain30 <- read.csv2("Data/30minRain.csv")
+  rain7 <- read.csv2("Data/7hrRain.csv")
+  rain12 <- read.csv2("Data/12hrRain.csv")
+  
+  formTime <- function(x, newColName){
+    x$Time <- as.POSIXct(strptime(x$Time, "%d/%m/%Y %H:%M", tz="EST"))
+    colnames(x)[colnames(x) == "Cumm.mm"] <- newColName
+    colnames(x)[colnames(x) == "Time"] <- "Date.ti"
+    return(x)
+  }
+  
+  rain30 <- formTime(rain30, "Cum30min")
+  rain7 <- formTime(rain7, "Cum7hr")
+  rain12 <- formTime(rain12, "Cum12hr")
+  
+  rain <- Reduce(function(...) merge(..., all=TRUE), list(rain30, rain7, rain12))
+  
+  watRain <- merge(watSoilMerged, rain12, by = "Date.ti", all = T)
+  watRain <- Reduce(function(...) merge(..., all=TRUE), list(watSoilMerged, rain7, rain12))
+  
+  } else {
+    watRain <- watSoilMerged
+}
+
+
+```
+
+## Reducing variables
+
+```{r}
+names(watSoilMerged)
+```
+
+
+

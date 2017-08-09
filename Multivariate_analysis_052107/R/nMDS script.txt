@@ -1,0 +1,135 @@
+
+#######################################################################################
+# T-RFLP profile analysis
+#
+# 
+# Modified from: D. Borcard & F. Gillet
+# Multivariate Analysis in Community Ecology: Constrained ordination and other analysis
+#
+# Gwenaël Imfeld, Laboratory of Hydrology and Geochemistry, Strasbourg, France
+# 
+# 05 - 2013
+# 
+########################################################################################
+
+
+# Preparation of the workspace
+
+
+# Load required libraries
+require(vegan)
+require(cluster)
+require(gclus)
+require(mvpart)
+require(ade4)
+require(RColorBrewer)
+require(labdsv)
+require(MASS)
+
+# Remove all R objects in the workspace
+rm(list = ls())
+
+ 
+# Additional functions required for the following operations
+
+# Load required libraries
+require(vegan)
+require(cluster)
+require(gclus)
+require(mvpart)
+require(ade4)
+require(RColorBrewer)
+require(labdsv)
+require(MASS)
+ 
+# Additional functions required for the following operations
+source("coldiss.R")
+source("panelutils.R")
+# Function to compute a binary distance matrix from groups
+source("grpdist.R")
+# Function to draw ordered dendrograms with groups
+source("hcoplot.R")
+# Variance partitioning
+source("vartest.R")
+
+# Import datasets
+  #1.1. Species datasets
+	spe = read.delim("Bact_spec_Wino_07122016.txt", row.names=1)
+  #1.2. Environmental dataset
+	env = read.delim("Env_Wino_07122016.txt", row.names=1)
+
+# Transform the species dataset
+	# Normalization
+	spe.nor = decostand(spe, "norm")
+	# Hellinger transformation
+	spe.hell = decostand(spe, "hellinger")
+		# Check the norm of row vectors (sites)
+      	norm = function(x) sqrt(x%*%x)
+      	apply(spe.hell, 1, norm)
+ #Environmental dataset
+    env.z = decostand(env, "standardize")
+
+##########################################################################
+# 1. (dis)similarity and distance matrices
+##########################################################################
+  
+  #1.1. Species dataset
+  ##########################################################################
+    # Bray-Curtis dissimilarity matrix from the raw species data
+      spe.db = vegdist(spe, "bray")
+    
+    # Euclidean distance matrix from the raw species data
+      spe.deu = vegdist(spe, "euclidean")
+    
+    # Jaccard similarity matrix from the transformed species data
+      spe.djac = vegdist(spe.pa, "jaccard")
+    
+    # Chord distance matrix from the transformed species data
+      spe.dchord = vegdist(spe.nor, "euclidean")
+    
+    # Hellinger dissimilarity matrix from the transformed species data
+      spe.dhel = vegdist(spe.hell, "euclidean")
+  
+  
+  #1.2. Environmental dataset
+  ##########################################################################
+    # Euclidean 
+      env.de = vegdist(env.z, "euc")        
+
+
+    #6.1.2. NMDS
+    #-----------
+      spe.nmds = metaMDS(spe.hell)
+      spe.nmds
+      spe.nmds$stress
+      plot(spe.nmds, type="t", display="sites", main=paste("NMDS/Hellinger - Stress =", round(spe.nmds$stress,2), "%"))
+      text(spe.nmds, display="sites", cex=0.7)
+           
+      # Shepard plot and goodness of fit
+      windows(8,4)
+      par(mfrow=c(1,2))
+      stressplot(spe.nmds, main="Shepard plot")
+      gof = goodness(spe.nmds)
+      plot(spe.nmds, type="t", main="Goodness of fit")
+      points(spe.nmds, display="sites", cex=gof)
+      
+      # Plot the sites with cluster symbols
+      windows(16,16)
+      k = length(levels(factor(gr)))
+      sit.sc = scores(spe.nmds)
+      pl = ordiplot(spe.nmds, type="n", display="sites",
+      	main="NMDS/Hellinger + clusters Ward/Chord")
+      abline(h=0, lty=3)
+      abline(v=0, lty=3)
+      # Plot the points with different symbols and colors
+      points(sit.sc, cex=2, col=1+c(1:k)[gr], pch=14+c(1:k)[gr])
+      text(sit.sc, rownames(spe), pos=4, cex=.7)
+      # Add a legend for groups
+      legend(locator(1), paste("Group",c(1:k)), pch=14+c(1:k), col=1+c(1:k), pt.cex=2)
+
+      windows(8,8)                                   
+      par(mfrow=c(1,1))
+      fit = envfit(spe.nmds, env.z, perm=1000)
+      fit
+      plot(spe.nmds, type="t", display="sites", main=paste("NMDS/Hellinger - Stress =", round(spe.nmds$stress,2), "%"))
+      plot(fit, axis=T)
