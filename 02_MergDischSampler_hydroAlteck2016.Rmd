@@ -165,12 +165,12 @@ meltWaterDay2 <- meltWaterDay %>%
   #mutate(outlier = ifelse(is_outlier(value) & variable == "Disch.mm", as.character(Day), NA))
   mutate(outlier = ifelse(is_outlier(value), as.character(Day), NA))
 
-hydroBox <- ggplot(meltWaterDay2, aes(x = factor(Month), y = value, fill = variable)) +
-  geom_boxplot() + 
+hydroBox <- ggplot(meltWaterDay2) +
+  geom_boxplot(data = subset(meltWaterDay2, variable != "CumRain"), aes(x = factor(Month), y = value, fill = variable)) + 
   theme_bw() +
   ylab("mm.day") +
   theme(axis.title.x = element_blank() ) +
-  geom_text_repel(aes(label = outlier), 
+  geom_text_repel(data = subset(meltWaterDay2, variable != "CumRain"), aes(x = factor(Month), y = value, label = outlier), 
                   size = 3,
                   arrow = arrow(length = unit(0.005, 'npc'), type = "closed"),
                   force = 0.5, 

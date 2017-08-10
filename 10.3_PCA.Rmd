@@ -5,6 +5,43 @@ date: "8 août 2017"
 output: pdf_document
 ---
 
+## Libraries
+
+```{r}
+# Remove all R objects in the workspace
+rm(list = ls())
+
+require("vegan")
+require("cluster")
+require("gclus")
+
+# install.packages("mvpart")
+# require(mvpart)
+
+
+library("ggplot2")
+library("ggrepel")
+library("MASS")
+
+library("zoo")
+
+# Melting data sets & changin axes
+library("reshape2")
+library("dplyr")
+
+
+# Additional functions required for the following operations
+source("coldiss.R")
+source("panelutils.R")
+# Function to compute a binary distance matrix from groups
+source("grpdist.R")
+# Function to draw ordered dendrograms with groups
+source("hcoplot.R")
+# Variance partitioning
+source("vartest.R")
+```
+
+
 ## Import data set to inspect (not standardized).
 
 ```{r}
@@ -34,24 +71,40 @@ Variable choice:
 ```{r}
 
 names(sw)
-waterX <- sw[c("Date.ti", "Events",
+
+swNew = 
+  sw %>% rename(P.Cum = CumRain.mm,
+                P.Int = RainInt.mmhr,
+                Q.Ave = AveDischarge.m3.h,
+                Q.Ini = iflux,
+                Q.Max = maxQ,
+                Vol = Volume.m3,
+                SSM = ExpMES.Kg,
+                T.Hrs = Duration.Hrs)
+
+names(swNew)
+
+waterX <- swNew[c("Date.ti", "Events",
+           # Dry Hours capture equivalent components to Duration
            #"dryHrsIni", 
            #"dryHrsMax", #Separates groups better than Average
            #"dryHrsAve", 
            #"noEventHrsIni", 
            #"noEventHrsMax", 
            #"noEventHrsAve", 
-           "CumRain.mm", 
-           "RainInt.mmhr",  
-           "maxQ", # "minQ",
-           "AveDischarge.m3.h", # "chExtreme",
-           "Duration.Hrs",
-           "Volume.m3", 
-           "DIa",
-           "iflux", # , "fflux",
-           "ExpMES.Kg" # ,
-           # "DD13C.diss",  "DD.diss.norm", 
-           # "SM.g.nrm", "TP.g.nrm"
+           "P.Cum", 
+           "P.Int",  
+           "Q.Max", # "minQ",
+           "Q.Ave", # "chExtreme",
+           "T.Hrs",
+           "Vol", 
+           # "DIa",
+           "Q.Ini",  # Flux at the start of sampling
+           #"fflux",
+           # "chExtreme",  
+           "SSM" # ,
+           # "DD13C.diss",  "DD.diss.nrm", Needs to use NA.omit
+           #"SM.g.nrm", "TP.g.nrm"
            )]
 
 y <- sw[c("Date.ti", "Events",
@@ -75,7 +128,10 @@ if ( class(waterX[, 2])== "factor") {
 }
 
 # Chose standardization to test
-std.Train <- waterX.z
+std.Train <- 
+   waterX.hell 
+  # waterX.z
+  # waterX[, 3:ncol(waterX)] # Not-scaled
 
 # Test:
 colMeans(waterX.z) # mean = 0
@@ -83,83 +139,64 @@ apply(waterX.z, 2, sd) # SD = 1
 
 ```
 
-# Principal Components Plot
+# Principal Component derivation methods
 
 ```{r}
 
-# Choose method:
-M1 = FALSE
-M2 = FALSE
-M3 = TRUE
-
-# The original data frame
-#waterX.nona <- waterX[complete.cases(waterX), ]
-#head(waterX.nona)
-
-# The transformed data frame
-#waterX.hell.nona = waterX.hell[complete.cases(waterX.hell),]
-
 # PCA Methods
 
-# Method 1
+# Metod prcomp
+std.Train.pca <- prcomp(std.Train, retx=T, scale.=F) # Already scaled 
+scores <- std.Train.pca$x[ ,1:2]
+
+# Method - RDA
 # PCA on a covariance matrix (default scale=FALSE)
-#waterX.pca = rda(waterX.hell.nona)
-#waterX.pca.H = rda(waterX.hell)
-#waterX.pca.nH = rda(waterX.normH)
+std.Train.pca2 = rda(std.Train)
 
-# Method 2
-# Automatic scaling with scale = "TRUE" (no need for earlier transformations/normalization)
-#waterX.pca2 <- rda(waterX.nona[2:ncol(waterX.nona)], scale = T)
-#waterX.pca2
-
-# Method 3
-#waterXY.pca.prcomp <- prcomp(waterXY.nona[2:ncol(waterXY.nona)], retx=T, scale.=T) 
-#scores <- waterXY.pca.prcomp$x[,1:3]
-
-std.Train.pca <- prcomp(std.Train, retx=T, scale.=F) 
-scores.z <- std.Train.pca$x[ ,1:2]
-
-# k-means clustering [assume X? clusters]
-km     <- kmeans(scores.z, centers=3, nstart=10)
-
-# Data for GGplot
-ggdata.z <- data.frame(scores.z, Cluster=km$cluster, Species=waterX$Events)
-
-ggdata.z$CompareLutz <- ifelse(ggdata.z$Species == "8-1", as.character(ggdata.z$Species), 
-                               ifelse(ggdata.z$Species == "8-2", as.character(ggdata.z$Species), 
-                                      ifelse(ggdata.z$Species == "8-3", as.character(ggdata.z$Species), 
-                                              ifelse(ggdata.z$Species == "10-1", as.character(ggdata.z$Species), 
-                                                      ifelse(ggdata.z$Species == "10-2", as.character(ggdata.z$Species), 
-                                                              ifelse(ggdata.z$Species == "10-3", as.character(ggdata.z$Species), 
-                                                                      ifelse(ggdata.z$Species == "12-1", as.character(ggdata.z$Species), 
-                                                                             ifelse(ggdata.z$Species == "12-2", as.character(ggdata.z$Species),
-                                                                                    ifelse(ggdata.z$Species == "12-3", as.character(ggdata.z$Species),
-                                                                                           NA)))))))))
-  
-ggdata.z$Quantif <- ifelse(!is.na(y$DD13C.diss), as.character(ggdata.z$Species), NA)
-# stat_ellipse is not part of the base ggplot package
-# source("https://raw.github.com/low-decarie/FAAV/master/r/stat-ellipse.R") 
-
-library(proto)
-library(ggplot2)
-ggplot(ggdata.z) +
-  geom_point(aes(x=PC1, y=PC2, color=factor(Cluster)), size=5, shape=20) +
-  stat_ellipse(aes(x=PC1,y=PC2,fill=factor(Cluster)),
-               geom="polygon", level=0.95, alpha=0.2) +
-  guides(color=guide_legend("Cluster"),fill=guide_legend("Cluster")) +
-  theme_bw() +
-  # geom_text_repel(aes(x=PC1, y=PC2, label=CompareLutz),
-  geom_text_repel(aes(x=PC1, y=PC2, label=Quantif),
-                 arrow = arrow(length = unit(0.005, 'npc'), type = "closed"),
-                 force = 1, 
-                 point.padding = unit(1.0, 'lines'), 
-                 max.iter = 2e3,
-                 nudge_x = .2)
+# Method - Princomp
+# std.Train.pca3 <- princomp(std.Trai, cor=TRUE)
    
 ```
 
 
-## PCA Biplots with clustering
+## Cluster ID's for biplot (not on PCA object)
+
+```{r}
+
+std.Train.daisy =  daisy(std.Train, "euclidean")
+std.Train.clust = hclust(std.Train.daisy,  "ward.D")
+
+# Cutting to 4 (not 2) to avoid SD associated to the 8-1 outlier event
+k_hc <- cutree(std.Train.clust, 3)
+k_hc
+
+# Optimal clustering based on:
+# Spearman's rank correlations
+	# Ward/Hellinger
+  # windows(16,8)
+	# par(mfrow=c(1,2))
+	Si = numeric(nrow(std.Train))
+	for (k in 2:(nrow(std.Train)-1)) {                              
+	sil = silhouette(cutree(std.Train.clust, k=k), std.Train.daisy)
+	Si[k] = summary(sil)$avg.width
+	}                       
+	k.best = which.max(Si)
+	plot(1:nrow(std.Train), Si, type="h", main="Silhouette-optimal number of clusters - Hellinger/Ward",
+	xlab="k (number of groups)", ylab="Average silhouette width")
+	axis(1, k.best, paste("optimum",k.best,sep="\n"), col="red", col.axis="red")
+
+
+# clustering based on:
+# k-means clustering [assume X? clusters]
+km <- kmeans(scores, centers=3, nstart=10)
+km$cluster
+
+
+```
+
+
+## Plotting with "cleanplotPCA"
+
 
 ### Scaling 1 
 
@@ -172,8 +209,9 @@ ggplot(ggdata.z) +
 - The angles between all vectors approximate their (linear) covariance/correlation.
 - Distances between object points may be non-Euclidean and should not be interpreted with great confidence.
 
-
 ```{r}
+
+
 # ,echo=FALSE, out.width='.49\\linewidth', fig.width=3, fig.height=3,fig.show='hold',fig.align='center'
 ####################################################################
 source("cleanplotPCA.R")
@@ -185,18 +223,280 @@ source("cleanplotPCA.R")
 #
 # http://www.davidzeleny.net/anadat-r/doku.php/en:numecolr:cleanplot.pca
 ####################################################################
-waterXz.pca2 <- rda(waterX.z, scale = F)
 
-waterX.z.daisy =  daisy(waterX.z, "euclidean")
-waterX.z.clust = hclust(waterX.z.daisy,  "ward.D")
-
-cleanplot.pca(waterXz.pca2, point = T, 
-              labs = waterX$Events, k = 3, dfcut = waterX.z.clust,
+# Needs RDA (PCA object), hence ...pca2
+cleanplot.pca(std.Train.pca2, point = T, 
+              labs = waterX$Events, k = 3, dfcut = std.Train.clust, # Used hierarchical clust (hclust)
               cluster = TRUE)
 
 ```
 
-Based on Scaling 1, above suggest that... 
+## Plotting with GGPLOT
+
+```{r}
+
+# Scores of PCA object, 
+scores <- std.Train.pca$x[ ,1:2]
+
+# Data for GGplot
+ggdata <- data.frame(scores, Cluster=km$cluster, Species=waterX$Events) # With k-means
+# ggdata <- data.frame(scores, Cluster=k_hc , Species=waterX$Events) # With h-clust
+
+ggdata$CompareLutz <- ifelse(ggdata$Species == "8-1", as.character(ggdata$Species), 
+                               ifelse(ggdata$Species == "8-2", as.character(ggdata$Species), 
+                                      ifelse(ggdata$Species == "8-3", as.character(ggdata$Species), 
+                                              ifelse(ggdata$Species == "10-1", as.character(ggdata$Species), 
+                                                      ifelse(ggdata$Species == "10-2", as.character(ggdata$Species), 
+                                                              ifelse(ggdata$Species == "10-3", as.character(ggdata$Species), 
+                                                                      ifelse(ggdata$Species == "12-1", as.character(ggdata$Species), 
+                                                                             ifelse(ggdata$Species == "12-2", as.character(ggdata$Species),
+                                                                                    ifelse(ggdata$Species == "12-3", as.character(ggdata$Species),
+                                                                                           NA)))))))))
+  
+
+ggdata$QuantPCA <- ifelse( (scores[,1] > 0 | scores[,2] > 1) 
+                           & ggdata$Cluster != 3
+                           & !is.na(y$DD13C.diss), as.character(ggdata$Species), NA)
+
+
+ggdata$Quantif <- ifelse(!is.na(y$DD13C.diss), as.character(ggdata$Species), NA)
+# stat_ellipse is not part of the base ggplot package
+# source("https://raw.github.com/low-decarie/FAAV/master/r/stat-ellipse.R") 
+
+library(proto)
+library(ggplot2)
+ggplot(ggdata) +
+  geom_point(aes(x=PC1, y=PC2, color=factor(Cluster)) , size=5, shape=20) +
+   theme_bw() +
+  stat_ellipse(aes(x=PC1,y=PC2,fill=factor(Cluster)),
+               geom="polygon", level=0.95, alpha=0.2) +
+  guides(color=guide_legend("Cluster"), fill=guide_legend("Cluster")) +
+ 
+  # geom_text_repel(aes(x=PC1, y=PC2, label=CompareLutz),
+  geom_text_repel(aes(x=PC1, y=PC2, 
+                      # label=CompareLutz), 
+                      label=QuantPCA),
+                 arrow = arrow(length = unit(0.005, 'npc'), type = "closed"),
+                 force = 1, 
+                 point.padding = unit(1.0, 'lines'), 
+                 max.iter = 2e3,
+                 nudge_x = .2)
+
+
+
+  
+```
+
+
+# Extracting the ggbiplot code to ggplot:
+
+```{r}
+
+# Number of observations factor
+nobs.factor <- sqrt(nrow(std.Train.pca$x) - 1)
+d <- std.Train.pca$sdev # SD
+u <- sweep(std.Train.pca$x, MARGIN = 2, STATS = 1 / (d * nobs.factor), FUN = '*') 
+    # Sweep = Return an array obtained from an input array by sweeping out a summary statistic
+    # sweep(x, MARGIN, STATS, FUN = "-", check.margin = TRUE, ...)
+v <- std.Train.pca$rotation # Rotation
+
+# Scores
+  choices <- pmin(choices = 1:2, ncol(u)) # choices = 1:2
+# Scaling to use (0 or 1)
+# When scale = 1, the inner product between the variables approximates the covariance and the distance between the points approximates the Mahalanobis distance.
+  scale = 1 
+  obs.scale = 1 - scale
+  df.u <- as.data.frame(sweep(u[,choices], 2, d[choices]^obs.scale, FUN='*')) # Only two components
+
+# Directions
+  var.scale = scale # scale factor to apply to variables
+  v <- sweep(v, 2, d^var.scale, FUN='*')
+  df.v <- as.data.frame(v[, choices])
+  
+  # Axes names (changed from PC1 and PC2)
+  names(df.u) <- c('xvar', 'yvar')
+  names(df.v) <- names(df.u)
+
+# Scale the radius of the correlation circle so that it corresponds to 
+  # a data ellipse for the standardized PC scores
+  circle.prob = 0.60
+  r <- sqrt(qchisq(circle.prob, df = 2)) * prod(colMeans(df.u^2))^(1/4)
+  
+# Scale directions (variable arrows)
+  v.scale <- rowSums(v^2)
+  df.v <- r * df.v / sqrt(max(v.scale))
+  
+# Change the labels for the axes
+  if(obs.scale == 0) { # Scaling 1
+    u.axis.labs <- paste('Standardized PC', choices, sep='')
+  } else { # Scaling 2
+    u.axis.labs <- paste('PC', choices, sep='')
+  }
+
+# Append the proportion of explained variance to the axis labels
+  u.axis.labs <- paste(u.axis.labs, 
+                       sprintf('(%0.1f%% explained var.)', 
+                               100 * std.Train.pca$sdev[choices]^2/sum(std.Train.pca$sdev^2)))
+  
+# Score Labels
+  labels = NULL
+  labels.size = 3
+  alpha = 1
+if(!is.null(labels)) {
+    df.u$labels <- labels
+    }
+  
+  # Grouping variable
+  # groups = as.factor(km$cluster)
+  # if(!is.null(groups)) {
+  #   df.u$groups <- groups
+  # }
+  
+  # Variable Names (Abbreviate or not)
+  varname.abbrev = FALSE
+  if(varname.abbrev) {
+    df.v$varname <- abbreviate(rownames(v))
+  } else {
+    df.v$varname <- rownames(v)
+  }
+  
+  # Variables for text label placement
+  varname.adjust = 2
+  df.v$angle <- with(df.v, (180/pi) * atan(yvar / xvar))
+  df.v$hjust = with(df.v, (1 - varname.adjust * sign(xvar)) / 2)
+  
+##################  
+# Base plot
+  
+  
+  df.u$Cluster = as.factor(km$cluster)
+  
+  g <- ggplot(data = df.u, aes(x= xvar, y=yvar)) + # , aes(x = xvar, y = yvar)
+    geom_point(aes(group = Cluster , col = Cluster), size=5, shape=20) + # x= PC1, y=PC2 
+    xlab(u.axis.labs[1]) + ylab(u.axis.labs[2]) # + coord_equal()
+  
+  var.axes = TRUE
+  varname.size = 3.5
+  circle = TRUE
+  if(var.axes) {
+    # Draw circle
+    if(circle) 
+    {
+      theta <- c(seq(-pi, pi, length = 50), seq(pi, -pi, length = 50))
+      circle <- data.frame(xvar = r * cos(theta), yvar = r * sin(theta))
+      g <- g + geom_path(data = circle, color = muted('white'), 
+                         size = 1/2, alpha = 1/3)
+    }
+    
+    # Draw directions & names
+    g <- g +
+      geom_segment(data = df.v,
+                   aes(x = 0, y = 0, xend = xvar, yend = yvar),
+                   arrow = arrow(length = unit(1/2, 'picas')), 
+                   color = muted('red')) +
+      geom_text(data = df.v, 
+                aes(label = varname, x = xvar, y = yvar, 
+                    angle = angle, hjust = hjust), 
+                color = 'darkred', size = varname.size #,
+                # position=position_jitter(width=.02,height=0.02)
+                )
+  }
+  
+  
+  # Overlay a concentration ellipse if there are groups
+  ellipse = FALSE
+  ellipse.prob = 0.95
+  if(!is.null(df.u$Cluster) && ellipse) {
+    theta <- c(seq(-pi, pi, length = 50), seq(pi, -pi, length = 50))
+    circle <- cbind(cos(theta), sin(theta))
+    
+    ell <- ddply(df.u, 'Cluster', function(x) {
+      if(nrow(x) <= 2) {
+        return(NULL)
+      }
+      sigma <- var(cbind(x$xvar, x$yvar))
+      mu <- c(mean(x$xvar), mean(x$yvar))
+      ed <- sqrt(qchisq(ellipse.prob, df = 2))
+      data.frame(sweep(circle %*% chol(sigma) * ed, 2, mu, FUN = '+'), 
+                 Cluster = x$Cluster[1])
+    })
+    names(ell)[1:2] <- c('xvar', 'yvar')
+    g <- g + geom_path(data = ell, aes(color = Cluster, group = Cluster)) 
+      
+  }
+  
+  # Label the variable axes
+  #if(var.axes) {
+  #  g <- g + 
+  #    geom_text(data = df.v, 
+  #              aes(label = varname, x = xvar, y = yvar, 
+  #                  angle = angle, hjust = hjust), 
+  #              color = 'darkred', size = varname.size)
+  #}
+  fg <-
+    g + 
+    stat_ellipse(data= subset(df.u, xvar < 0.4 ), aes(x=xvar,y=yvar, fill= Cluster),
+               geom="polygon", level=0.90, alpha=0.2) +
+    
+    #stat_ellipse(aes(x=xvar,y=yvar, fill= Cluster),
+    #           geom="polygon", level=0.90, alpha=0.2) +
+    theme_bw() +
+  # geom_point(aes(x=std.Train.pca$x[,1], y=std.Train.pca$x[,2], col = as.factor(km$cluster), size = 0.2)) +
+  geom_text_repel(aes(x= xvar, y=yvar, 
+                      label=ggdata$QuantPCA),
+#                      label=ggdata$CompareLutz),
+                 arrow = arrow(length = unit(0.005, 'npc'), type = "closed"),
+                 force = 1, 
+                 point.padding = unit(0.5, 'lines'), 
+                 max.iter = 2e3,
+                 nudge_x = 0.005 #,
+                 # position=position_jitter(width=.02,height=0.02)
+                 )
+  
+  #  guides(color=guide_legend("Cluster"), fill=guide_legend("Cluster")) 
+  
+  fg
+
+
+ggsave(fg, filename = "Images/PCA_events.png", width = 8, height = 5, units = "in", scale = 1)
+```
+
+
+## Plotting with ggbiplot (arrows with ggplot)
+
+```{r}
+
+# install.packages("devtools")
+library("devtools")
+
+# install_github("vqv/ggbiplot")
+library("ggbiplot")
+
+biplot(std.Train.pca)
+
+## Tweak GGbiplot for desired result.
+# std.Train.pca2 <- prcomp(std.Train, retx=T, scale.=T) 
+ggbiplot(std.Train.pca, obs.scale = 1, var.scale = 1, # Scale 0 = scaling 1 in lit; Scale 1 = scaling 2 in lit.
+  groups = as.factor(km$cluster), # km$cluster
+  varname.abbrev = T,
+  varname.adjust = 1.5,
+  ellipse = TRUE, 
+  circle = FALSE, 
+  ellipse.prob = 0.95) +
+  # scale_color_discrete(name = '') +
+  theme(legend.direction = 'horizontal', legend.position = 'top') +
+  theme_bw() +
+  # geom_point(aes(x=std.Train.pca$x[,1], y=std.Train.pca$x[,2], col = as.factor(km$cluster), size = 0.2)) +
+  geom_text_repel(aes(x=std.Train.pca$x[,1], y=std.Train.pca$x[,2], label=ggdata$CompareLutz),
+                 arrow = arrow(length = unit(0.005, 'npc'), type = "closed"),
+                 force = 1, 
+                 point.padding = unit(1.0, 'lines'), 
+                 max.iter = 2e3,
+                 nudge_x = 2)
+
+
+# std.Train.pca$x[,1]
+```
 
 
 ## Environmental interpretation
@@ -208,13 +508,13 @@ Based on Scaling 1, above suggest that...
 # windows(8,8)                                    
 # par(mfrow=c(1,1)) 
 
-#fit = envfit(waterXY.pca2, waterXY.nona, perm=1000)                                       
+#fit = envfit(std.Train.pca2, std.Train.nona, perm=1000)                                       
 #fit
 
-#plot(waterXY.pca2, type="t", main=paste("PCA/Hellinger"))       
+#plot(std.Train.pca2, type="t", main=paste("PCA/Hellinger"))       
 #plot(fit, axis=T) 
 
-# waterXY.pca2
+# std.Train.pca2
 ```
 
 ## Summary of Eigenvalues
@@ -226,10 +526,10 @@ Plot the eigen values for each component and a line depicting the mean eigen val
 # Method 2
 # Automatic scaling with scale = "TRUE" (no need for earlier transformations/normalization)
 
-summary(waterXz.pca2, scaling = 1)
+summary(std.Train.pca2, scaling = 1)
 
 # Eigen values
-(ev <- waterXz.pca2$CA$eig)
+(ev <- std.Train.pca2$CA$eig)
 
 # Percentage of variance for each axis
 100*ev/sum(ev)
@@ -244,51 +544,4 @@ legend("topright", "Average Eigenvalue", lwd = 1, col = "blue", bty = "n")
 ```
 
 
-## Adding arrows to ggplot
-
-```{r}
-# install.packages("devtools")
-library("devtools")
-
-# install_github("vqv/ggbiplot")
-library(ggbiplot)
-
-fit <- princomp(USArrests, cor=TRUE)
-biplot(fit)
-ggbiplot(fit, labels =  rownames(USArrests))
-
-
-# library(ggbiplot)
-data(wine)
-wine.pca <- prcomp(wine, scale. = TRUE)
-ggbiplot(wine.pca, obs.scale = 1, var.scale = 1,
-  groups = wine.class, ellipse = TRUE, circle = TRUE) +
-  scale_color_discrete(name = '') +
-  theme(legend.direction = 'horizontal', legend.position = 'top') +
-  theme_bw()
-
-
-## Tweak GGbiplot for desired result.
-# std.Train.pca2 <- prcomp(std.Train, retx=T, scale.=T) 
-ggbiplot(std.Train.pca, obs.scale = 1, var.scale = 1,
-  groups = as.factor(km$cluster),
-  varname.abbrev = T,
-  varname.adjust = 1.5,
-  ellipse = TRUE, 
-  circle = FALSE, 
-  ellipse.prob = 0.95) +
-  # scale_color_discrete(name = '') +
-  theme(legend.direction = 'horizontal', legend.position = 'top') +
-  theme_bw() +
-  # geom_point(aes(x=std.Train.pca$x[,1], y=std.Train.pca$x[,2], col = as.factor(km$cluster), size = 0.2)) +
-  geom_text_repel(aes(x=std.Train.pca$x[,1], y=std.Train.pca$x[,2], label=ggdata.z$CompareLutz),
-                 arrow = arrow(length = unit(0.005, 'npc'), type = "closed"),
-                 force = 1, 
-                 point.padding = unit(1.0, 'lines'), 
-                 max.iter = 2e3,
-                 nudge_x = 2)
-
-
-# std.Train.pca$x[,1]
-```
 
