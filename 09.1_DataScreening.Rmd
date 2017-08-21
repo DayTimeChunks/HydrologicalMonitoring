@@ -197,13 +197,15 @@ p <- ggplot(data = soilGrApp, aes(x=Conc.mug.g.dry.soil, y=DD13C.comp))+
               aes(x=Conc.mug.g.dry.soil, y=DD13C.comp), method = "lm", formula = y ~ poly(x, 2), se=F) +
   # geom_point(aes(group = ID, size = timeSinceApp.NoSo)) + # , colour = Source)) +  # , shape = ngC.Label)) +
   geom_point(aes(group = ID, size = timeSinceApp)) +
-  theme_bw() +
-  theme(legend.position = "bottom") +
+  # theme_bw() +
+  theme_minimal() +
+  theme(legend.position = "top",
+        text = element_text(size=17)) +
   labs(size="   Days after application", colour="Source" ) + #, shape = "Mass Carbon") +
   ylab(expression(paste({Delta~delta}^"13","C", ' (\u2030)'))) +
-  xlab(expression(paste("S-MET Soil Concentration  ", {({mu}*g / g~dry~wt.)}))) +
-  annotate("text", x = 5.5, y = 3.7, label = as.character(r_label), parse = T, size = 3.5) +
-  annotate("text", x = 5.5, y = 3.2, label = p_label, parse = T, size = 3.5) +
+  xlab(expression(paste("S-met Soil Concentration  ", {({mu}*g / g~dry~wt.)}))) +
+  annotate("text", x = 5.5, y = 3.7, label = as.character(r_label), parse = T, size = 5) +
+  annotate("text", x = 5.5, y = 3.2, label = p_label, parse = T, size = 5) +
   scale_size_continuous(range = c(1, 5), breaks= c(0, 10, 20, 30, 50), limits = c(0, 50)) + 
   # scale_size_continuous(range = c(1, 5)) +
   guides(size=guide_legend(nrow=1))
@@ -221,8 +223,14 @@ p <- ggplot(data = soilGrApp, aes(x=Conc.mug.g.dry.soil, y=DD13C.comp))+
   #               max.iter = 2e3,
   #               nudge_x = .2)
 p
-#ggsave(p, filename = "images/DDvsConc_soils.png", width = 8, height = 5, units = "in", scale = 1)
+#ggsave(p, filename = "images/DDvsConc_soils.png", width = 8.7, height = 6, units = "cm", scale = 1)
+# 
+# ggsave(p, filename = "images/DDvsConc_soils_2.pdf", device = "pdf", dpi = 300,  scale = 2)
 
+#ggsave(p, 
+#       filename = "D:/Documents/these_pablo/WriteUp/Alteck_PNAS_LaTeX/images/DDvsConc_soils.pdf", 
+#       device = "pdf", dpi = 600,  scale = 1, # )# ,
+#       width = 8.7, height = 6)
 #ggplotly(p)
   #stat_smooth(method = "lm", formula = y ~ poly(x, 2)) +
   #stat_smooth(method = "lm", formula = y~x, se=F) 

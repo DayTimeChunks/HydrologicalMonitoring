@@ -363,8 +363,9 @@ SoilBars <- ggplot(data = subset(ajTidy,
                   width=.2 , # ) + #,                    # Width of the error bars
                   position=position_dodge(.5)) + 
   theme_bw() +
-  ylab("% S-MET Applied") +
-  theme(axis.title.x = element_blank() ) +
+  ylab("% S-met Applied") +
+  theme(text = element_text(size=17),
+        axis.title.x = element_blank() ) +
   xlab("Month") +
   facet_wrap(~type) +
   scale_y_continuous( breaks=c(25, 50, 75, 100), limits = c(0, 100) )+ #expand=c(0, 10, 0, 0)) + 
@@ -400,8 +401,9 @@ OutBars <- ggplot(data = subset(ajTidy,
                   width=.3 , # ) + #,                    # Width of the error bars
                   position=position_dodge(.5)) + 
   theme_bw() +
-  ylab("% S-MET Applied") +
-  theme(axis.title.x = element_blank() ) +
+  ylab("% S-met Applied") +
+  theme(text = element_text(size=17),
+        axis.title.x = element_blank() ) +
   scale_y_continuous( breaks=c(25, 50, 75, 100), limits = c(0, 100) )+ #expand=c(0, 10, 0, 0)) + 
   #xlab("Month") +
   facet_wrap(~type) +
@@ -410,7 +412,7 @@ OutBars <- ggplot(data = subset(ajTidy,
                     #values = c("#238b45", "#41ab5d", "#74c476", "#40004b", "#762a83", "#9970ab" ), # green-purple
                     #values = c("#238b45", "#41ab5d", "#74c476", "#ec7014", "#fe9929", "#fec44f" ), # green-orange
                     #values = c("#80cdc1", "#018571", "#a6611a", "#dfc27d", "#80cdc1", "#018571"),
-                    name= "Outlet Monitoring" ,# element_blank(), #"Mass Balance", # \n
+                    name= "Outlet" ,# element_blank(), #"Mass Balance", # \n
                        breaks=c("Bw", "fw" , 
                                 "TPout" , "SMout" #, 
                                 #"Deg", "Rem" 
@@ -437,8 +439,9 @@ theoBars <- ggplot(data = subset(ajTidy, type == 'Predicted (half-life)') ,
                   width=.3 , # ) + #,                    # Width of the error bars
                   position=position_dodge(.5)) + 
   theme_bw() +
-  ylab("% S-MET Applied") +
-  theme(axis.title.x = element_blank() ) +
+  ylab("% S-met Applied") +
+  theme(text = element_text(size=17),
+        axis.title.x = element_blank() ) +
   scale_y_continuous( breaks=c(25, 50, 75, 100), limits = c(0, 100) )+ #expand=c(0, 10, 0, 0)) + 
   #xlab("Month") +
   facet_wrap(~type) +
@@ -493,5 +496,10 @@ balAllplot <- ggdraw() +
 
 balAllplot
 #ggsave(balAllplot, filename = "images/MB_CSIA_Bars.png", width = 8, height = 5, units = "in", scale = 1)
+
+#ggsave(balAllplot, 
+#       filename = "D:/Documents/these_pablo/WriteUp/Alteck_PNAS_LaTeX/images/balAllplot.pdf", 
+#       device = "pdf", dpi = 600,  scale = 1, # )# ,
+#       width = 11.4, height = 6)
 
 ```
