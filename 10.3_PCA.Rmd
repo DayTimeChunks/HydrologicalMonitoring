@@ -1,7 +1,7 @@
 ---
 title: "Principal Component Analysis (PCA)"
 author: "PAZ"
-date: "8 août 2017"
+date: "8 ao?t 2017"
 output: pdf_document
 ---
 
@@ -22,6 +22,9 @@ require("gclus")
 library("ggplot2")
 library("ggrepel")
 library("MASS")
+#library(plyr)
+library("scales")
+library("grid")
 
 library("zoo")
 
@@ -73,7 +76,7 @@ Variable choice:
 names(sw)
 
 swNew = 
-  sw %>% rename(P.Cum = CumRain.mm,
+  sw %>% dplyr::rename(P.Cum = CumRain.mm,
                 P.Int = RainInt.mmhr,
                 Q.Ave = AveDischarge.m3.h,
                 Q.Ini = iflux,
@@ -191,6 +194,7 @@ k_hc
 km <- kmeans(scores, centers=3, nstart=10)
 km$cluster
 
+sum(km$cluster == 3)/length(km$cluster)
 
 ```
 
@@ -252,10 +256,13 @@ ggdata$CompareLutz <- ifelse(ggdata$Species == "8-1", as.character(ggdata$Specie
                                                                              ifelse(ggdata$Species == "12-2", as.character(ggdata$Species),
                                                                                     ifelse(ggdata$Species == "12-3", as.character(ggdata$Species),
                                                                                            NA)))))))))
-  
+
+
+
 
 ggdata$QuantPCA <- ifelse( (scores[,1] > 0 | scores[,2] > 1) 
-                           & ggdata$Cluster != 3
+                           # & ggdata$Cluster != 3
+                           & ggdata$Cluster != 1
                            & !is.na(y$DD13C.diss), as.character(ggdata$Species), NA)
 
 
@@ -263,19 +270,42 @@ ggdata$Quantif <- ifelse(!is.na(y$DD13C.diss), as.character(ggdata$Species), NA)
 # stat_ellipse is not part of the base ggplot package
 # source("https://raw.github.com/low-decarie/FAAV/master/r/stat-ellipse.R") 
 
+# Relabeling based on new event classification
+split <- strsplit(ggdata$QuantPCA, "-", fixed = TRUE)
+ggdata$evTemp <- sapply(split, "[", 1)
+ggdata$evTemp2 <- sapply(split, "[", 2)
+ggdata$Label = ifelse(ggdata$evTemp == 8, "A", 
+                      ifelse(ggdata$evTemp == 10, "B",
+                             ifelse(ggdata$evTemp == 11, "C",
+                                    ifelse(ggdata$Species == "12-1", "D",
+                                           ifelse(ggdata$Species == "12-2" | ggdata$Species == "12-3", "E",
+                                                  ifelse(ggdata$evTemp == 15, "F",
+                                                         ifelse(ggdata$evTemp == 18, "G", NA)
+                                                         )
+                                                  )
+                                           )
+                                    )
+                             )
+                      )
+ggdata$evTemp2 <- ifelse(ggdata$Species == "12-2" | ggdata$Species == "15-2", "1", 
+                         ifelse(ggdata$Species == "12-3", "2", ggdata$evTemp2))
+ggdata$EventLabel = ifelse(!is.na(ggdata$Label) , paste(ggdata$Label, ggdata$evTemp2, sep = "-"), NA)
+ggdata$evTemp = NULL
+ggdata$evTemp2 = NULL
+
 library(proto)
 library(ggplot2)
 ggplot(ggdata) +
   geom_point(aes(x=PC1, y=PC2, color=factor(Cluster)) , size=5, shape=20) +
    theme_bw() +
   stat_ellipse(aes(x=PC1,y=PC2,fill=factor(Cluster)),
-               geom="polygon", level=0.95, alpha=0.2) +
+               geom="polygon", level=0.69, alpha=0.2) +
   guides(color=guide_legend("Cluster"), fill=guide_legend("Cluster")) +
  
   # geom_text_repel(aes(x=PC1, y=PC2, label=CompareLutz),
   geom_text_repel(aes(x=PC1, y=PC2, 
                       # label=CompareLutz), 
-                      label=QuantPCA),
+                      label=EventLabel),
                  arrow = arrow(length = unit(0.005, 'npc'), type = "closed"),
                  force = 1, 
                  point.padding = unit(1.0, 'lines'), 
@@ -437,28 +467,21 @@ if(!is.null(labels)) {
     g + 
     stat_ellipse(data= subset(df.u, xvar < 0.4 ), aes(x=xvar,y=yvar, fill= Cluster),
                geom="polygon", level=0.90, alpha=0.2) +
-    
-    #stat_ellipse(aes(x=xvar,y=yvar, fill= Cluster),
-    #           geom="polygon", level=0.90, alpha=0.2) +
-    theme_bw() +
+    theme_minimal() +
   # geom_point(aes(x=std.Train.pca$x[,1], y=std.Train.pca$x[,2], col = as.factor(km$cluster), size = 0.2)) +
   geom_text_repel(aes(x= xvar, y=yvar, 
-                      label=ggdata$QuantPCA),
+                      label=ggdata$EventLabel),
 #                      label=ggdata$CompareLutz),
-                 arrow = arrow(length = unit(0.005, 'npc'), type = "closed"),
+                 arrow = arrow(length = unit(0.01, 'npc'), type = "closed"),
                  force = 1, 
-                 point.padding = unit(0.5, 'lines'), 
+                 point.padding = unit(1.5, 'lines'), 
                  max.iter = 2e3,
-                 nudge_x = 0.005 #,
+                 nudge_x = 0.01 #,
                  # position=position_jitter(width=.02,height=0.02)
                  )
-  
-  #  guides(color=guide_legend("Cluster"), fill=guide_legend("Cluster")) 
-  
   fg
-
-
-ggsave(fg, filename = "Images/PCA_events.png", width = 8, height = 5, units = "in", scale = 1)
+# ggsave(fg, filename = "Images/PCA_events_C1early.png", width = 8, height = 5, units = "in", scale = 1)
+# ggsave(fg, filename = "Images/PCA_events_C1late.png", width = 8, height = 5, units = "in", scale = 1)
 ```
 
 
@@ -541,6 +564,23 @@ ev[ev > mean(ev)]
 barplot(ev, main = "Eigenvalues for PCA on ENV", col = "bisque", las=2)
 abline(h=mean(ev), col = "blue")
 legend("topright", "Average Eigenvalue", lwd = 1, col = "blue", bty = "n")
+```
+
+
+## Merge ggdata with dissolved isotope values
+
+```{r}
+
+
+yClust <- merge(waterX, y, by = "Events")
+#  g = ggdata %>% rename(Events = Species) # detach plyr first
+names(ggdata)[names(ggdata) == "Species"] <- "Events"
+yClust <- merge(yClust, ggdata, by = "Events")
+
+write.csv2(yClust, 
+           'Data/PCA4Lutz_R.csv', row.names = F)
+
+
 ```
 
 

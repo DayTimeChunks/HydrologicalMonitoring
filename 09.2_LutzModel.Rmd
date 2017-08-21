@@ -18,7 +18,7 @@ This notebook compares Lutz et al [@Lutz2013] simulations to catchment outlet da
 # Files
 
 - **WaterDay_R.csv** (Book 02)
-
+- **Data/OutletData4Lutz_R.csv**  (Book 9.1)
 
 # Packages
 
@@ -60,7 +60,8 @@ library("cluster")
 ### Steady state results
 
 - Mean travel time for groundwater was 6.7 yrs (5 yr for the pesticide)
-- Isotopes are enriched with distance from the source area. Max ($\Delta \delta = 4 ??? $) is reached at the hillslope end in the shallow areas close to outlet.
+- Isotopes are enriched with distance from the source area. Max ($\Delta\delta$ $= 4 ‰$) is reached at the hillslope end in the shallow areas close to outlet. 
+
 
 ### Relationships to field data
 
@@ -113,8 +114,18 @@ wstidier$Date <- as.character(wstidier$Date)
 wstidier$Date <- as.POSIXct(strptime(wstidier$Date, 
                                           "%Y-%m-%d %H:%M", tz="EST")) 
 names(wstidier)
+wstidier = subset(wstidier, Source == "Outlet")
+wstidier = wstidier[, c( "Date", "Event", "Events", "measure", "SD")]
 
+# Import the PCA data used to cluster events (might be better than above)
+yClust <- read.csv2("Data/PCA4Lutz_R.csv", header = TRUE)
+names(yClust)[names(yClust) == "Date.ti.x"] <- "Date"
+yClust$Date.ti.y <- NULL
+yClust$Date <- as.POSIXct(strptime(yClust$Date, 
+                                          "%Y-%m-%d %H:%M", tz="EST")) 
+names(yClust)
 
+# 30 minute rainfall
 rainDay30min <- read.csv2("Data/30minRain.csv", header = T, dec =".")
 rainDay30min$Time <- as.character(rainDay30min$Time) 
 rainDay30min$Date <-  as.POSIXct(strptime(rainDay30min$Time, 
@@ -123,128 +134,180 @@ rainDay30min$Date <-  as.POSIXct(strptime(rainDay30min$Time,
 rainDay30min$Time <- NULL
 rainDay30min$Cumm.mm <- as.numeric(rainDay30min$Cumm.mm)
 
+# Convert to mm/hr
 rainDay30min <- subset(rainDay30min, Cumm.mm > 0)
 rainDay30min$mm.hr <- rainDay30min$Cumm.mm*(60/30) # mm/min -> mm/hr
 rainDay30min$Cumm.mm <- NULL
 
-#rainDay = read.csv2("Data/WaterDay_R.csv", header = T)
-#rainDay$DayMoYr <-as.character(rainDay$DayMoYr)
-#rainDay$Month <-as.character(rainDay$Month)
-#split2 <- strsplit(rainDay$DayMoYr, "-", fixed = TRUE)
-#rainDay$Day <- as.numeric(sapply(split2, "[", 3))
+# Sampler data
+sampler <- read.csv2("Data/SamplerFormatted_R.csv", header = T)
+sampler$Date <- as.POSIXct(strptime(sampler$Date, 
+                                          "%Y-%m-%d %H:%M", tz="EST")) 
 
-# Subset only dissolved measures and select events 
-dissolved <- subset(wstidier, Location == "diss" &
-                     # Date >= as.POSIXct( "2016-03-30 12:18:00" , tz = "EST") &
-                  Date >= as.POSIXct("2016-05-12 06:34:00", tz = "EST") & 
-                    Date <= as.POSIXct("2016-06-24 14:52:00", tz = "EST"))
+rainSample <- merge(rainDay30min, sampler, by = "Date", all = T)
+# anyDuplicated(rainSample$Date)
 
-# dissolved <- subset(dissolved, Date != as.POSIXct("2016-05-24 12:00:00", tz = "EST"))
+yrs <- merge (yClust, rainSample, by = "Date", all = T )
+yrs$Events <- na.locf(yrs$Events) 
+yrs$mm.hr[1] <- 0
+yrs$mm.hr = ifelse(is.na(yrs$mm.hr), 0, yrs$mm.hr)
+yrs$Cluster = na.locf(yrs$Cluster)
 
-rdiss <- merge(dissolved, rainDay30min, by = "Date", all = T)
+yrs0 = yrs %>%
+  group_by(Events) %>%
+  dplyr::summarize(Cluster = max(Cluster),
+                   max.mm = max(mm.hr),
+                   Label = first(Label),
+                   EventLabel = first(EventLabel),
+                   tmax = Date[which.max(mm.hr)],
+                   ti = first(Date), # 
+                   tf = last(Date)) 
 
-# May 11 event
-eventMay11 <- subset(rdiss, Date >= as.POSIXct("2016-05-11 19:32:00", tz = "EST") & 
-                       Date <= as.POSIXct("2016-05-12 06:34:00", tz = "EST"))
+yrs1 = merge(yrs0, wstidier, by.x = "ti", by.y = "Date", all = T)
 
-  # Take the max rainfall that generated the sample
-eventMay11[which(is.na(eventMay11$mm.hr)), "mm.hr"] <- max(eventMay11$mm.hr, na.rm = T)
-eventMay11 <- eventMay11[complete.cases(eventMay11[ , "measure"]),]
-eventMay11$Date.Ini <- eventMay11$Date[1]
-eventMay11$Event <- rep("May 11", nrow(eventMay11))
-eventMay11$Approach <- rep("Outlet, 2016", nrow(eventMay11))
+compare <- subset(yrs1, Cluster != 1 & !is.na(measure) ) 
+compare$Duration.Hrs = 
+  as.numeric(difftime(compare$tf, compare$ti, units = "hours"), units = "hours")
 
-# May 12 event 
-eventMay12 <- subset(rdiss, Date >= as.POSIXct("2016-05-12 08:02:00", tz = "EST") & 
-                       Date <= as.POSIXct("2016-05-12 09:12:00", tz = "EST"))
-eventMay12[which(is.na(eventMay12$mm.hr)), "mm.hr"] <- max(eventMay12$mm.hr, na.rm = T)
-eventMay12 <- eventMay12[complete.cases(eventMay12[ , "measure"]),]
-eventMay12$Date.Ini <- eventMay12$Date[1]
-eventMay12$Event <- rep("May 12", nrow(eventMay12))
-eventMay12$Approach <- rep("Outlet, 2016", nrow(eventMay12))
+compare$DtoMax = 
+  as.numeric(difftime(compare$tmax, compare$ti, units = "hours"), units = "hours")
 
-# May 29 event
-eventMay29 <- subset(rdiss, Date >= as.POSIXct("2016-05-29 03:32:00", tz = "EST") & 
-                       Date <= as.POSIXct("2016-05-31 12:00:00", tz = "EST"))
-                       # Date <= as.POSIXct("2016-06-02 12:58:00", tz = "EST"))
+compare$DfromMax = 
+  as.numeric(difftime(compare$tf, compare$tmax, units = "hours"), units = "hours")
 
-eventMay29 <- eventMay29 %>%
-  mutate(mm.hr = lead(mm.hr))
-eventMay29$mm.hr <- na.locf(eventMay29$mm.hr)
-eventMay29 <- eventMay29[complete.cases(eventMay29[, "measure"]), ]
-eventMay29$Date.Ini <- eventMay29$Date[1]
-eventMay29$Event <- rep("May 29", nrow(eventMay29))
-eventMay29$Approach <- rep("Outlet, 2016", nrow(eventMay29))
+compare$Approach = "Outlet, 2016"
 
-# June 3rd event 
-eventJune3 <- subset(rdiss, Date >= as.POSIXct("2016-06-03 03:32:00", tz = "EST") & 
-                       Date <= as.POSIXct("2016-06-03 12:06:00", tz = "EST"))
+evA = subset(compare, Label == "A")
+evA$Hrs = cumsum(evA$Duration.Hrs)
+evA$Hrs[1] = min(evA$DfromMax[1], evA$DtoMax[1])
 
-eventJune3[which(is.na(eventJune3$mm.hr)), "mm.hr"] <- max(eventJune3$mm.hr, na.rm = T)
-eventJune3 <- eventJune3[complete.cases(eventJune3[, "measure"]), ]
-eventJune3$Date.Ini <- eventJune3$Date[1]
-eventJune3$Event <- rep("June 3", nrow(eventJune3))
-eventJune3$Approach <- rep("Outlet, 2016", nrow(eventJune3))
+evB = subset(compare, Label == "B")
+evB$Hrs = cumsum(evB$Duration.Hrs)
+evB$Hrs[1] = min(evB$DfromMax[1], evB$DtoMax[1])
 
+evC = subset(compare, Label == "C")
+evC$Hrs = cumsum(evC$Duration.Hrs)
+evC$Hrs[1] = min(evC$DfromMax[1], evC$DtoMax[1])
 
-eventJune4 <- subset(rdiss, Date >= as.POSIXct("2016-06-04 06:02:00", tz = "EST") & 
-                       Date <= as.POSIXct("2016-06-07 12:00:00", tz = "EST"))
+evD = subset(compare, Label == "D")
+evD$Hrs = cumsum(evD$Duration.Hrs)
+evD$Hrs[1] = min(evD$DfromMax[1], evD$DtoMax[1])
 
-eventJune4[which(is.na(eventJune4$mm.hr))[1], "mm.hr"] <- max(eventJune4$mm.hr[1:7], na.rm = T)
-eventJune4[which(is.na(eventJune4$mm.hr))[1], "mm.hr"] <- max(eventJune4$mm.hr[8:12], na.rm = T)
-eventJune4[which(is.na(eventJune4$mm.hr))[1], "mm.hr"] <- max(eventJune4$mm.hr[13:nrow(eventJune4)], na.rm = T)
-eventJune4 <- eventJune4[complete.cases(eventJune4[, "measure"]), ]
-eventJune4$Date.Ini <- eventJune4$Date[1]
-eventJune4$Event <- rep("June 4", nrow(eventJune4))
-eventJune4$Approach <- rep("Outlet, 2016", nrow(eventJune4))
+evE = subset(compare, Label == "E")
+evE$Hrs = cumsum(evE$Duration.Hrs)
+evE$Hrs[1] = min(evE$DfromMax[1], evE$DtoMax[1])
 
+evF = subset(compare, Label == "F")
+evF$Hrs = cumsum(evF$Duration.Hrs)
+evF$Hrs[1] = min(evF$DfromMax[1], evF$DtoMax[1])
 
-events <- rbind(# eventMay11, eventMay12, 
-                eventMay29, 
-                # eventJune3, 
-                eventJune4)
+evG = subset(compare, Label == "G")
+evG$Hrs = cumsum(evG$Duration.Hrs)
+evG$Hrs[1] = min(evG$DfromMax[1], evG$DtoMax[1])
 
-events$Duration.Hrs = 
-  as.numeric(difftime(events$Date, events$Date.Ini, units = "hours"), units = "hours")
+events <- rbind(evA, evB, evC, evD, evE, evF, evG)
 
+events$HasLabel = ifelse(events$Label == "A", "yes",
+                         ifelse(events$Label == "B", "yes",
+                                ifelse(events$Label == "E", "yes", "no")
+                                )
+                         )
 
+events$Label = as.character(events$Label)
+events$Label =ifelse(events$Label == "A", "A (May 12)", 
+                     ifelse(events$Label == "B", "B (May 29)*",
+                            ifelse(events$Label == "C", "C (June 2)",
+                                   ifelse(events$Label == "D", "D (June 3)",
+                                          ifelse(events$Label == "E", "E (June 4)",
+                                                 ifelse(events$Label == "F", "F (June 14)",
+                                                        ifelse(events$Label == "G", "G (June 25)", events$Label)
+                                                        )
+                                                 )
+                                          )
+                                   )
+                            )
+                     )
+                            
+
+events <- events[c("Hrs", "max.mm", "measure", "SD" ,  
+                   "EventLabel", 
+                   "Label", "Approach", "HasLabel")]
+names(events) = c("Duration.hr", "mm.hr", "measure", "SD" ,  
+                  "EventLabel", 
+                  "Event", "Approach", "HasLabel")
+events$Event  = as.factor(events$Event )
 names(events)
-events <- events[c("Duration.Hrs", "mm.hr", "measure", "SD" ,  "Event", "Approach")]
+
 
 # Lutz reproduction
-Duration.Hrs <- c(0, 4, 6, 12, 24, 48, 72, 96)
-mm.hr <- c(60, 0, 0, 0, 0, 0, 0, 0)
-measure <- c(0, 2, 3, 3.2, 3.4, 3.5, 3.5, 3.5)
-SD <- rep(NA, 8)
-Event <- rep("Simulation", 8)
-Approach <- rep("Simulation (Lutz et al., 2013)", 8)
+Duration.hr <- c(0, 
+                 24*.1, 
+                 24*.2, 
+                 24*.3, 
+                 24*.4, 
+                 24*.5, 
+                 15, 
+                 24, 30)
 
-eventLutz <- data.frame(Duration.Hrs, mm.hr, measure, SD, Event, Approach)
+iniLutz = -30
+measure <- c(-30 - iniLutz, 
+             -28.7 - iniLutz, 
+             -27.5 - iniLutz, 
+             -27 - iniLutz, 
+             -26.9 - iniLutz, 
+             -26.9 - iniLutz,
+             -26.9 - iniLutz,
+             -26.9 - iniLutz,
+             -26.9 - iniLutz)
+reps = length(measure)
+mm.hr <- c(60, rep(0, reps - 1))
+SD <- rep(NA, reps)
+EventLabel <- rep(NA, reps)
+Event =  rep("Simulation", reps)
+HasLabel = rep(NA, reps)
+Approach <- rep("Simulation (Lutz et al., 2013)", reps)
+
+eventLutz <- data.frame(Duration.hr, mm.hr, measure, SD, 
+                        EventLabel, 
+                        Event, Approach, HasLabel)
 
 allEvents <- rbind(eventLutz, events)
 
-LutzEvents <- ggplot(data = allEvents, aes(x= Duration.Hrs, y=measure, colour = Event))+
-  theme_bw() +
-  geom_point(aes(size = mm.hr)) +
-  geom_line(aes(colour = Event), linetype = "dashed") +
-  # geom_line(data = subset(allEvents, Event == "Simulation"), aes(colour = Event), linetype = "dashed") +
-  geom_errorbar(data = allEvents, aes(ymin = measure-SD, ymax = measure+SD),
-                 width=.2 , # ) + #,                    # Width of the error bars
-                  position=position_dodge(.5)) +
-  # geom_smooth(data=subset(allEvents, Event != "Simulation"), aes(group = Event, colour = Event) ,
-  #            se = F, alpha = 0.2, size=0.2, span = 0.74, linetype = "dashed") +
+
+
+
+LutzEvents <- ggplot(data = allEvents, aes(x= Duration.hr, y=measure) )+
+  # theme_bw() +
+  theme_minimal() +
+  
+  geom_errorbar(data = allEvents, aes(ymin = measure-SD, ymax = measure+SD, colour = Event),
+                 # width=.2 , # ) + #,                    # Width of the error bars
+                #position=position_dodge(.5), 
+                size=0.2) +
+  geom_line(data=subset(allEvents, Event == "Simulation" ), aes(colour = Event), linetype = "dashed") +
+  geom_point(aes(size = mm.hr, colour = Event)) +
   ylab(expression(paste({Delta~delta}^"13","C", ' (\u2030)'))) +
-  xlab("Hours after 1st pulse") +
+  xlab("Time after max. rainfall (hrs.)") +
   scale_size_continuous(range = c(1, 5), breaks= c(0, 5, 20, 60), limits = c(0, 60)) +
   guides(size = guide_legend(order = 4, 
                              title=expression("Intensity " ~ (mm/h) ), 
                              ncol=1, title.position = "top", title.vjust = .26
-                              )) #+
+                              )) +
+  geom_text_repel(data=subset(allEvents, HasLabel == "yes"), aes(x= Duration.hr, y=measure,  label= EventLabel),
+                 arrow = arrow(length = unit(0.005, 'npc'), type = "closed"),
+                 force = 1, 
+                 point.padding = unit(0.8, 'lines'), 
+                 max.iter = 2e3,
+                 nudge_x = 1,
+                 show.legend = FALSE)#+
+  #stat_smooth(data=subset(allEvents, Event != "Simulation"), aes(x= Duration.hr, y=measure, colour = Approach), 
+  #            method = "lm", formula = y ~ poly(x, 2), se = T, alpha = 0.2, size=0.2) #+
   #theme(axis.title.x = element_blank() ) +
   # facet_wrap(~ Approach)#, scale="free") 
 
 LutzEvents
   
-  # ggsave(LutzEvents, filename = "LutzEvents.png", width = 8, height = 5, units = "in", scale = 1)
+#ggsave(LutzEvents, filename = "images/LutzEvents.png", width = 8, height = 5, units = "in", scale = 1)
+
 ```
 

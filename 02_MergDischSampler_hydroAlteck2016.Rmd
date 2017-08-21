@@ -22,14 +22,14 @@ Used files:
 
 3. **sixMinutePluvioAlteck2016.csv**
 
-3. **Data/2minRain.csv** (at the end)
+4. **Data/2minRain.csv** (at the end)
 
 Produced file:
 
 1. **hydroAlteck2016_R.csv** (Used for plotting Sample and Discharge data together).
 2. **RainAprJune2016_R.csv** (Only March and July delted)
 3. **WaterDay_R.csv** (Daily and cumulative rainfall - mm)
-
+4- **SamplerFormatted_R.csv** (Cleaned sampler)
 
 ## Required R-packages:
 
@@ -109,11 +109,11 @@ naDates = rain[is.na(rain$Date == TRUE),]
 # detach("package:plyr")
 dischDay <- dischargeAlteck %>%
   group_by(DayMoYr) %>%
-  summarize(Disch.mm = (sum(Vol2min)/(47*10000))*10^3 ) # Discharge in mm 
+  dplyr::summarize(Disch.mm = (sum(Vol2min)/(47*10000))*10^3 ) # Discharge in mm 
 
 rainDay <- rain %>%
   group_by(DayMoYr) %>%
-  summarize(Rain.mm = sum(V2))
+  dplyr::summarize(Rain.mm = sum(V2))
 
 rainDay$CumRain <- cumsum(rainDay$Rain.mm)
 
@@ -203,7 +203,7 @@ dischDay$Month <-
 
 dischSumm <- dischDay %>%
   group_by(Month) %>%
-  summarize(Qtot.measure = sum(Disch.mm),
+  dplyr::summarize(Qtot.measure = sum(Disch.mm),
             Qmedian.measure = median(Disch.mm),
             Qmean.measure = mean(Disch.mm), 
             Qmean.SD = sd(Disch.mm))
@@ -223,7 +223,7 @@ rainDay$Month <-
 
 rainSumm <- rainDay %>%
   group_by(Month) %>%
-  summarize(Rtot.measure = sum(Rain.mm), 
+  dplyr:: summarize(Rtot.measure = sum(Rain.mm), 
             Rmedian.measure = median(Rain.mm),
             Rmean.measure = mean(Rain.mm),
             Rmean.SD = sd(Rain.mm))
@@ -291,6 +291,11 @@ sum(is.na(samplesAlteck$Date))
 samplesAlteck = samplesAlteck[order(samplesAlteck$Date),]
 
 head(samplesAlteck)
+
+
+write.csv2(samplesAlteck, 
+           'Data/SamplerFormatted_R.csv', row.names = F)
+
 
 ```
 

@@ -145,6 +145,13 @@ $$\Delta = 1000 \cdot ln \Big( \frac{ 10^{-3} \delta^{13}_t C + 1}{10^{-3} \delt
 
 ### Dilution factor ($F$)
 
+Note that to meet the relationships D\* > 1 and 0 < B\* < 1 initial concentrations need to be accurate. From Van Breukelen (2007):
+
+(i) if B\* exceeds 1, the predicted concentration decrease is larger than observed, 
+(ii) if B\* is negative, downgradient concentrations are higher than the source concentration. 
+
+Modified to top soils, in the above cases, application of the open system Rayleigh equation [would] thereby point out that the boundary conditions [e.g. initial concentrations] must be different.
+
 ```{r}
 
 soils$ftot.N <-soils$Conc.mug.g.dry.soil.N/soils$iniCo.ug.g.N
@@ -260,7 +267,9 @@ soils$Berr.Stat.Field <- (1/-epsilon_field)*
 
 
 
-As well as the breakdown ($B*$), dilution factors ($D*$):
+The above allows us to calculate the breakdown (B\*) and dilution factors (D\*). Note that the relationships D\* > 1 and B\* < 1 must be met, otherwise $\epsilon_{true}$ is incorrect or iniitial concentrations are incorrect (or both). 
+
+Calculating B* is given by:
 
 $$B^* = \frac{log(f_{dil})}{log(f_{tot})} $$
 
@@ -312,19 +321,10 @@ ggplot(data = soils , aes(x=Date.ti))+
   
 ```
 
-Calculating the cummulative mass that was degraded and transpoted off-site can be done by converting the change in concentration to the change in mass, with the following conversion:
+Calculating the cummulative mass that was degraded based on B% and converting concentrations to masses:
 
-$$ \Delta M_t = M_t - M_0 $$
-don't think this is correct! Should be B% instead of B*...
+$$ M_t ~ [\mu g] = C_t ~ [\mu g/ g~soil] * \rho ~ [g~soil / m^3 ] * A_{T} [m^2] * D~[m] $$
 
-$$  M_{deg(t)} = \Delta M \cdot B^* $$
-(thinking about dilution in the wrong way? ->  Dilution factor can only be applied to concentrations, not masses) 
-
-because,
-
-$$B^* = 1 - D^*$$
-
-$$ M_t ~ [\mu g] = C_t ~ [\mu g/ g~soil] * \rho ~ [g~soil / m^3 ] * A_{T} [m^2] * D~[m]    $$
 Note here that $A_T$ refers to the representative catchment area (subcatchment) of the given transect, and depth is 0.01 $m$. 
 
 ```{r}
