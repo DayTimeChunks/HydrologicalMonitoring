@@ -279,7 +279,7 @@ allEvents <- rbind(eventLutz, events)
 LutzEvents <- ggplot(data = allEvents, aes(x= Duration.hr, y=measure) )+
   # theme_bw() +
   theme_minimal() +
-  
+  theme(text = element_text(size=17)) + 
   geom_errorbar(data = allEvents, aes(ymin = measure-SD, ymax = measure+SD, colour = Event),
                  # width=.2 , # ) + #,                    # Width of the error bars
                 #position=position_dodge(.5), 
@@ -308,6 +308,10 @@ LutzEvents <- ggplot(data = allEvents, aes(x= Duration.hr, y=measure) )+
 LutzEvents
   
 #ggsave(LutzEvents, filename = "images/LutzEvents.png", width = 8, height = 5, units = "in", scale = 1)
-
+# MAC
+#  ggsave(LutzEvents, 
+#    filename = "/Users/DayTightChunks/Documents/PhD/Writeups/PNAS/Alteck_PNAS_LaTeX/images/lutz.pdf", 
+#      device = cairo_pdf, dpi = 600,  scale = 1, # )# ,
+#       width = 7, height = 6)
 ```
 

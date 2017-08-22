@@ -26,6 +26,12 @@ library("MASS")
 library("scales")
 library("grid")
 
+library("plotly")
+library("cowplot")
+library("gridExtra")
+library("Cairo")
+library("GGally")
+
 library("zoo")
 
 # Melting data sets & changin axes
@@ -477,9 +483,9 @@ if(!is.null(labels)) {
 #                      label=ggdata$CompareLutz),
                  arrow = arrow(length = unit(0.01, 'npc'), type = "closed"),
                  force = 1, 
-                 point.padding = unit(1.5, 'lines'), 
+                 point.padding = unit(0.8, 'lines'), 
                  max.iter = 2e3,
-                 nudge_x = 0.01 #,
+                 nudge_x = 0.03 #,
                  # position=position_jitter(width=.02,height=0.02)
                  )
   fg <- g +
@@ -497,11 +503,18 @@ if(!is.null(labels)) {
     
 # ggsave(fg, filename = "Images/PCA_events_C1early.png", width = 8, height = 5, units = "in", scale = 1)
 # ggsave(fg, filename = "Images/PCA_events_C1late.png", width = 8, height = 5, units = "in", scale = 1)
-  
+
+# PC
 #ggsave(fgPlot, 
 #      filename = "D:/Documents/these_pablo/WriteUp/Alteck_PNAS_LaTeX/images/clusters.pdf", 
 #      device = "pdf", dpi = 600,  scale = 1, # )# ,
 #       width = 7, height = 6)
+
+# MAC
+#  ggsave(fgPlot, 
+ #    filename = "/Users/DayTightChunks/Documents/PhD/Writeups/PNAS/Alteck_PNAS_LaTeX/images/clusters.pdf", 
+  #    device = "pdf", dpi = 600,  scale = 1, # )# ,
+   #    width = 7, height = 6)
 ```
 
 
