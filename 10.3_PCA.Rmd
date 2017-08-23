@@ -53,6 +53,8 @@ source("vartest.R")
 
 ## Import data set to inspect (not standardized).
 
+- **WaterSoils_R.csv** (Book 10.0, DataPrep)
+
 ```{r}
 # Check working directory
 getwd()
@@ -120,7 +122,8 @@ y <- sw[c("Date.ti", "Events",
           # Response variables
           # "Conc.mug.L", "OXA_mean", "ESA_mean", 
           "DD13C.diss" , 
-          "DD.diss.nrm", "SM.g.nrm", "TP.g.nrm")]
+          "DD.diss.nrm", "SM.g.nrm", "TP.g.nrm",
+          "DD.diss.nrmSD")]
 
 names(waterX)
 
@@ -197,7 +200,7 @@ k_hc
 
 # clustering based on:
 # k-means clustering [assume X? clusters]
-km <- kmeans(scores, centers=3, nstart=10)
+km <- kmeans(scores, centers=3, nstart=20)
 km$cluster
 
 sum(km$cluster == 3)/length(km$cluster)
@@ -264,11 +267,11 @@ ggdata$CompareLutz <- ifelse(ggdata$Species == "8-1", as.character(ggdata$Specie
                                                                                            NA)))))))))
 
 
+ggdata$ClusterHTree <- k_hc
 
-
-ggdata$QuantPCA <- ifelse( (scores[,1] > 0 | scores[,2] > 1) 
+ggdata$QuantPCA <- ifelse( # (scores[,1] > 0 | scores[,2] > 1) &
                            # & ggdata$Cluster != 3
-                           & ggdata$Cluster != 1
+                             ggdata$Cluster != 1
                            & !is.na(y$DD13C.diss), as.character(ggdata$Species), NA)
 
 
@@ -311,16 +314,39 @@ ggplot(ggdata) +
   # geom_text_repel(aes(x=PC1, y=PC2, label=CompareLutz),
   geom_text_repel(aes(x=PC1, y=PC2, 
                       # label=CompareLutz), 
-                      label=EventLabel),
+                      # label=EventLabel),
+                      # label=Quantif),
+                      label=QuantPCA),
                  arrow = arrow(length = unit(0.005, 'npc'), type = "closed"),
                  force = 1, 
                  point.padding = unit(1.0, 'lines'), 
                  max.iter = 2e3,
                  nudge_x = .2)
 
-
-
   
+```
+
+## With Hierarchical clustering
+
+```{r}
+ggplot(ggdata) +
+  geom_point(aes(x=PC1, y=PC2, color=factor(ClusterHTree)) , size=5, shape=20) +
+   theme_bw() +
+  stat_ellipse(aes(x=PC1,y=PC2,fill=factor(ClusterHTree)),
+               geom="polygon", level=0.80, alpha=0.2) +
+  guides(color=guide_legend("Cluster Tree"), fill=guide_legend("Cluster Tree")) +
+ 
+  # geom_text_repel(aes(x=PC1, y=PC2, label=CompareLutz),
+  geom_text_repel(aes(x=PC1, y=PC2, 
+                      # label=CompareLutz), 
+                      # label=EventLabel),
+                      # label=Quantif),
+                      label=QuantPCA),
+                 arrow = arrow(length = unit(0.005, 'npc'), type = "closed"),
+                 force = 1, 
+                 point.padding = unit(1.0, 'lines'), 
+                 max.iter = 2e3,
+                 nudge_x = .2)
 ```
 
 

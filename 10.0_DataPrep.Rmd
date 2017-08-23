@@ -14,8 +14,8 @@ Sys.setlocale("LC_ALL", "English")
 
 Imports: 
 
-- **WeeklyHydroContam_R.csv** (water)
-- **MassBalance_R.csv** (soils)
+- **WeeklyHydroContam_R.csv** (water, Book 5)
+- **MassBalance_R.csv** (soils, Book 7)
 
 Generates (by merging above):
 
@@ -242,10 +242,12 @@ ggplot(data = watSoilMerged, aes(x = CumSmpDays))+
 watSoilMerged$SM.g.nrm <- watSoilMerged$TotSMout.g/watSoilMerged$CatchMassSoil.g.imp # [-]
 watSoilMerged$TP.g.nrm <- (watSoilMerged$MELsm.g-watSoilMerged$TotSMout.g)/watSoilMerged$CatchMassSoil.g.imp # [-]
 watSoilMerged$DD.diss.nrm <-  watSoilMerged$DD13C.diss/watSoilMerged$DD.Bulk.imp # Losses values where no BULK was obtained
+watSoilMerged$DD.diss.nrmSD <- watSoilMerged$SD.d13C/watSoilMerged$DD.Bulk.imp
 # watSoilMerged$DD.diff.prc <- ifelse( is.na(watSoilMerged$DD13C.diss) , NA,
 #                                    ((watSoilMerged$DD13C.diss-watSoilMerged$DD.Bulk.imp)/watSoilMerged$DD.Bulk.imp)*100)
 
 names(watSoilMerged)
+
 #View(watSoilMerged[, c( 1, 32 , 73, 81:83 )])
 
 ```

@@ -16,8 +16,8 @@ This file computes the discharged mass observed at the outlet. To do that it imp
 
 Imports: 
 
-- **WeeklyHydro_R.csv** (R generated)
-- **fluxAlteck2016_R.csv** (R generated)
+- **WeeklyHydro_R.csv** (R generated, Book 3)
+- **fluxAlteck2016_R.csv** (R generated, Book 4)
 
 
 - **OutletConc_W0toW17.csv**

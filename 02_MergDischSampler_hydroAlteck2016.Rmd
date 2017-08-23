@@ -27,7 +27,7 @@ Used files:
 Produced file:
 
 1. **hydroAlteck2016_R.csv** (Used for plotting Sample and Discharge data together).
-2. **RainAprJune2016_R.csv** (Only March and July delted)
+2. **RainAprJune2016_R.csv** (March and July delted)
 3. **WaterDay_R.csv** (Daily and cumulative rainfall - mm)
 4- **SamplerFormatted_R.csv** (Cleaned sampler)
 

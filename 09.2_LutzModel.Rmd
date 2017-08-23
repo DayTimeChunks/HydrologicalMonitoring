@@ -19,6 +19,7 @@ This notebook compares Lutz et al [@Lutz2013] simulations to catchment outlet da
 
 - **WaterDay_R.csv** (Book 02)
 - **Data/OutletData4Lutz_R.csv**  (Book 9.1)
+- **PCA4Lutz_R.csv** (Book 10.3)
 
 # Packages
 
@@ -147,7 +148,7 @@ sampler$Date <- as.POSIXct(strptime(sampler$Date,
 rainSample <- merge(rainDay30min, sampler, by = "Date", all = T)
 # anyDuplicated(rainSample$Date)
 
-yrs <- merge (yClust, rainSample, by = "Date", all = T )
+yrs <- merge(yClust, rainSample, by = "Date", all = T )
 yrs$Events <- na.locf(yrs$Events) 
 yrs$mm.hr[1] <- 0
 yrs$mm.hr = ifelse(is.na(yrs$mm.hr), 0, yrs$mm.hr)
@@ -161,7 +162,10 @@ yrs0 = yrs %>%
                    EventLabel = first(EventLabel),
                    tmax = Date[which.max(mm.hr)],
                    ti = first(Date), # 
-                   tf = last(Date)) 
+                   tf = last(Date),
+                   DD.diss = first(DD13C.diss),
+                   DD.nrm = first(DD.diss.nrm),
+                   DD.nrmSD = first(DD.diss.nrmSD)) 
 
 yrs1 = merge(yrs0, wstidier, by.x = "ti", by.y = "Date", all = T)
 
@@ -229,15 +233,15 @@ events$Label =ifelse(events$Label == "A", "A (May 12)",
                      )
                             
 
-events <- events[c("Hrs", "max.mm", "measure", "SD" ,  
-                   "EventLabel", 
+events <- events[c("Hrs", "max.mm", "measure", "SD" , "DD.nrm", "DD.nrmSD",
+                   "EventLabel", "Cluster",
                    "Label", "Approach", "HasLabel")]
-names(events) = c("Duration.hr", "mm.hr", "measure", "SD" ,  
-                  "EventLabel", 
+names(events) = c("Duration.hr", "mm.hr", "measure", "SD" ,  "DD.nrm", "SD.nrm",
+                  "EventLabel", "Cluster",
                   "Event", "Approach", "HasLabel")
 events$Event  = as.factor(events$Event )
+events$Cluster = as.factor(events$Cluster)
 names(events)
-
 
 # Lutz reproduction
 Duration.hr <- c(0, 
@@ -259,33 +263,116 @@ measure <- c(-30 - iniLutz,
              -26.9 - iniLutz,
              -26.9 - iniLutz,
              -26.9 - iniLutz)
+
+DD.nrm = c((-30 - iniLutz)/(-26.9 - iniLutz), 
+           (-28.7 - iniLutz)/(-26.9 - iniLutz),
+           (-27.5 - iniLutz)/(-26.9 - iniLutz),
+           (-27 - iniLutz)/(-26.9 - iniLutz),
+           (-26.9 - iniLutz)/(-26.9 - iniLutz), 
+           (-26.9 - iniLutz)/(-26.9 - iniLutz),
+           (-26.9 - iniLutz)/(-26.9 - iniLutz),
+           (-26.9 - iniLutz)/(-26.9 - iniLutz),
+           (-26.9 - iniLutz)/(-26.9 - iniLutz)
+           ) 
+             
+            
+
 reps = length(measure)
 mm.hr <- c(60, rep(0, reps - 1))
 SD <- rep(NA, reps)
+SD.nrm <- rep(NA, reps)
 EventLabel <- rep(NA, reps)
-Event =  rep("Simulation", reps)
-HasLabel = rep(NA, reps)
-Approach <- rep("Simulation (Lutz et al., 2013)", reps)
+Event =  rep("Model (Lutz et al., 2013)", reps)
+Cluster =  NA
 
-eventLutz <- data.frame(Duration.hr, mm.hr, measure, SD, 
-                        EventLabel, 
+HasLabel = rep(NA, reps)
+Approach <- rep("Model (Lutz et al., 2013)", reps)
+
+eventLutz <- data.frame(Duration.hr, mm.hr, measure, SD, DD.nrm, SD.nrm,
+                        EventLabel, Cluster,
                         Event, Approach, HasLabel)
+eventLutz$Cluster <- as.factor(eventLutz$Cluster)
 
 allEvents <- rbind(eventLutz, events)
+# allEvents$DD.nrm = ifelse(allEvents$DD.nrm == 0, allEvents$measure, allEvents$DD.nrm)
 
 
-
-
-LutzEvents <- ggplot(data = allEvents, aes(x= Duration.hr, y=measure) )+
+LutzEvents <- ggplot(data = allEvents, 
+                     aes(x= Duration.hr,
+                         y=DD.nrm) )+
+                         # y=measure) )+
   # theme_bw() +
   theme_minimal() +
-  theme(text = element_text(size=17)) + 
-  geom_errorbar(data = allEvents, aes(ymin = measure-SD, ymax = measure+SD, colour = Event),
+  # scale_y_continuous(limits = c(0, 1.14)) +
+  theme(text = element_text(size=16) #,
+        #legend.position = 'top'
+        ) +
+  #guides(col = guide_legend(nrow =  3),
+  #       title.position = "top") + 
+  geom_errorbar(data = allEvents, 
+                aes(ymin = DD.nrm-SD.nrm, ymax = DD.nrm+SD.nrm, 
+                # aes(ymin = measure-SD, ymax = measure+SD, 
+                    colour = Event),
                  # width=.2 , # ) + #,                    # Width of the error bars
                 #position=position_dodge(.5), 
                 size=0.2) +
-  geom_line(data=subset(allEvents, Event == "Simulation" ), aes(colour = Event), linetype = "dashed") +
-  geom_point(aes(size = mm.hr, colour = Event)) +
+  geom_line(data=subset(allEvents, Event == "Model (Lutz et al., 2013)" ), aes(colour = Event), linetype = "dashed") +
+  geom_point(aes(size = mm.hr, colour = Event) #, 
+                 # shape = Cluster)
+             ) +
+  # ylab(expression(paste({Delta~delta}^"13","C", ' (\u2030)'))) +
+  ylab(expression(paste({Delta~delta}^"13","C" ['out'], ' / ', {Delta~delta}^"13" ,"C" ['bulk']))) +
+  xlab("Time after max. rainfall (hrs.)") +
+  scale_size_continuous(range = c(1, 5), breaks= c(0, 5, 20, 60), limits = c(0, 60)) +
+  guides(size = guide_legend(order = 4, 
+                             title=expression("Intensity " ~ (mm/h) ), 
+                             ncol=1, title.position = "top", title.vjust = .26
+                              )) +
+  geom_text_repel(data=subset(allEvents, HasLabel == "yes"), 
+                  # aes(x= Duration.hr, y=measure,  label= EventLabel),
+                  aes(x= Duration.hr, y=DD.nrm,  label= EventLabel),
+                 arrow = arrow(length = unit(0.005, 'npc'), type = "closed"),
+                 force = 1, 
+                 point.padding = unit(0.8, 'lines'), 
+                 max.iter = 2e3,
+                 nudge_x = 1,
+                 show.legend = FALSE)#+
+  #stat_smooth(data=subset(allEvents, Event != "Simulation"), aes(x= Duration.hr, y=measure, colour = Approach), 
+  #            method = "lm", formula = y ~ poly(x, 2), se = T, alpha = 0.2, size=0.2) #+
+  #theme(axis.title.x = element_blank() ) +
+  # facet_wrap(~ Approach)#, scale="free") 
+
+LutzEvents
+  
+#
+# ggsave(LutzEvents, filename = "images/LutzEventsNRM.png", width = 8, height = 5, units = "in", scale = 1)
+
+# PC
+ggsave(LutzEvents, 
+      filename = "D:/Documents/these_pablo/WriteUp/Alteck_PNAS_LaTeX/images/lutzNRM.pdf", 
+      device = cairo_pdf, dpi = 600,  scale = 1, # )# ,
+       width = 7, height = 6)
+
+# MAC
+#  ggsave(LutzEvents, 
+#    filename = "/Users/DayTightChunks/Documents/PhD/Writeups/PNAS/Alteck_PNAS_LaTeX/images/lutzNRM.pdf", 
+#      device = cairo_pdf, dpi = 600,  scale = 1, # )# ,
+#       width = 7, height = 6)
+```
+
+## Alternative Lutz Graph
+
+```{r}
+LutzEvents2 <- ggplot(data = allEvents, aes(x= Duration.hr, y=measure) )+
+  # theme_bw() +
+  theme_minimal() +
+  theme(text = element_text(size=17)) + 
+  geom_errorbar(aes(ymin = measure-SD, ymax = measure+SD,  colour = Cluster),
+                 # width=.2 , # ) + #,                    # Width of the error bars
+                #position=position_dodge(.5), 
+                size=0.2) +
+  geom_line(data=subset(allEvents, Event == "Simulation" ), aes(colour = Cluster), linetype = "dashed") + 
+  geom_point(aes(size = mm.hr, colour = Cluster)) +
   ylab(expression(paste({Delta~delta}^"13","C", ' (\u2030)'))) +
   xlab("Time after max. rainfall (hrs.)") +
   scale_size_continuous(range = c(1, 5), breaks= c(0, 5, 20, 60), limits = c(0, 60)) +
@@ -305,13 +392,6 @@ LutzEvents <- ggplot(data = allEvents, aes(x= Duration.hr, y=measure) )+
   #theme(axis.title.x = element_blank() ) +
   # facet_wrap(~ Approach)#, scale="free") 
 
-LutzEvents
-  
-#ggsave(LutzEvents, filename = "images/LutzEvents.png", width = 8, height = 5, units = "in", scale = 1)
-# MAC
-#  ggsave(LutzEvents, 
-#    filename = "/Users/DayTightChunks/Documents/PhD/Writeups/PNAS/Alteck_PNAS_LaTeX/images/lutz.pdf", 
-#      device = cairo_pdf, dpi = 600,  scale = 1, # )# ,
-#       width = 7, height = 6)
+# ggsave(LutzEvents2, filename = "images/LutzEvents2.png", width = 8, height = 5, units = "in", scale = 1)
 ```
 

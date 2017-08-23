@@ -16,10 +16,11 @@ This file computes average discharge and total volume discharged per sub-week (s
 Imports:
 
 - **Alteck2016Debit_smooth_R.csv** 
+- **hydroAlteck2016_R.csv** (Book 2, includes rainfall / 2 min)
 
 Generates: 
 
-- **WeeklyHydro_R.csv** 
+- **WeeklyHydro_R.csv** (see Book 4, Book 5, )
 
 which is a file with discharge data summarized by sub-week. 
 
