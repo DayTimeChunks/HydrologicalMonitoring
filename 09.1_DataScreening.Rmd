@@ -501,7 +501,7 @@ wstidier <- wsSmall %>%
   separate(measure, into = c("Location", "temporary_var")) %>% # parses the sep = "." into...
   spread(temporary_var, value) 
 
-wstidier$Type <- ifelse(wstidier$Location == "diss", "Dissolved", 
+wstidier$Type <- ifelse(wstidier$Location == "diss", "Dissolved (Outlet)", 
                   ifelse(wstidier$Location == "filt", "Sediment",
                         "Top Soil"))
 
@@ -524,7 +524,7 @@ levels(wstidier$Source)
 levels(wstidier$Type)
 #wstidier$Source <- factor(wstidier$Source, levels = c("Bulk", "Plateau","Valley", "Outlet"))
 wstidier$Source <- factor(wstidier$Source, levels = c("Bulk", "North", "Valley", "South", "Outlet"))
-wstidier$Type <- factor(wstidier$Type, levels = c("Top Soil", "Dissolved", "Sediment" ))
+wstidier$Type <- factor(wstidier$Type, levels = c("Top Soil", "Dissolved (Outlet)", "Sediment" ))
 
 
 # epsilon
@@ -589,7 +589,7 @@ wsALL_lab <- ggplot(data = wstidier2, aes(x = Date, y = measure, group = Source)
   stat_smooth(data=subset(wstidier2,
                           (Source == "Outlet" 
                            # & Event > 1 
-                           & Type == "Dissolved")), 
+                           & Type == "Dissolved (Outlet)")), 
               method = "lm", formula = y ~ poly(x, 2), se = T, aes(colour = 'Outlet'), alpha = 0.2, size=0.2) +
   # North
   stat_smooth(data=subset(wstidier2,
@@ -629,7 +629,7 @@ wsALL_lab <- ggplot(data = wstidier2, aes(x = Date, y = measure, group = Source)
                      labels=c("Bulk", "North" , "Valley" ,"South",  "Outlet")
                      ) +
   
-  scale_size_continuous(range = c(1, 3), breaks= c(25, 50, 100, 150, 200, 250), limits = c(0, 250))
+  scale_size_continuous(range = c(1, 3), breaks= c(0, 50, 100, 150, 200, 300), limits = c(0, 300))
   # scale_size_continuous(range = c(1, 3)) 
 
 #
@@ -662,11 +662,11 @@ wsALL_lab
 
 ```{r}
 wsALL_field <- ggplot(data = wstidier2, aes(x = Date, y = measure, group = Source) )+ 
-  # Water trend
+  # Dissolved (Outlet) trend
   stat_smooth(data=subset(wstidier2,
                           (Source == "Outlet" 
                            # & Event > 1 
-                           & Type == "Dissolved")), 
+                           & Type == "Dissolved (Outlet)")), 
               method = "lm", formula = y ~ poly(x, 2), se = T, aes(colour = 'Outlet'), alpha = 0.2, size=0.2) +
   # Bulk trend
   stat_smooth(data=subset(wstidier2,
@@ -725,19 +725,21 @@ wsALL_field <- ggplot(data = wstidier2, aes(x = Date, y = measure, group = Sourc
                      breaks=c("Bulk", "North" , "Valley" ,"South",  "Outlet"),
                      labels=c("Bulk", "North" , "Valley" ,"South",  "Outlet")
                     ) +
-  scale_size_continuous(range = c(1, 3), breaks= c(25, 50, 100, 150, 200, 250), limits = c(0, 250)) +
+  scale_size_continuous(range = c(1, 3), breaks= c(0, 50, 100, 150, 200, 300), limits = c(0, 300)) +
   # scale_size_continuous(range = c(1, 3)) + 
   guides(col = guide_legend(order = 1,
                             #title=expression("Source"),
                             #title.vjust = -1,
                             nrow = 2, 
-                            title.position = "top"
+                            title.position = "top",
+                            keyheight = 1.5
                             ), 
          shape=guide_legend(title=("Type"), 
                             order = 2,
                             nrow=2, 
                             title.position = "top", 
-                            keyheight = NULL, title.vjust = NULL, label.vjust = NULL), 
+                            keyheight = 1.5, title.vjust = NULL, label.vjust = NULL
+                            ), 
          size = guide_legend(order = 3, 
                              #title=expression("Mean Discharge"), 
                              title=expression("Mean Discharge (" ~m^3 / h~")" ), 
@@ -783,8 +785,8 @@ label3 <- substitute(paste(epsilon ["lab"] , " = ", epsilon_l, " \u00B1 ", "0.4"
 
 
 wsALL <- ggdraw() +
-  draw_plot(wsALL_lab_noLeg, x=0, y = 0.2, width = 1, height = 0.775) + # bottom
-  draw_plot(wsALL_field_noLeg, x=0, y=.2, width = 0.939, height = .775) + # top
+  draw_plot(wsALL_lab_noLeg, x=0, y = 0.15, width = 1, height = 0.82) + # bottom
+  draw_plot(wsALL_field_noLeg, x=0, y=.15, width = 0.939, height = .82) + # top
   draw_label(label2, x= .88, y = .10, size = 15) +
   draw_label(label3, x= .88, y = .05, size = 15) +
   draw_label(labely1 , x= .90, y = .98, size = 14) +
@@ -795,10 +797,18 @@ wsALL
 
 # ggsave(wsALL, filename = "images/WaterSoilvsTime.png", width = 8, height = 5, units = "in", scale = 1)
 
-#ggsave(wsALL, 
-#     filename = "/Users/DayTightChunks/Documents/PhD/Writeups/PNAS/Alteck_PNAS_LaTeX/images/CatchOutlet.pdf", 
-#      device=cairo_pdf, dpi = 600,  scale = 1, # )# ,
- #      width = 11.4, height = 6)
+SAVE = F
+PC = F
+if (SAVE){
+  if (PC) {
+    
+  } else {
+    ggsave(wsALL, 
+     filename = "/Users/DayTightChunks/Documents/PhD/Writeups/PNAS/Alteck_PNAS_LaTeX/images/CatchOutlet.pdf", 
+      device=cairo_pdf, dpi = 600,  scale = 1, # )# ,
+       width = 11.4, height = 6.4)
+  }
+}
 
 
 ```
@@ -832,7 +842,7 @@ ggplot(data = wstidier2, aes(x = Date, y = measure, group = Source) )+
   #                            Date > as.POSIXct('2016-05-14 08:04:00')), limits_DdC, size=0.2) +
   #geom_errorbar(data=subset(wstidier2, Source == 'Outlet'), limits_DdC) +
   #geom_point(data=subset(wstidier2, Source == 'Outlet'), aes(shape = Type, colour = Source, size = Qmax)) +
-  geom_point(data=subset(wstidier2, Type == 'Dissolved'), aes(shape = Type, colour = Source, size = Qmean)) +
+  geom_point(data=subset(wstidier2, Type == 'Dissolved (Outlet)'), aes(shape = Type, colour = Source, size = Qmean)) +
   geom_point(data=subset(wstidier2, Type == 'Top Soil'), aes(colour = Source)) +
 
   stat_smooth(data=subset(wstidier2,
@@ -898,7 +908,7 @@ wsPlot <- ggplot(data = wsNoPlat, aes(x = Date, y = measure)) +
                           (Source != "Outlet" & Source != "Valley" & Event < 20 )), 
               method = "lm", formula = y ~  poly(x, 2), se = F, alpha = 0.1, size=0.2) +
   stat_smooth(data=subset(wsNoPlat,
-                          (Source == "Outlet" & Event > 1 & Type == "Dissolved")), 
+                          (Source == "Outlet" & Event > 1 & Type == "Dissolved (Outlet)")), 
               method = "lm", formula = y ~ poly(x, 2), se = T, aes(colour = 'Outlet'), alpha = 0.2, size=0.2) +
   #stat_smooth(data=subset(wsNoPlat,
   #                        (Source == "Bulk")), 

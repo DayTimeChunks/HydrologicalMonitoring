@@ -1,7 +1,7 @@
 ---
 title: "Data Analysis Prep"
 author: "PAZ"
-date: "8 août 2017"
+date: "8 ao?t 2017"
 output: pdf_document
 ---
 
@@ -202,15 +202,21 @@ This section normalizes outlet response variables (S-met and TPs loadings and $\
 ```{r}
 
 watSoilMerged$CumSmpDays <- cumsum(watSoilMerged$Sampled.Hrs)/24
+names(watSoilMerged)
 
 DD.glm1 <- glm(watSoilMerged$DD13.Bulk ~ watSoilMerged$CumSmpDays)
-DD.glm2 <- glm(watSoilMerged$DD13.Bulk ~ (watSoilMerged$CumSmpDays)^2, family = gaussian)
-
+# DD.glm2 <- glm(watSoilMerged$DD13.Bulk ~ (watSoilMerged$CumSmpDays)^2, family = gaussian)
 summary(DD.glm1) # Both models were identical
+
+DDdiss.glm1 <- glm(watSoilMerged$DD13C.diss ~ watSoilMerged$CumSmpDays)
 
 # Input isotope predicted values 
 watSoilMerged$DD.Bulk.imp <- predict(DD.glm1, data.frame(watSoilMerged$CumSmpDays))
+watSoilMerged$DD.diss.imp <- predict(DDdiss.glm1, data.frame(watSoilMerged$CumSmpDays))
+View(watSoilMerged[, c(1, 119, ncol(watSoilMerged))])
+# Input linear approx mass soils
 watSoilMerged$CatchMassSoil.g.imp <- na.approx(watSoilMerged$CatchMassSoil.g)
+
 
 # Isotopes Bulk Soils
 ggplot(data = watSoilMerged, aes(x = CumSmpDays))+
