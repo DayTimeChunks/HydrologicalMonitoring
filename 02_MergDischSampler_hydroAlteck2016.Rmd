@@ -81,9 +81,21 @@ naDates = dischargeAlteck[is.na(dischargeAlteck$Date == TRUE),]
 duplicateAlteck <- dischargeAlteck[duplicated(dischargeAlteck$DateCheck),]
 head(duplicateAlteck)
 
+```
+## Convert discharge $Q$ to volume $V$
+
+Convert discharge at $\Delta t$ of 2 min:
+
+$$ V(t) = \int^{\Delta t}_0 Q(t) dt $$
+```{r}
 ## Convert m3.h -> m3
 dischargeAlteck$Vol2min <- dischargeAlteck$Q.HW1*2/60
+```
 
+
+## Compare discharge to rainfall
+
+```{r}
 # Rainfall
 rain = read.csv2("Data/sixMinutePluvioAlteck2016.csv", header = F)
 head(rain)
@@ -97,13 +109,6 @@ rain$DayMoYr = as.POSIXct(strptime(rain$V1,
 
 sum(is.na(rain$Date))
 naDates = rain[is.na(rain$Date == TRUE),]
-
-
-```
-
-## Compare discharge to rainfall
-
-```{r}
 
 #library(dplyr)
 # detach("package:plyr")

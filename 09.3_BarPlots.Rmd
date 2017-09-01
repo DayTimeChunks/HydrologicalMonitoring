@@ -45,8 +45,8 @@ library("cluster")
 
 
 # Saving images?
-PC = F
-SAVE = T
+PC = T
+SAVE = F
 ```
 
 
@@ -337,11 +337,11 @@ ajTidy <- aj %>%
   spread(temporary_var, value) # Moves molten temporary variable to own column  
 
 type <- rep(c("CSIA - Soils", "CSIA - Outlet", 
-              "Predicted (half-life)",  
+              "Predicted",  
               "CSIA - Soils", "CSIA - Outlet", 
-              "Mass Balance - Soils", 
-              "Predicted (half-life)", 
-              "Mass Balance - Outlet", "Mass Balance - Outlet", "Mass Balance - Soils"), 2)
+              "MB - Soils", 
+              "Predicted", 
+              "MB - Outlet", "MB - Outlet", "MB - Soils"), 2)
 
 ajTidy <- cbind(ajTidy, type)
 ajTidy$Sink <- as.factor(ajTidy$Sink)
@@ -365,14 +365,17 @@ SoilBars <- ggplot(data = subset(ajTidy,
                                  Sink == "Bs" | Sink == "fs"
                                  | Sink == "Rem" | Sink == "Unk"
                                  ) , aes(x=Month, y=measure, fill = Sink, ymin=SD1, ymax=SD2))+
-  geom_bar(stat = "identity", position = "dodge", width = 0.5) +
+  geom_bar(stat = "identity", position = "dodge", width = NULL) +
   geom_errorbar(#aes(ymin=SD1, ymax=SD2),
-                  width=.2 , # ) + #,                    # Width of the error bars
-                  position=position_dodge(.5)) + 
+                  position=position_dodge(0.9),
+                  width=.4  # ) + #,                    # Width of the error bars
+                  ) + 
   theme_bw() +
   ylab("% S-met Applied") +
-  theme(text = element_text(size=17),
-        axis.title.x = element_blank() ) +
+  theme(text = element_text(size=15),
+        axis.title.x = element_blank(),
+        aspect.ratio = 1
+        ) +
   xlab("Month") +
   facet_wrap(~type) +
   scale_y_continuous( breaks=c(25, 50, 75, 100), limits = c(0, 100) )+ #expand=c(0, 10, 0, 0)) + 
@@ -396,21 +399,23 @@ ajTidy$CI95 <- signif(ajTidy$measure - ajTidy$SD1, 2)
 ```{r}
 
 OutBars <- ggplot(data = subset(ajTidy, 
-                                type != 'Predicted (half-life)' 
+                                type != 'Predicted' 
                                 & Sink != "Bs" 
                                 &  Sink != "fs"
                                 & Sink != "Rem"
                                 & Sink != "Unk"
                                 ) , 
                   aes(x=Month, y=measure, fill = Sink, ymin=SD1, ymax=SD2))+
-  geom_bar(stat = "identity", position = "dodge", width = 0.5) +
+  geom_bar(stat = "identity", position = "dodge", width = NULL) +
   geom_errorbar(#aes(ymin=SD1, ymax=SD2),
-                  width=.3 , # ) + #,                    # Width of the error bars
-                  position=position_dodge(.5)) + 
+                  position=position_dodge(0.9),
+                  width=.4
+                  ) + 
   theme_bw() +
   ylab("% S-met Applied") +
-  theme(text = element_text(size=17),
-        axis.title.x = element_blank() ) +
+  theme(text = element_text(size=15),
+        axis.title.x = element_blank(),
+        aspect.ratio = 1) +
   scale_y_continuous( breaks=c(25, 50, 75, 100), limits = c(0, 100) )+ #expand=c(0, 10, 0, 0)) + 
   #xlab("Month") +
   facet_wrap(~type) +
@@ -439,27 +444,33 @@ OutBars
 ```{r}
 
 ## Predicted (half-life) only
-theoBars <- ggplot(data = subset(ajTidy, type == 'Predicted (half-life)') , 
+theoBars <- ggplot(data = subset(ajTidy, type == 'Predicted') , 
                   aes(x=Month, y=measure, fill = Sink, ymin=SD1, ymax=SD2))+
-  geom_bar(stat = "identity", position = "dodge", width = 0.5) +
+  geom_bar(stat = "identity", position = "dodge", width = NULL) +
   geom_errorbar(#aes(ymin=SD1, ymax=SD2),
-                  width=.3 , # ) + #,                    # Width of the error bars
-                  position=position_dodge(.5)) + 
+                 position=position_dodge(0.9),
+                 width=.4
+                 ) + 
   theme_bw() +
-  ylab("% S-met Applied") +
-  theme(text = element_text(size=17),
-        axis.title.x = element_blank() ) +
-  scale_y_continuous( breaks=c(25, 50, 75, 100), limits = c(0, 100) )+ #expand=c(0, 10, 0, 0)) + 
+  # ylab("% S-met Applied") +
+  theme(text = element_text(size=15),
+        axis.title.x = element_blank(),
+        axis.title.y = element_blank(),
+        # axis.text.y = element_blank(),
+        aspect.ratio = 1) +
+  scale_y_continuous( breaks=c(25, 50, 75, 100), limits = c(0, 100) )+ #expand=c(0, 10, 0, 0)) +
+
   #xlab("Month") +
   facet_wrap(~type) +
   scale_fill_manual(values = c( "#80cdc1", "#fec44f"), # blue-orange
                     #values = c("#238b45", "#41ab5d", "#74c476", "#40004b", "#762a83", "#9970ab" ), # green-purple
                     #values = c("#238b45", "#41ab5d", "#74c476", "#ec7014", "#fe9929", "#fec44f" ), # green-orange
                     #values = c("#80cdc1", "#018571", "#a6611a", "#dfc27d", "#80cdc1", "#018571"),
-                    name= "Predicted",# element_blank(), #"Mass Balance", # \n
+                    name= "Predicted (half-life)",# element_blank(), #"Mass Balance", # \n
                     breaks=c("degTheo", "remainTheo"),
-                    labels=c("Degr." , "Persist."
-                                 )) +
+                    labels=c("Degr." , "Persist.")
+                    
+                    ) +
   guides(fill=guide_legend(ncol=1))
 
 #pal = c( "#35978f", "#fe9929", "#fec44f", "#01665e", "#80cdc1", "#ec7014" )
@@ -489,7 +500,25 @@ TheoBars_Leg <- get_legend(theoBars)
 #                    labels = c("A", "C", "B", "D"))
 
 balAllplot <- ggdraw() +
-  draw_plot(SoilBars_noLeg, x=0.01, y = 0.5, width = 0.60, height = 0.5) +
+  
+  draw_plot(SoilBars_noLeg, x=-.2, y = 0.55, width = 1, height = .4) +
+  draw_plot(TheoBars_noLeg, x=0.23, y=.55, width =  1, height = .4) +
+  draw_plot(OutBars_noLeg, x=-.2, y=.05, width =  1, height = .4) +
+  
+  draw_label("A", x= 0.15, y = .85, size = 12, fontface = "bold") +
+  draw_label("C", x= 0.15, y = .35, size = 12, fontface = "bold") +
+  draw_label("B", x= 0.39, y = .85, size = 12, fontface = "bold") +
+  draw_label("D", x= 0.39, y = .35, size = 12, fontface = "bold") +
+  draw_label("E", x= 0.67, y = .85, size = 12, fontface = "bold") +
+  
+  draw_plot(SoilBars_Leg, x=(0.243 + 0.05) , y = 0.35, width = 1, height = 0.1) +
+  draw_plot(OutBars_Leg, x=(0.280 + 0.05), y = 0.2, width = 1, height = 0.1) +
+  draw_plot(TheoBars_Leg, x=(0.225 + 0.05) , y = 0.05, width = 1, height = 0.1) 
+
+balAllplot
+
+balAllplot <- ggdraw() +
+  draw_plot(SoilBars_noLeg, x=0.0, y = 0.5, width = 0.5, height = 0.55) +
   draw_plot(TheoBars_noLeg, x=0.65, y=.5, width =  0.33, height = .5) + 
   draw_plot(OutBars_noLeg, x=0.01, y=.0, width =  0.60, height = .5) + 
   draw_plot(SoilBars_Leg, x=0.67, y = 0.3, width = 0.1, height = 0.1) +
@@ -507,14 +536,14 @@ balAllplot
 if (SAVE){
   if (PC){
       ggsave(balAllplot, 
-           filename = "D:/Documents/these_pablo/WriteUp/Alteck_PNAS_LaTeX/images/balAllplot.pdf", 
+           filename = "D:/Documents/these_pablo/WriteUp/Alteck_PNAS_LaTeX/images/balAllplot2.pdf", 
            device = "pdf", dpi = 600,  scale = 1, # )# ,
-           width = 11.4, height = 6)
+           width = 7, height = 5.5)
     } else {
       ggsave(balAllplot, 
          filename = "/Users/DayTightChunks/Documents/PhD/Writeups/PNAS/Alteck_PNAS_LaTeX/images/balAllplot.pdf", 
          device="pdf", dpi = 600,  scale = 1, # )# ,
-         width = 11.4, height = 6)
+         width = 11.4, height = 5)
     }
   }
 

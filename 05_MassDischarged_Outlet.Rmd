@@ -12,7 +12,11 @@ Sys.setlocale("LC_ALL", "English")
 
 ## Purpose
 
-This file computes the discharged mass observed at the outlet. To do that it imports lab results for isotopes ($^{13}C$) and s-metolachlor concentrations, as well as the weekly discharge summary.
+This file merges "sub-weekly" (i.e. sample) outlet concentrations (S-met and TPs) and $\delta ^{13}C$ in dissolved and sediment samples. Hydrochemistry variables are also merged.  
+
+
+
+To do that it imports lab results for isotopes ($^{13}C$) and s-metolachlor concentrations, as well as the weekly discharge summary (*WeeklyHydro_R.csv*).
 
 Imports: 
 
@@ -88,7 +92,7 @@ epsilonField_mean = -1.7 # ± 0.33
 
 ## Outlet Data - Alteckendorf 2016
 
-1. Hydrological data on a subweekly basis
+### Hydrological data on a subweekly basis
 
 ```{r, message=FALSE}
 
@@ -102,7 +106,7 @@ head(weeklyflux)
 
 ```
 
-2. Concentration data (dissolved and suspended solids) on a subweekly basis
+### Concentration data (dissolved and suspended solids) on a subweekly basis
 
 ```{r, message=FALSE}
 
@@ -144,14 +148,8 @@ outletESAOXA$WeekSubWeek <- as.factor(outletESAOXA$WeekSubWeek)
 head(outletESAOXA)
 ```
 
-3. Isotope data
+### Isotope data
 
-
-Isotopes selected where cleaned according to the following rules:
-
-a) The isotope shift was not largely beyond (2x) Streitwieser theoretical limits (i.e. > 10)
-b) Isotope shift was non-negative
-c) Nanograms of carbon > 2.0.
 
 ```{r, message=FALSE}
 
@@ -181,7 +179,7 @@ str(filtersIso)
 
 ```
 
-4. Hydrochemistry Data
+### Hydrochemistry Data
 
 ```{r, message=FALSE}
 
@@ -229,7 +227,7 @@ head(isoFiltSummary)
 
 ## Merging and data wrangling stepts
 
-1. Merge all data sets by the *WeekSubWeek* column ID, icluding:
+### Merge all data sets by the *WeekSubWeek* column ID, icluding:
 
 ```{r}
 
@@ -268,55 +266,23 @@ out.CoIs <- out.CoIs[!is.na(out.CoIs$tf), ]
 
 ```
 
-2. Weekly Exported Solids (Kg)
+### Weekly Exported Solids (Kg)
 
 ```{r}
 # V[m3] * MES [mg/L] * 1000 [L/m3] * [1 Kg/10^6 mg]
 out.CoIs$ExpMES.Kg = out.CoIs$Volume.m3*out.CoIs$MES.mg.L/1000
 ```
 
-## Fork! Prepare Data for C-Q Hysteresis curves
+### Weekly exported S-metolachlor mass (mg) - Linear interpolation
 
-```{r}
-CQdata <- out.CoIs[with(out.CoIs, order(ti)), ]
-CQdata$FlowType <- ifelse(is.na(CQdata$Event), "Fall", "Peak")
-CQdata$Event[1:3]<- 0
-CQdata$EventMark <- NA
-
-CQdata$EventMark <- na.locf(CQdata$Event)
-
-CQdata$EventMark <- ifelse(is.na(CQdata$Event), CQdata$EventMark, CQdata$EventMark*10)
-CQdata$Row <- seq.int(nrow(CQdata))
-
-cq1 <- subset(CQdata[1:6, ])
-
-cq1 <- cq1[cq1$Sampled != 'Not Sampled', ]
-
-str(cq1)
- 
-#p <- ggplot(cq1) + 
-#  geom_point(aes(x=AveDischarge.m3.h, y=Conc.mug.L), colour="black") +
-#  geom_polygon(aes(x=AveDischarge.m3.h, y=Conc.mug.L), colour="black", fill = NA) +
-  
-#  geom_text(data = cq1, 
-#            aes(x=AveDischarge.m3.h, y=Conc.mug.L, label=FlowType), hjust=1.5, vjust=0.5, size = 2)
-# p
-
-#p <- ggplotly(p)
-#p
-```
-
-
-## Section to UPDATE!!!
-
-3. Weekly exported S-metolachlor mass (mg)
-
-This section converts the observed S-metolachlor concentrations to [mg] in dissolved water and suspended solids. For non-sampled subsets a linear interpolation value based on the trailing and leading observed concentrations was assumed. An approximative model will be tested at a later stage. 
+This section imputs concentrations missed due to sampler capacity being maxed out. For these subsets a linear interpolation value based on the trailing and leading observed concentrations was assumed. An approximative model will be tested at a later stage. 
 
 To revise: SD for filtered samples!!
+Note: Model may need to be improved!!!
 
 ```{r}
-# Assume first observation is equivalent to second for all measured values
+# Assume first index is equivalent to second for all measured values 
+# (i.e. needed for na.approx operation below)
 out.CoIs[1, c("Conc.mug.L")] <- out.CoIs[2, c("Conc.mug.L")]
 out.CoIs[1, c("Conc.SD")] <- out.CoIs[2, c("Conc.SD")]
 
@@ -350,7 +316,106 @@ out.CoIs$ExpMES.Kg <- na.approx(out.CoIs$ExpMES.Kg)
 
 ```
 
-4. Add the application dates and merge the total mass to the nearest discharge event
+### Conversion of concentration to loadings (mass)
+
+Exported mass observed at the outlet $M$ for sample $s$ is computed as,   
+
+$$M_{s} = C_{s} \cdot V_{s}$$
+and,
+
+$$ V_s = \int^{\Delta t}_t Q(t) dt $$
+where $dt$ should be 2 min and $\Delta t$ the length of the subsample.
+
+Doubts with different expression:
+
+$$ V_{s} = \sum^{J}_{j=1} \int^{2}_0 Q(t) dt$$
+where $C$ the concentration [$\mu g/L$] of sub-sample $s$, $V$ is volume [$m^3$], $J$ is the array length of the 2-min interval composite sub-sample and $Q$ is discharge.
+
+```{r}
+# Dissolved - [mg] S-metolachlor exported per sub-week
+# Conc. [mu.g s-meto/L H20] * Vol[m3] * [10^3 L/m^3] * [1 mg/10^3 mu.g]
+out.CoIs$DissSmeto.mg = out.CoIs$Conc.mug.L*out.CoIs$Volume.m3
+out.CoIs$DissSmeto.mg.SD = out.CoIs$Conc.SD*out.CoIs$Volume.m3
+out.CoIs$DissSmeto.g = out.CoIs$DissSmeto.mg/10^3
+out.CoIs$DissSmeto.g.SD = out.CoIs$DissSmeto.mg.SD/10^3
+
+out.CoIs$DissOXA.mg = out.CoIs$OXA_mean*out.CoIs$Volume.m3
+out.CoIs$DissOXA.mg.SD = out.CoIs$OXA_SD*out.CoIs$Volume.m3
+out.CoIs$DissOXA.g = out.CoIs$DissOXA.mg/10^3
+out.CoIs$DissOXA.g.SD = out.CoIs$DissOXA.mg.SD/10^3
+
+out.CoIs$DissESA.mg = out.CoIs$ESA_mean*out.CoIs$Volume.m3 
+out.CoIs$DissESA.mg.SD = out.CoIs$ESA_SD*out.CoIs$Volume.m3 
+out.CoIs$DissESA.g = out.CoIs$DissESA.mg/10^3
+out.CoIs$DissESA.g.SD = out.CoIs$DissESA.mg.SD/10^3
+
+# Solids - [mg] S-metolachlor in solids exported per sub-week 
+# Conc. [mu.g s-meto / g MES] * Kg MES * [10^3 g/Kg] * [1 mg/10^3 mu.g]
+out.CoIs$FiltSmeto.mg = out.CoIs$Conc.Solids.mug.gMES*out.CoIs$ExpMES.Kg 
+out.CoIs$FiltSmeto.mg.SD = out.CoIs$Conc.Solids.ug.gMES.SD*out.CoIs$ExpMES.Kg 
+out.CoIs$FiltSmeto.g = out.CoIs$FiltSmeto.mg/10^3
+out.CoIs$FiltSmeto.g.SD  = out.CoIs$FiltSmeto.mg.SD/10^3
+  
+# Total SM
+out.CoIs$TotSMout.mg = out.CoIs$DissSmeto.mg + out.CoIs$FiltSmeto.mg
+out.CoIs$TotSMout.mg.SD = sqrt(((out.CoIs$DissSmeto.mg.SD)^2 + (out.CoIs$FiltSmeto.mg.SD)^2)/2)
+out.CoIs$TotSMout.g = out.CoIs$TotSMout.mg/10^3
+out.CoIs$TotSMout.g.SD = out.CoIs$TotSMout.mg.SD/10^3
+
+# Distribution dissolved vs suspended solids
+out.CoIs$FracDiss = out.CoIs$DissSmeto.mg/out.CoIs$TotSMout.mg
+out.CoIs$FracFilt = out.CoIs$FiltSmeto.mg/out.CoIs$TotSMout.mg
+
+#out.CoIs$DissSmeto.g = ifelse(is.na(out.CoIs$DissSmeto.g), 0.0, out.CoIs$DissSmeto.g)
+#out.CoIs$FiltSmeto.g = ifelse(is.na(out.CoIs$FiltSmeto.g), 0.0, out.CoIs$FiltSmeto.g)
+#out.CoIs$TotSMout.g = out.CoIs$DissSmeto.g + out.CoIs$FiltSmeto.g
+
+
+
+```
+
+
+## Molar mass equivalent exports
+
+Mass equivalent loads are calculated such that:
+
+$$
+MEQ_{SMET} = 
+  SMET_{out} + OXA_{out} * (\frac{mw_{SMET}}{mw_{MOXA}}) +
+  ESA_{out} * (\frac{mw_{SMET}}{mw_{MESA}})
+$$
+
+
+```{r}
+# Need to update this :
+# out.CoIs$TotSMout.g.SD = out.CoIs$DissSmeto.g.SD
+
+mw.SM <- 283.796 # g/mol
+mw.MOXA <- 279.33 # g/ml
+mw.MESA <- 329.1 # g/mol
+out.CoIs$MELsm.g <- 
+  out.CoIs$TotSMout.g + 
+  out.CoIs$DissOXA.g * (mw.SM/mw.MOXA) +
+  out.CoIs$DissESA.g * (mw.SM/mw.MESA)
+
+# How to sum a standard deviation
+# http://stats.stackexchange.com/questions/25848/how-to-sum-a-standard-deviation
+out.CoIs$MELsm.g.SD <- 
+  sqrt((out.CoIs$TotSMout.g.SD^2 +
+     (out.CoIs$DissOXA.g.SD * (mw.SM/mw.MOXA))^2 +
+     (out.CoIs$DissESA.g.SD * (mw.SM/mw.MESA))^2)/3)
+
+# Cumulative OUT
+out.CoIs$CumOutDiss.g = cumsum(out.CoIs$DissSmeto.g)
+out.CoIs$CumOutFilt.g = cumsum(out.CoIs$FiltSmeto.g)
+out.CoIs$CumOutSmeto.g = out.CoIs$CumOutDiss.g + out.CoIs$CumOutFilt.g
+out.CoIs$CumOutMELsm.g = cumsum(out.CoIs$MELsm.g)
+```
+
+
+## Application dates and masses
+
+Add the application dates and merge the total mass to the nearest discharge event
 
 The 4 application dates were:
 
@@ -359,16 +424,9 @@ The 4 application dates were:
 - 2016-05-25 (Schmidt, Talweg, Corn)
 - 2016-06-04 (Assumed Speich and Mahler, Corn not on transect, Except Speich N1)
 
-To compute initial concentration needed for Rayleigh calculations, the application rates are used to derive the respective concentration at each plot $C_i$, plot area $A$ and the effective transect area $A_tr$ (i.e. proportional to sampling points along transect, not extrapolated area represented by transect within entire catchment). 
-
-Note that initial concentrations at each transect will be later extrapolated to the catchment to calculate initial catchment concentrations (bulk), which in turn do take into account the full catchment area.
-
-$$\sum_i C_{i} \cdot \frac{A_{i}}{A_{tr}}$$
-
 So the total applied mass mass is merged at the nearest sampling time marker available : 
 
 ```{r}
-
 ti = c(as.POSIXct('2016-03-25 00:04:00' , tz="EST"),
 #       as.POSIXct('2016-04-05 15:08:00' , tz="EST"),
        as.POSIXct('2016-04-14 13:52:00' , tz="EST"),
@@ -381,11 +439,25 @@ ti = c(as.POSIXct('2016-03-25 00:04:00' , tz="EST"),
 # Appl.Mass.g = c(31670.073, 4744.571, 1803.066, 6506.818) # With Friess applying MG's doses for Corn 
 Appl.Mass.g = c(31670.073, 12316.197, 1803.066, 6506.818) # With Kopp applying MG's doses for Corn, not Beet 
 
-
+# OT: Only plot areas crossed by Transect
 ### With Kopp applying MG's doses for Corn, not Beet 
 # Appl.Mass.g.OT = c(24477.491, 12249.068, 1803.066, 4454.233) 
 # Appl.Mass.g.OT = c(14648.725, 12249.068, 1803.066, 6307.544) # Friess's, S-15 on transect
-Appl.Mass.g.OT = c(24477.491, 12249.068, 1803.066, 6307.544) # Friess & Kopp applying MG's doses for Corn, not Beet
+# Friess & Kopp applying MG's doses for Corn, not Beet
+Appl.Mass.g.OT = c(24477.491, 12249.068, 1803.066, 6307.544) 
+```
+
+## Initial soil concentrations (Open Rayleigh requirements)
+
+Open system Rayleigh calculations require estimation of cumulative initial concentration ($C(a)_{Tr_0}$) after any number of plot applications $a$ taking place in a composite sample (i.e. Transect ($Tr$)) and given by:
+
+$$C(a)_{Tr_0} = \sum_{a=1} ^{A} \sum_{i=1}^{I} C(a)_{i} \cdot \frac{A_{i}}{A_{Tr}}$$
+
+where $C(a)_i$ is the soil concentation due to application $a$ in plot $i$, $A_i$ is the plot area and $A_{Tr}$ the total plot area associated to transect ($Tr$) (i.e. this is proportional to sampling points along transect, and not extrapolated to areas that the transect did not cross). Note that initial concentrations at each transect will be later extrapolated to the catchment to calculate initial catchment concentrations (bulk), which in turn do take into account the full catchment area.
+
+
+```{r}
+# OT: Only plot areas crossed by Transect
 
 ### With Kopp applying MG's doses for Corn, not Beet &
 # Matthis applying extra DG's doses for Corn, or using slightly higher MG doses 
@@ -413,7 +485,6 @@ Appl.Mass.g.S.OT <- c(13320.736, 1432.460, 0, 3016.294) # Friess's S-15 on trans
 # Initial soil concentration (needed for Rayleigh calculations later)
 
 # Effective area [m2] refers to plot area touched by a transect, not sub-catchment area.
-# Need this to calculate initial concentration.
 Narea_eff <- 101721.702
 Tarea_eff <- 39247.330
 Sarea_eff <- 109903.101 # With S-15 (Friess Corn) on Transect
@@ -580,86 +651,9 @@ out.CoIs$iniCo.ug.g.S = na.locf(out.CoIs$iniCo.ug.g.S)
 
 ```
 
-
-## Section to UPDATE!!!
-
-5. This section is based on approximate carried-last-observation for the observed concentration data (if no model has been conducted yet). 
-
-Also, mass equivalent loads are calculated such that:
-
-$$
-MEQ_{SMET} = 
-  SMET_{out} + OXA_{out} * (\frac{mw_{SMET}}{mw_{MOXA}}) +
-  ESA_{out} * (\frac{mw_{SMET}}{mw_{MESA}})
-$$
+## Balance
 
 ```{r}
-
-# First simulate a mass out to deal with missing values
-# Option 1, just assume 0.0 
-
-# Dissolved - [mg] S-metolachlor exported per sub-week
-# Conc. [mu.g s-meto/L H20] * Vol[m3] * [10^3 L/m^3] * [1 mg/10^3 mu.g]
-out.CoIs$DissSmeto.mg = out.CoIs$Conc.mug.L*out.CoIs$Volume.m3
-out.CoIs$DissSmeto.mg.SD = out.CoIs$Conc.SD*out.CoIs$Volume.m3
-out.CoIs$DissSmeto.g = out.CoIs$DissSmeto.mg/10^3
-out.CoIs$DissSmeto.g.SD = out.CoIs$DissSmeto.mg.SD/10^3
-
-out.CoIs$DissOXA.mg = out.CoIs$OXA_mean*out.CoIs$Volume.m3
-out.CoIs$DissOXA.mg.SD = out.CoIs$OXA_SD*out.CoIs$Volume.m3
-out.CoIs$DissOXA.g = out.CoIs$DissOXA.mg/10^3
-out.CoIs$DissOXA.g.SD = out.CoIs$DissOXA.mg.SD/10^3
-
-out.CoIs$DissESA.mg = out.CoIs$ESA_mean*out.CoIs$Volume.m3 
-out.CoIs$DissESA.mg.SD = out.CoIs$ESA_SD*out.CoIs$Volume.m3 
-out.CoIs$DissESA.g = out.CoIs$DissESA.mg/10^3
-out.CoIs$DissESA.g.SD = out.CoIs$DissESA.mg.SD/10^3
-
-# Solids - [mg] S-metolachlor in solids exported per sub-week 
-# Conc. [mu.g s-meto / g MES] * Kg MES * [10^3 g/Kg] * [1 mg/10^3 mu.g]
-out.CoIs$FiltSmeto.mg = out.CoIs$Conc.Solids.mug.gMES*out.CoIs$ExpMES.Kg 
-out.CoIs$FiltSmeto.mg.SD = out.CoIs$Conc.Solids.ug.gMES.SD*out.CoIs$ExpMES.Kg 
-out.CoIs$FiltSmeto.g = out.CoIs$FiltSmeto.mg/10^3
-out.CoIs$FiltSmeto.g.SD  = out.CoIs$FiltSmeto.mg.SD/10^3
-  
-# Total SM
-out.CoIs$TotSMout.mg = out.CoIs$DissSmeto.mg + out.CoIs$FiltSmeto.mg
-out.CoIs$TotSMout.mg.SD = sqrt(((out.CoIs$DissSmeto.mg.SD)^2 + (out.CoIs$FiltSmeto.mg.SD)^2)/2)
-out.CoIs$TotSMout.g = out.CoIs$TotSMout.mg/10^3
-out.CoIs$TotSMout.g.SD = out.CoIs$TotSMout.mg.SD/10^3
-
-# Distribution dissolved vs suspended solids
-out.CoIs$FracDiss = out.CoIs$DissSmeto.mg/out.CoIs$TotSMout.mg
-out.CoIs$FracFilt = out.CoIs$FiltSmeto.mg/out.CoIs$TotSMout.mg
-
-#out.CoIs$DissSmeto.g = ifelse(is.na(out.CoIs$DissSmeto.g), 0.0, out.CoIs$DissSmeto.g)
-#out.CoIs$FiltSmeto.g = ifelse(is.na(out.CoIs$FiltSmeto.g), 0.0, out.CoIs$FiltSmeto.g)
-#out.CoIs$TotSMout.g = out.CoIs$DissSmeto.g + out.CoIs$FiltSmeto.g
-
-# Need to update this :
-# out.CoIs$TotSMout.g.SD = out.CoIs$DissSmeto.g.SD
-
-mw.SM <- 283.796 # g/mol
-mw.MOXA <- 279.33 # g/ml
-mw.MESA <- 329.1 # g/mol
-out.CoIs$MELsm.g <- 
-  out.CoIs$TotSMout.g + 
-  out.CoIs$DissOXA.g * (mw.SM/mw.MOXA) +
-  out.CoIs$DissESA.g * (mw.SM/mw.MESA)
-
-# How to sum a standard deviation
-# http://stats.stackexchange.com/questions/25848/how-to-sum-a-standard-deviation
-out.CoIs$MELsm.g.SD <- 
-  sqrt((out.CoIs$TotSMout.g.SD^2 +
-     (out.CoIs$DissOXA.g.SD * (mw.SM/mw.MOXA))^2 +
-     (out.CoIs$DissESA.g.SD * (mw.SM/mw.MESA))^2)/3)
-
-# Cumulative OUT
-out.CoIs$CumOutDiss.g = cumsum(out.CoIs$DissSmeto.g)
-out.CoIs$CumOutFilt.g = cumsum(out.CoIs$FiltSmeto.g)
-out.CoIs$CumOutSmeto.g = out.CoIs$CumOutDiss.g + out.CoIs$CumOutFilt.g
-out.CoIs$CumOutMELsm.g = cumsum(out.CoIs$MELsm.g)
-
 # Balance
 out.CoIs$BalMassDisch.g = out.CoIs$CumAppMass.g - out.CoIs$CumOutMELsm.g
 
@@ -674,8 +668,8 @@ out.CoIs$FracDeltaOut = (out.CoIs$TotSMout.g / massOUT)*out.CoIs$diss.d13C
 out.CoIs$FracDeltaOut = ifelse(is.na(out.CoIs$FracDeltaOut), 0.0, out.CoIs$FracDeltaOut)
 
 BulkDeltaOut = sum(out.CoIs$FracDeltaOut)
-
 ```
+
 
 
 The total mass discharged (up to Week 15) and bulk isotope signature (up to week 11) was:
@@ -694,44 +688,6 @@ cat("% Mass applied in discahrge [MEL-sm]: ",  (MELsmOUT/TotAppl)*100)
 
 # Bulk isotope signature
 BulkDeltaOut
-```
-
-
-
-6. Testing a regression tree (ommitted for now)
-
-```{r, echo=F, message=FALSE}
-
-# Regression Tree Example 1
-
-# library("party")
-
-#outCoIs.model <- out.CoIs[, c("chExtreme", "changeflux", "AveDischarge.m3.h", "Volume.m3", "TotMassOut.mg")]
-
-#fit <- ctree(TotMassOut.mg ~ chExtreme + changeflux + AveDischarge.m3.h + Volume.m3, data=na.omit(outCoIs.model))
-#plot(fit)
-
-# The model does not improve with more variables. 
-
-# Regression Tree Example 2
-
-#library("rpart")
-
-# grow tree 
-#fit <- rpart(TotMassOut.mg ~ AveDischarge.m3.h + Volume.m3 + chExtreme + changeflux,  method="anova", data=outCoIs.model)
-
-#printcp(fit) # display the results 
-#plotcp(fit) # visualize cross-validation results 
-#summary(fit) # detailed summary of splits
-
-# create additional plots 
-#par(mfrow=c(1,2)) # two plots on one page 
-#rsq.rpart(fit) # visualize cross-validation results  	
-
-## plot tree 
-#plot(fit, uniform=TRUE, main="Regression Tree Total Mass Discharged ")
-#text(fit, use.n=TRUE, all=TRUE, cex=.8)
-
 ```
 
 
