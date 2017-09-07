@@ -16,7 +16,7 @@ This document creates summary variables for discharge characteristics by sub-wee
 
 Input files:
 
-- **hydroAlteck2016_R.csv**
+- **hydroAlteck2016_R.csv** (Book 2.0)
 - **WeeklyHydro_R.csv** (for reference only)
 
 Output files:

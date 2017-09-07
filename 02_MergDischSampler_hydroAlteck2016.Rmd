@@ -1,5 +1,5 @@
 ---
-title: "Merging Discharge & Sampler Data"
+title: "Merge Discharge, Rain & Sampler Data"
 author: "PAZ"
 date: "26 octobre 2016"
 output: pdf_document
@@ -391,7 +391,7 @@ sum(is.na(hydroAlteck2016$Q.HW1))
 
 ### Merge rainfall data
 
-1. Merge 2 minute pluvio data, handling NA's as 0 
+1. Merge 2 and 12 min minute pluvio data, handling NA's as 0 
 ```{r}
 
 rain2min =  read.csv2("Data/2minRain.csv", header = T, dec = ".")
@@ -404,6 +404,15 @@ rain2min$Date <- as.POSIXct(strptime(rain2min$Date,
 
 hydroAlteck2016 = merge(hydroAlteck2016, rain2min, by = "Date", all = T)
 hydroAlteck2016$Rain.mm <- ifelse(is.na(hydroAlteck2016$Rain.mm), 0, hydroAlteck2016$Rain.mm)
+
+rain12m = read.csv2("Data/12minRain.csv", dec = ".")
+rain12m$Date = as.POSIXct(strptime(rain12m$Date,
+                                "%d/%m/%Y %H:%M", tz="EST") )
+
+colnames(rain12m)[2]  <- "Rain12min.mm"
+hydroAlteck2016 <-  merge(hydroAlteck2016, rain12m, by = "Date", all = T)
+hydroAlteck2016$Rain12min.mm <- 
+  ifelse(is.na(hydroAlteck2016$Rain12min.mm), 0, hydroAlteck2016$Rain12min.mm)
 
 # Should be zero
 sum(is.na(hydroAlteck2016$Rain.mm))

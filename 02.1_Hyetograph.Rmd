@@ -1,0 +1,100 @@
+---
+title: "Hyetograph"
+author: "PAZ"
+date: "6 septembre 2017"
+output: pdf_document
+---
+
+```{r, echo=FALSE, message=FALSE, include=FALSE}
+Sys.setlocale("LC_ALL", "English")
+```
+
+## Purpose
+
+This produces a Hyetograph (rainfall and discharge data) based on 2 min intrevals. 
+
+Input files:
+
+- **groupAlteck2016_R** (Contains discharge and rainfall @ 2 min)
+
+Output files:
+
+- **nothing for now** 
+
+## Libraries
+```{r}
+# Hyetograph
+library(ggplot2)
+
+# getwd()
+# setwd("D:/Documents/these_pablo/Alteckendorf2016/HydrologicalMonitoring")
+```
+
+## Data
+
+```{r}
+# Discharge and 2 min rainfall 
+hydro = read.csv2("Data/groupAlteck2016_R.csv")
+hydro$Date = as.POSIXct(strptime(hydro$DateCheck.S,
+                                 "%d/%m/%Y %H:%M", tz="EST") )
+
+names(hydro)
+qra <- hydro[, c("Date", "Q.HW1", "Rain.mm")]
+
+# Catchment area
+area <- 47*10**4 # [m2]
+```
+
+## Conversions
+
+Convert rainfall data [$mm$] to the same units as discharge [$m^3/h$]
+
+```{r}
+qra$precip_m3 = qra$Rain.mm/10^3 * area
+
+# Calculate the range needed to avoid having your hyetograph and hydrograph overlap 
+maxRange <- 1*(max(qra$precip_m3) + max(qra$Q.HW1))
+
+# Create a function to backtransform the axis labels for precipitation
+precip_labels <- function(x) {round( ((x / area) * 10^3), digits = 2) } # X will be precip_m3 -> convert to mm
+
+# Plot the data
+ggplot(data = qra,
+       aes(x = Date)) +
+  theme_minimal() +
+  # Use geom_tile to create the inverted hyetograph. geom_tile has a bug that displays a warning message for height and width, you can ignore it.
+  geom_tile(aes(y = -1*(precip_m3/2-maxRange), # y = the center point of each bar, as geom_tile uses variable as center point
+                height = precip_m3,
+                width = 1
+                ),
+            fill = "gray50",
+            color = "forestgreen") +
+  # Plot your discharge data
+  geom_line(aes(y = Q.HW1),
+            color = "blue") +
+  # Create a second axis with sec_axis() and format the labels to display the original precipitation units.
+  scale_y_continuous(name = "Discharge (m3/h)",
+                     sec.axis = sec_axis(trans = ~-1*(.-maxRange), # Equivalent to: y2 = -1*(y1 - maxRange) 
+                                         name = "Precipitation (mm)",
+                                         labels = precip_labels)) # x here is = precip_cuft
+```
+
+## Rainfall alone (12 min)
+
+```{r}
+rain12m = read.csv2("Data/12minRain.csv", dec = ".")
+rain12m$Date = as.POSIXct(strptime(rain12m$Date,
+                                "%d/%m/%Y %H:%M", tz="EST") )
+
+ggplot(data = rain12m, aes(x = Date)) + 
+  geom_line(aes(y = Rain.mm))
+  
+  #geom_bar(aes(y = Rain.mm), stat="identity") + 
+  #  scale_x_date(date_breaks = "1 month", 
+  #               labels = date_format("%y/%m"),
+  #               limits = dtLimits)  +
+  #  theme(axis.text.x = element_text(angle = 90, vjust = .5))
+
+```
+
+
