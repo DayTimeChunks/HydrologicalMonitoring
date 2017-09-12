@@ -44,7 +44,7 @@ library("dplyr")
 
 ```{r, message=FALSE}
 
-# setwd("D:/Documents/these_pablo/Alteckendorf2016/00_TransparencyFolder")
+
 getwd()
 
 ```
