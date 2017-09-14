@@ -447,6 +447,79 @@ Appl.Mass.g = c(31670.073, 12316.197, 1803.066, 6506.818) # With Kopp applying M
 Appl.Mass.g.OT = c(24477.491, 12249.068, 1803.066, 6307.544) 
 ```
 
+## Temperatures and soil moisture after application
+
+The mean and ranges of air temperatures 120 hr. (5 days) after each application were:
+
+- 1st Application: 8.3 (6.7 - 9.2)
+- 2nd Application: 9.6 (7.4 - 11.2)
+- 3rd Application: 14.4 (10.9 - 17.4)
+- 4th Application: 16.9 (14.9 - 19.3)
+```{r}
+
+temp_1st = c(6.70, 9.10, 8.40, 8.20, 9.20)
+temp_2nd = c(11.00, 11.20, 10.00, 7.40, 8.20)
+temp_3rd = c(17.30, 11.10, 10.90, 13.70, 17.40)
+temp_4th = c(19.30, 18.70, 17.00, 14.90, 14.90)
+
+temp_list = list(temp_1st, temp_2nd, temp_3rd, temp_4th)
+
+temp_all = Reduce(c,temp_list)
+
+# Mean
+mean(temp_all)
+
+# Std. Dev:
+sd(temp_all)
+```
+
+
+
+Moisture conditions during the same periods where:
+
+```{r}
+theta_1st = c(27.40, 30.17, 29.66)
+theta_2nd = c(22.43, 23.90, 22.33, 25.90, 30.02, 25.46)
+theta_3rd = c(25.30, 29.33, 26.85, 14.37, 17.82, 21.36)
+theta_4th = c(14.37, 17.82, 21.36, 27.94, 30.38, 26.87)
+
+theta_list = list(theta_1st, theta_2nd, theta_3rd, theta_4th)
+
+theta_all = Reduce(c,theta_list)
+
+# Mean
+mean(theta_all)
+
+# Std. Dev:
+sd(theta_all)
+
+min(theta_all)
+max(theta_all)
+```
+
+```{r}
+# 1st Application (Composite 1): 
+mean(theta_1st)
+min(theta_1st)
+max(theta_1st)
+
+# 2nd Application (Composites 2 & 3):
+mean(theta_1st)
+min(theta_1st)
+max(theta_1st)
+
+
+# 3rd Application (Composites 9 & 10):
+mean(theta_1st)
+min(theta_1st)
+max(theta_1st)
+
+# 4th Application (Composites 10 & 11):
+mean(theta_4th)
+min(theta_4th)
+max(theta_4th)
+```
+
 ## Initial soil concentrations (Open Rayleigh requirements)
 
 Open system Rayleigh calculations require estimation of cumulative initial concentration ($C(a)_{Tr_0}$) after any number of plot applications $a$ taking place in a composite sample (i.e. Transect ($Tr$)) and given by:
