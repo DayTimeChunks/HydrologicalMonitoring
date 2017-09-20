@@ -170,6 +170,14 @@ sw$remainTheo.SD1 <- ((sw$remain_1st_46d + sw$remain_2nd_46d +
 sw$remainTheo.SD2 <- ((sw$remain_1st_12d + sw$remain_2nd_12d +
                                 sw$remain_3rd_12d + sw$remain_4th_12d)/sw$CumAppMass.g)*100
 
+# Assumed 1 day of photolysis, half-life = 8d 
+# k = 0.087 1/days
+# t_{1/2} = ln(2)/k = 8 days
+sw$remainTheo.photo <- ifelse(sw$Appl.Mass.g > 0, sw$Appl.Mass.g*(0.5)^(1/8), sw$Appl.Mass.g)
+sw$remainTheo.photo <- cumsum(sw$remainTheo.photo)
+sw$remainTheo.photo.prct <- (sw$remainTheo.photo/sw$CumAppMass.g)*100
+sw$degTheo.photo <- 100 - sw$remainTheo.photo.prct
+
 sw$degTheo.measure <- 100 - sw$remainTheo.measure
 sw$degTheo.SD1 <- 100 - sw$remainTheo.SD2
 sw$degTheo.SD2 <- 100 - sw$remainTheo.SD1
@@ -179,7 +187,8 @@ dropTheo <- c("No_First", "No_Second" ,"No_Third", "No_Fourth",
                 "CumDays_First", "CumDays_Second", "CumDays_Third", "CumDays_Fourth",
                 "remain_1st_29d", "remain_2nd_29d", "remain_3rd_29d", "remain_4th_29d", 
                 "remain_1st_46d", "remain_2nd_46d", "remain_3rd_46d", "remain_4th_46d",
-                "remain_1st_12d", "remain_2nd_12d", "remain_3rd_12d", "remain_4th_12d"
+                "remain_1st_12d", "remain_2nd_12d", "remain_3rd_12d", "remain_4th_12d",
+                "remainTheo.photo" , "remainTheo.photo.prct", "degTheo.photo"
                 )
 
 sw <- sw[ , !(names(sw) %in% dropTheo)]
@@ -381,7 +390,7 @@ SoilBars <- ggplot(data = subset(ajTidy,
   scale_y_continuous( breaks=c(25, 50, 75, 100), limits = c(0, 100) )+ #expand=c(0, 10, 0, 0)) + 
   scale_fill_manual(#values = c("#6a51a3" , "#ec7014", "#807dba", "#fe9929"), # purple-orange
                     values = c("#6a51a3" , "#ec7014", "#d9d9d9", "#fe9929"), # Unknown as grey
-                    name= "Top Soils" ,# element_blank(), #"Mass Balance", # \n
+                    name= "Top Soils (A, B)" ,# element_blank(), #"Mass Balance", # \n
                     breaks=c("Bs", "fs" , 
                                 "Unk" , "Rem" 
                                 ),
@@ -424,7 +433,7 @@ OutBars <- ggplot(data = subset(ajTidy,
                     #values = c("#238b45", "#41ab5d", "#74c476", "#40004b", "#762a83", "#9970ab" ), # green-purple
                     #values = c("#238b45", "#41ab5d", "#74c476", "#ec7014", "#fe9929", "#fec44f" ), # green-orange
                     #values = c("#80cdc1", "#018571", "#a6611a", "#dfc27d", "#80cdc1", "#018571"),
-                    name= "Outlet" ,# element_blank(), #"Mass Balance", # \n
+                    name= "Outlet (C, D)" ,# element_blank(), #"Mass Balance", # \n
                        breaks=c("Bw", "fw" , 
                                 "TPout" , "SMout" #, 
                                 #"Deg", "Rem" 
@@ -466,7 +475,8 @@ theoBars <- ggplot(data = subset(ajTidy, type == 'Predicted') ,
                     #values = c("#238b45", "#41ab5d", "#74c476", "#40004b", "#762a83", "#9970ab" ), # green-purple
                     #values = c("#238b45", "#41ab5d", "#74c476", "#ec7014", "#fe9929", "#fec44f" ), # green-orange
                     #values = c("#80cdc1", "#018571", "#a6611a", "#dfc27d", "#80cdc1", "#018571"),
-                    name= "Predicted (half-life)",# element_blank(), #"Mass Balance", # \n
+                    name=expression("Predicted, " ~ t[1/2] ~ "(E)"),
+                    # name= "Predicted (half-life) (E)",# element_blank(), #"Mass Balance", # \n
                     breaks=c("degTheo", "remainTheo"),
                     labels=c("Degr." , "Persist.")
                     
@@ -513,25 +523,27 @@ balAllplot <- ggdraw() +
   
   draw_plot(SoilBars_Leg, x=(0.243 + 0.05) , y = 0.35, width = 1, height = 0.1) +
   draw_plot(OutBars_Leg, x=(0.280 + 0.05), y = 0.2, width = 1, height = 0.1) +
-  draw_plot(TheoBars_Leg, x=(0.225 + 0.05) , y = 0.05, width = 1, height = 0.1) 
+  draw_plot(TheoBars_Leg, x=(0.217 + 0.05) , y = 0.05, width = 1, height = 0.1) 
 
 balAllplot
 
-balAllplot <- ggdraw() +
-  draw_plot(SoilBars_noLeg, x=0.0, y = 0.5, width = 0.5, height = 0.55) +
-  draw_plot(TheoBars_noLeg, x=0.65, y=.5, width =  0.33, height = .5) + 
-  draw_plot(OutBars_noLeg, x=0.01, y=.0, width =  0.60, height = .5) + 
-  draw_plot(SoilBars_Leg, x=0.67, y = 0.3, width = 0.1, height = 0.1) +
-  draw_plot(OutBars_Leg, x=0.695, y = 0.1, width = 0.1, height = 0.1) +
-  draw_plot(TheoBars_Leg, x=0.89, y = 0.3, width = 0.05, height = 0.1) +
-  draw_label("A", x= 0.11, y = .9, size = 12, fontface = "bold") +
-  draw_label("C", x= 0.11, y = .39, size = 12, fontface = "bold") +
-  draw_label("B", x= 0.37, y = .9, size = 12, fontface = "bold") +
-  draw_label("D", x= 0.37, y = .39, size = 12, fontface = "bold") +
-  draw_label("E", x= 0.75, y = .9, size = 12, fontface = "bold") 
+#balAllplot <- ggdraw() +
+#  draw_plot(SoilBars_noLeg, x=0.0, y = 0.5, width = 0.5, height = 0.55) +
+#  draw_plot(TheoBars_noLeg, x=0.65, y=.5, width =  0.33, height = .5) + 
+#  draw_plot(OutBars_noLeg, x=0.01, y=.0, width =  0.60, height = .5) + 
+#  draw_plot(SoilBars_Leg, x=0.67, y = 0.3, width = 0.1, height = 0.1) +
+#  draw_plot(OutBars_Leg, x=0.695, y = 0.1, width = 0.1, height = 0.1) +
+#  draw_plot(TheoBars_Leg, x=0.89, y = 0.3, width = 0.05, height = 0.1) +
+#  draw_label("A", x= 0.11, y = .9, size = 12, fontface = "bold") +
+#  draw_label("C", x= 0.11, y = .39, size = 12, fontface = "bold") +
+#  draw_label("B", x= 0.37, y = .9, size = 12, fontface = "bold") +
+#  draw_label("D", x= 0.37, y = .39, size = 12, fontface = "bold") +
+#  draw_label("E", x= 0.75, y = .9, size = 12, fontface = "bold") 
 
-balAllplot
+# balAllplot
 #ggsave(balAllplot, filename = "images/MB_CSIA_Bars.png", width = 8, height = 5, units = "in", scale = 1)
+
+
 
 if (SAVE){
   if (PC){

@@ -282,11 +282,11 @@ mm.hr <- c(60, rep(0, reps - 1))
 SD <- rep(NA, reps)
 SD.nrm <- rep(NA, reps)
 EventLabel <- rep(NA, reps)
-Event =  rep("Model (Lutz et al., 2013)", reps)
+Event =  rep("Model hillslope", reps)
 Cluster =  NA
 
 HasLabel = rep(NA, reps)
-Approach <- rep("Model (Lutz et al., 2013)", reps)
+Approach <- rep("Model hillslope", reps)
 
 eventLutz <- data.frame(Duration.hr, mm.hr, measure, SD, DD.nrm, SD.nrm,
                         EventLabel, Cluster,
@@ -304,7 +304,7 @@ LutzEvents <- ggplot(data = allEvents,
   # theme_bw() +
   theme_minimal() +
   # scale_y_continuous(limits = c(0, 1.14)) +
-  theme(text = element_text(size=16) #,
+  theme(text = element_text(size=17) #,
         #legend.position = 'top'
         ) +
   #guides(col = guide_legend(nrow =  3),
@@ -316,16 +316,16 @@ LutzEvents <- ggplot(data = allEvents,
                  # width=.2 , # ) + #,                    # Width of the error bars
                 #position=position_dodge(.5), 
                 size=0.2) +
-  geom_line(data=subset(allEvents, Event == "Model (Lutz et al., 2013)" ), aes(colour = Event), linetype = "dashed") +
+  geom_line(data=subset(allEvents, Event == "Model hillslope" ), aes(colour = Event), linetype = "dashed") +
   geom_point(aes(size = mm.hr, colour = Event) #, 
                  # shape = Cluster)
              ) +
   # ylab(expression(paste({Delta~delta}^"13","C", ' (\u2030)'))) +
   ylab(expression(paste({Delta~delta}^"13","C" ['out'], ' / ', {Delta~delta}^"13" ,"C" ['bulk']))) +
   xlab("Time after max. rainfall (hrs.)") +
-  scale_size_continuous(range = c(1, 5), breaks= c(0, 5, 20, 60), limits = c(0, 60)) +
+  scale_size_continuous(range = c(1, 6), breaks= c(0, 5, 20, 60), limits = c(0, 60)) +
   guides(size = guide_legend(order = 4, 
-                             title=expression("Intensity " ~ (mm/h) ), 
+                             title=expression("Rainfall " ~ (mm/h) ), 
                              ncol=1, title.position = "top", title.vjust = .26
                               )) +
   geom_text_repel(data=subset(allEvents, HasLabel == "yes"), 

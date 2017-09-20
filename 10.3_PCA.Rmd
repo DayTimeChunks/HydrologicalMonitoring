@@ -200,7 +200,7 @@ k_hc
 
 # clustering based on:
 # k-means clustering [assume X? clusters]
-km <- kmeans(scores, centers=3, nstart=20)
+km <- kmeans(scores, centers=3, nstart=10)
 km$cluster
 
 sum(km$cluster == 3)/length(km$cluster)
@@ -436,7 +436,7 @@ if(!is.null(labels)) {
   df.u$Cluster = as.factor(km$cluster)
   
   g <- ggplot(data = df.u, aes(x= xvar, y=yvar)) + # , aes(x = xvar, y = yvar)
-    geom_point(aes(group = Cluster , col = Cluster), size=5, shape=20) + # x= PC1, y=PC2 
+    geom_point(aes(group = Cluster , col = Cluster, shape=Cluster), size=4.5) + # x= PC1, y=PC2 
     xlab(u.axis.labs[1]) + ylab(u.axis.labs[2]) # + coord_equal()
   
   var.axes = TRUE
@@ -470,7 +470,7 @@ if(!is.null(labels)) {
   
   # Overlay a concentration ellipse if there are groups
   ellipse = FALSE
-  ellipse.prob = 0.95
+  ellipse.prob = 0.90
   if(!is.null(df.u$Cluster) && ellipse) {
     theta <- c(seq(-pi, pi, length = 50), seq(pi, -pi, length = 50))
     circle <- cbind(cos(theta), sin(theta))
@@ -486,7 +486,7 @@ if(!is.null(labels)) {
                  Cluster = x$Cluster[1])
     })
     names(ell)[1:2] <- c('xvar', 'yvar')
-    g <- g + geom_path(data = ell, aes(color = Cluster, group = Cluster)) 
+    g <- g + geom_path(data = ell, aes(color = Cluster, group = Cluster, shape = Cluster)) 
       
   }
   
@@ -501,7 +501,7 @@ if(!is.null(labels)) {
   g <- 
     g + 
     stat_ellipse(data= subset(df.u, xvar < 0.4 ), aes(x=xvar,y=yvar, fill= Cluster),
-               geom="polygon", level=0.90, alpha=0.2) +
+               geom="polygon", level=ellipse.prob, alpha=0.2) +
     theme_minimal() +
   # geom_point(aes(x=std.Train.pca$x[,1], y=std.Train.pca$x[,2], col = as.factor(km$cluster), size = 0.2)) +
   geom_text_repel(aes(x= xvar, y=yvar, 
@@ -516,6 +516,19 @@ if(!is.null(labels)) {
                  )
   fg <- g +
     theme(text = element_text(size=17))
+  if (TRUE){
+  fg <-  fg +
+    scale_colour_manual(name = "Clusters",
+                      labels = c("C1", "C2", "C3"),
+                      values = c("#F8766D", "#00BA38", "#619CFF")) +
+    scale_fill_manual(name = "Clusters",
+                      labels = c("C1", "C2", "C3"),
+                      values = c("#F8766D", "#00BA38", "#619CFF")) +
+    scale_shape_manual(name = "Clusters",
+                      labels = c("C1", "C2", "C3"),
+                      values = c(16, 17, 15))
+  }
+  
   
   fg_noLeg <- fg + theme(legend.position = 'none')
   fg_Leg <- get_legend(fg)
@@ -530,17 +543,23 @@ if(!is.null(labels)) {
 # ggsave(fg, filename = "Images/PCA_events_C1early.png", width = 8, height = 5, units = "in", scale = 1)
 # ggsave(fg, filename = "Images/PCA_events_C1late.png", width = 8, height = 5, units = "in", scale = 1)
 
-# PC
-#ggsave(fgPlot, 
-#      filename = "D:/Documents/these_pablo/WriteUp/Alteck_PNAS_LaTeX/images/clusters.pdf", 
-#      device = "pdf", dpi = 600,  scale = 1, # )# ,
-#       width = 7, height = 6)
+  SAVE = F
+  PC = T
+if (SAVE){
+  if (PC){
+  ggsave(fgPlot, 
+        filename = "D:/Documents/these_pablo/WriteUp/Alteck_PNAS_LaTeX/images/clusters.pdf", 
+        device = "pdf", dpi = 600,  scale = 1, # )# ,
+        width = 7, height = 6)
+  } else if (MAC){
+    ggsave(fgPlot, 
+           filename = "/Users/DayTightChunks/Documents/PhD/Writeups/PNAS/Alteck_PNAS_LaTeX/images/clusters.pdf", 
+           device = "pdf", dpi = 600,  scale = 1, # )# ,
+           width = 7, height = 6)
+  }
+} 
 
-# MAC
-#  ggsave(fgPlot, 
- #    filename = "/Users/DayTightChunks/Documents/PhD/Writeups/PNAS/Alteck_PNAS_LaTeX/images/clusters.pdf", 
-  #    device = "pdf", dpi = 600,  scale = 1, # )# ,
-   #    width = 7, height = 6)
+
 ```
 
 
