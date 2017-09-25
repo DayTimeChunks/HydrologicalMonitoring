@@ -110,10 +110,11 @@ head(weeklyflux)
 
 ```{r, message=FALSE}
 
-outletConc = read.csv2("Data/OutletConc_W0toW17.csv", header = T)
+outletConc = read.csv2("Data/OutletConc_W0toW17.csv", sep = ",", dec =".", header = T)
 outletConc$ID4 <- as.character(outletConc$ID4)
 outletConc <- outletConc[outletConc$ID4 != "J+7", ]
-outletConc <- outletConc[,c("WeekSubWeek", "Conc.mug.L", "Conc.SD")]
+outletConc$Vol.SPE.L <- outletConc$Vol.SPE.mL/1000
+outletConc <- outletConc[,c("WeekSubWeek", "Conc.mug.L", "Conc.SD", "Vol.SPE.L", "Conc.in500uL")]
 head(outletConc)
 
 filters = read.csv2("Data/MESAlteckWater.csv")
@@ -251,8 +252,6 @@ out.CoIs = merge(weeklyhydro, out.CoIs, by = "WeekSubWeek", all = T)
 out.CoIs = merge(weeklyflux, out.CoIs, by = "WeekSubWeek", all = T)
 
 
-# Hydrochemistrty
-out.CoIs = merge(out.CoIs, hydroChem, by= "WeekSubWeek", all = T)
 
 
 out.CoIs$tf <- as.POSIXct(out.CoIs$tf, "%Y-%m-%d %H:%M", tz = "EST")
@@ -285,6 +284,7 @@ Note: Model may need to be improved!!!
 # (i.e. needed for na.approx operation below)
 out.CoIs[1, c("Conc.mug.L")] <- out.CoIs[2, c("Conc.mug.L")]
 out.CoIs[1, c("Conc.SD")] <- out.CoIs[2, c("Conc.SD")]
+out.CoIs[1, c("Vol.SPE.L")] <- out.CoIs[2, c("Vol.SPE.L")]
 
 out.CoIs[1, c("OXA_mean")] <- out.CoIs[2, c("OXA_mean")]
 out.CoIs[1, c("OXA_SD")] <- out.CoIs[2, c("OXA_SD")]
@@ -370,7 +370,8 @@ out.CoIs$FracFilt = out.CoIs$FiltSmeto.mg/out.CoIs$TotSMout.mg
 #out.CoIs$FiltSmeto.g = ifelse(is.na(out.CoIs$FiltSmeto.g), 0.0, out.CoIs$FiltSmeto.g)
 #out.CoIs$TotSMout.g = out.CoIs$DissSmeto.g + out.CoIs$FiltSmeto.g
 
-
+write.csv2(out.CoIs, 
+           'Data/MonitoringScope_R.csv', row.names = F)
 
 ```
 
@@ -411,6 +412,14 @@ out.CoIs$CumOutFilt.g = cumsum(out.CoIs$FiltSmeto.g)
 out.CoIs$CumOutSmeto.g = out.CoIs$CumOutDiss.g + out.CoIs$CumOutFilt.g
 out.CoIs$CumOutMELsm.g = cumsum(out.CoIs$MELsm.g)
 ```
+
+## Hydrochemistry
+
+```{r}
+# Hydrochemistrty
+out.CoIs = merge(out.CoIs, hydroChem, by= "WeekSubWeek", all = T)
+```
+
 
 
 ## Application dates and masses

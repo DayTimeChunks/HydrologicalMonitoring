@@ -1,0 +1,332 @@
+---
+title: "CSIA Monitoring Scope" 
+author: "PAZ" 
+date: "22/09/2017"
+output: pdf_document
+---
+
+
+```{r, echo=FALSE, message=FALSE, include=FALSE} 
+knitr::opts_chunk$set(echo = FALSE, message=FALSE, warning = F)
+
+Sys.setlocale("LC_ALL", "English") 
+
+library("tidyr")
+#library("dplyr")
+library("ggplot2")
+library("ggrepel")
+library("zoo")
+library("scales")
+#library("plotly")
+```
+
+## Purpose
+
+Plot sampled cocentrations agains theoretical minimum mass vs. volume relations for multi-element CSIA. 
+
+Data file:
+
+- **MonitoringScope_R.csv** (R generated, Book 5 $\approx$ Line 350 )
+
+```{r} 
+outscope = read.csv2('Data/MonitoringScope_R.csv', header = T) 
+#names(outscope)
+
+out = outscope[, c("WeekSubWeek" , 
+                   #"AveDischarge.m3.h", 
+                   "Sampled", "Vol.SPE.L", "Conc.mug.L", "DD13C.diss")]
+out$CSIA = ifelse(is.na(out$DD13C.diss), "No", "Yes")
+out$DD13C.diss = NULL
+out$Conc.mug.L = round(out$Conc.mug.L, digits = 2)
+out$C.txt = sprintf("%.3f", round(out$Conc.mug.L, digits = 3) ) 
+out$Conc.mug.L  = NULL
+colnames(out)[colnames(out) == "Vol.SPE.L"] <- "Field.Vsmp"
+```
+
+
+
+```{r}
+# Theoretical Concentrations
+iterations = 1000*3
+variables = 1
+conc = 0.00
+C.smp = matrix(ncol = variables, nrow = iterations)
+
+for (i in 1:iterations){
+  C.smp[i,] = conc
+  if (conc < 0.05){
+    conc = conc + 0.001
+  } else {
+    conc = conc + 0.010  
+  }
+}
+```
+
+
+
+# Carbon
+
+## Conversion to ng
+
+For a given sample of concentration $C$ [$\mu g/L$], considering a 4
+$\mu L$ injection and a vial volume $x_{vial}$ of 500 $\mu L$:
+
+$$ C~[\mu g/L] \cdot \frac{10^3~ng}{1~\mu g}
+\cdot \frac{1~mol_{S-met}}{283.796~g} 
+\cdot \frac{12.0107~g}{1~mol_{C}} 
+\cdot 15 
+\cdot \frac{4~[\mu L~inj.]}{x_{vial}~[\mu L~vial]} 
+\cdot X_{smp}~[L] = M_{C}$$
+
+The same equation re-arranged to compute it numerically so as to yield 10 $ng$ of carbon, from a 500 $\mu L$ vial:
+
+$$ C~[\mu g/L] \cdot \frac{10^3~ng}{1~\mu g}
+\cdot \frac{1~mol_{S-met}}{283.796~g} \cdot \frac{12.0107~g}{1~mol_{C}} \cdot 15 \cdot \frac{4~[\mu L~inj.]}{500~[\mu L~vial]} \cdot \frac{1}{10~ ng_{C}} = \frac{1}{X_{smp}~[L]}$$
+
+```{r, echo=FALSE }
+df.C = data.frame(C.smp)
+
+# Early assumption, min. Carbon 15 ng:
+# minMass = 15
+# Late correction:
+minMass = 10
+elementMass = 12.0107 # g/mol
+
+# 100 used for GC, TPs and each isotope, plus 1x backup = 500 uL
+df.C$uL500C.Vsmp = 1/(df.C$C.smp*(10^3)*(elementMass/283.796)*15*(4/500)*(1/minMass))
+df.C$uL50C.Vsmp = 1/(df.C$C.smp*(10^3)*(elementMass/283.796)*15*(300/500)*(4/100)*(1/minMass)) 
+df.C$uL30C.Vsmp = 1/(df.C$C.smp*(10^3)*(elementMass/283.796)*15*(350/500)*(4/30)*(1/minMass)) # 100 used for GC
+
+df.C = df.C[-1,]
+df.C$C.txt = sprintf("%.3f", round(df.C$C.smp, digits = 3) )
+```
+
+
+# Chlorine
+
+$$ C~[\mu g/L] \cdot \frac{10^3~ng}{1~\mu g}
+\cdot \frac{1~mol_{S-met}}{283.796~g} \cdot \frac{35.453~g}{1~mol_{Cl}} \cdot 15 \cdot \frac{4~[\mu L~inj.]}{500~[\mu L~vial]} \cdot \frac{1}{10~ ng_{Cl}} = \frac{1}{X_{smp}~[L]}$$
+
+```{r}
+df.Cl = data.frame(C.smp)
+
+minMass = 10
+elementMass = 35.453
+# 0.008, 0.06, 0.1
+# 100 used for GC, TPs and each isotope, plus 1x backup = 500 uL
+df.Cl$uL500Cl.Vsmp = 1/(df.Cl$C.smp*(10^3)*(elementMass/283.796)*15*(4/500)*(1/minMass))
+df.Cl$uL50Cl.Vsmp = 1/(df.Cl$C.smp*(10^3)*(elementMass/283.796)*15*(300/500)*(4/100)*(1/minMass)) 
+df.Cl$uL30Cl.Vsmp = 1/(df.Cl$C.smp*(10^3)*(elementMass/283.796)*15*(300/500)*(4/60)*(1/minMass)) # 100 used for GC
+
+df.Cl = df.Cl[-1,]
+
+df.Cl$C.txt = sprintf("%.3f", round(df.Cl$C.smp, digits = 3) )
+```
+
+# Nitrogen
+
+$$ C~[\mu g/L] \cdot \frac{10^3~ng}{1~\mu g}
+\cdot \frac{1~mol_{S-met}}{283.796~g} \cdot \frac{14.007~g}{1~mol_{N}} \cdot 15 \cdot \frac{4~[\mu L~inj.]}{500~[\mu L~vial]} \cdot \frac{1}{30~ ng_{N}} = \frac{1}{X_{smp}~[L]}$$
+
+```{r}
+df.N = data.frame(C.smp)
+
+minMass = 30 # ng
+elementMass = 14.0067 # g/mol
+
+# 100 used for GC, TPs and each isotope, plus 1x backup = 500 uL
+df.N$uL500N.Vsmp = 1/(df.N$C.smp*(10^3)*(elementMass/283.796)*15*(4/500)*(1/minMass))
+df.N$uL50N.Vsmp = 1/(df.N$C.smp*(10^3)*(elementMass/283.796)*15*(300/500)*(4/100)*(1/minMass)) 
+df.N$uL30N.Vsmp = 1/(df.N$C.smp*(10^3)*(elementMass/283.796)*15*(300/500)*(4/60)*(1/minMass)) # 100 used for GC
+
+df.N = df.N[-1,]
+
+df.N$C.txt = sprintf("%.3f", round(df.N$C.smp, digits = 3) )
+```
+
+
+```{r}
+## Merging dataframes
+df.Cl$C.smp = NULL
+df.N$C.smp = NULL
+dfout.CCl = merge(df.C, df.Cl, by = "C.txt", all = T)
+dfout.CClN = merge(dfout.CCl, df.N, by = "C.txt", all = T)
+dfout.CClN = merge(dfout.CClN, out, by = "C.txt", all = T)
+
+
+
+# dfout.CCl$AveDischarge.m3.h = NULL
+
+# Melting dataframe
+df.tidy.CClN <- dfout.CClN %>%
+  gather(measure, value, 
+         -C.smp, 
+         -C.txt,
+         -WeekSubWeek,
+         #-AveDischarge.m3.h, 
+         -Sampled, -CSIA) %>% # Melts data frame
+  separate(measure, into = c("VialSize", "temporary_var")) %>% # parses the sep = "." into...
+  # VialSize will be first string of variable name
+  spread(temporary_var, value)
+  
+```
+
+## Plotting
+
+### Carbon and Chlorine
+```{r, width = 10, height = 6}
+#View(df.tidy.CClN)
+size = 2.5
+ggplot(data= df.tidy.CClN)+
+  geom_line(data=subset(df.tidy.CClN, VialSize != "Field" & 
+                          ( # VialSize == "uL500Cl" | 
+                             VialSize == "uL500C" | 
+                             VialSize == "uL500N" |
+                             VialSize == "uL30C" | VialSize == "uL30Cl")), 
+            aes(x = Vsmp, y = C.smp, group = VialSize, colour = VialSize) ) +
+  geom_point(data=subset(df.tidy.CClN, VialSize == "Field" & !is.na(CSIA)), 
+             colour = "blue", alpha = 0.5,
+             aes(x = Vsmp, y = C.smp, 
+                 group = VialSize,  shape = CSIA #, 
+                 #size = AveDischarge.m3.h
+                 )) +
+  #geom_line(data=subset(df.tidy, VialSize == "uL30")) + 
+  #geom_line(data=subset(df.tidy, VialSize == "uL50")) +
+  #geom_line(data=subset(df.tidy, VialSize == "uL500")) +
+  theme_minimal() +
+  scale_y_continuous(trans=log_trans(), breaks=c(0.01, 0.05, 1, 5, 10, 20, 30) )+
+  # scale_x_continuous( limits = c(0,40) , expand = c(0,0) )
+  coord_cartesian(xlim=c(0,15)) + 
+  scale_color_manual(name= "MB + Feasible CSIA", 
+                     # Actual order:
+                     # 
+                      values = c("#B79F00", "#F8766D", "#00BFC4", "#C77CFF", "#00BA38"
+                                 # Blue: "#619CFF"
+                                 # Brown: "#DE8C00"
+                                 #c("black", "#F8766D", "#00BFC4", "#DE8C00", "#00BA38"
+                                 #"black", "#D55E00",  "#00BFC4",  "#B79F00", "#00BA38"
+                                 # Bulk, North, outlet, South, Valley
+                                 #"#D55E00", "darkgreen", "dodgerblue"
+                                 ),
+                     breaks=c("uL500N" , "uL500C" , 
+                              # "uL500Cl",  
+                              "uL30C",  "uL30Cl"),
+                     labels=c("N + Cl + C" , "Cl + C" , 
+                              # "Cl", 
+                              "C",  "Cl")
+                     ) + 
+  annotate("text", 
+           x = 5, y = 10, 
+           label= "Triple CSIA \n26% of samples", parse=F, size = size) +
+  geom_segment(aes(x = 5, y = 5, xend = 5, yend = 1.1),
+                   arrow = arrow(length = unit(1/2, 'picas'), type = "closed")) + 
+  annotate("text", 
+           x = 7.5, y = 2.7, 
+           label= "Double CSIA \n47% of samples", parse=F, size = size) +
+  geom_segment(aes(x = 7.5, y = 1.5, xend = 7.5, yend = 0.3),
+                   arrow = arrow(length = unit(1/2, 'picas'), type = "closed")) +
+  annotate("text", 
+           x = 10.7, y = 1.5, 
+           label= "C-only CSIA \n76% of samples", parse=F, size = size) +
+  geom_segment(aes(x = 10.7, y = 0.8, xend = 10.7, yend = 0.02),
+                   arrow = arrow(length = unit(1/2, 'picas'), type = "closed")) +
+  annotate("text", 
+           x = 14, y = 1.0, 
+           label= "Cl-only CSIA \n84% of samples", parse=F, size = size) +
+  geom_segment(aes(x = 14, y = 0.5, xend = 14, yend = 0.011),
+                   arrow = arrow(length = unit(1/2, 'picas'), type = "closed"))
+  
+
+# dfout.C$check500 = ifelse(dfout.C$uL500.Vsmp >= dfout.C$Field.Vsmp, 1, 0)
+```
+
+```{r}
+library(scales) 
+#show_col(hue_pal()(12))
+```
+
+## Plotting with labels
+
+```{r}
+ggplot(data= df.tidy.CClN)+
+  geom_line(data=subset(df.tidy.CClN, VialSize != "Field" & 
+                          ( # VialSize == "uL500Cl" | 
+                             VialSize == "uL500C" | 
+                             VialSize == "uL500N" |
+                             VialSize == "uL30C" | VialSize == "uL30Cl")), 
+            aes(x = Vsmp, y = C.smp, group = VialSize, colour = VialSize) ) +
+  geom_point(data=subset(df.tidy.CClN, VialSize == "Field" & !is.na(CSIA)), 
+             colour = "blue", alpha = 0.5,
+             aes(x = Vsmp, y = C.smp, 
+                 group = VialSize,  shape = CSIA #, 
+                 #size = AveDischarge.m3.h
+                 )) +
+  #geom_line(data=subset(df.tidy, VialSize == "uL30")) + 
+  #geom_line(data=subset(df.tidy, VialSize == "uL50")) +
+  #geom_line(data=subset(df.tidy, VialSize == "uL500")) +
+  theme_minimal() +
+  scale_y_continuous(trans=log_trans(), breaks=c(0.01, 0.05, 1, 5, 10, 20, 30, 60) )+
+  # scale_x_continuous( limits = c(0,40) , expand = c(0,0) )
+  coord_cartesian(xlim=c(0,4)#, 
+                  #ylim = c(0,60)
+                  ) + 
+  scale_color_manual(name= "MB + Feasible CSIA", 
+                     # Actual order:
+                     # 
+                      values = c("#B79F00", "#F8766D", "#00BFC4", "#C77CFF", "#00BA38"
+                                 # Blue: "#619CFF"
+                                 # Brown: "#DE8C00"
+                                 #c("black", "#F8766D", "#00BFC4", "#DE8C00", "#00BA38"
+                                 #"black", "#D55E00",  "#00BFC4",  "#B79F00", "#00BA38"
+                                 # Bulk, North, outlet, South, Valley
+                                 #"#D55E00", "darkgreen", "dodgerblue"
+                                 ),
+                     breaks=c("uL500N" , "uL500C" , 
+                              # "uL500Cl",  
+                              "uL30C",  "uL30Cl"),
+                     labels=c("N + Cl + C" , "Cl + C" , 
+                              # "Cl", 
+                              "C",  "Cl")
+                     ) +
+  geom_text_repel(data = subset(df.tidy.CClN, (!is.na(WeekSubWeek) & 
+                                                 CSIA == "Yes" &
+                                                 VialSize == "Field" &
+                                                 C.smp >= 1 & 
+                                                 Vsmp > 0.5
+                                                 ) ), aes(x = Vsmp, y = C.smp, label=WeekSubWeek),
+                 arrow = arrow(length = unit(0.005, 'npc'), type = "closed"),
+                 force = 1, 
+                 point.padding = unit(1.0, 'lines'), 
+                 max.iter = 2e3,
+                 nudge_x = .2)
+```
+
+## Percentages
+
+```{r}
+# Total Samples
+dfout.CClN$NumSamp = ifelse(dfout.CClN$Sampled == "Sampled", 1, 0)
+numSamp = sum(dfout.CClN$NumSamp, na.rm = T)
+
+print("% Samples capable of triple CSIA")
+dfout.CClN$triple = ifelse(dfout.CClN$uL500N.Vsmp <= dfout.CClN$Field.Vsmp, 1, 0)
+numTriple = sum(dfout.CClN$triple, na.rm = T)
+(numTriple/numSamp)*100 # 26 %
+
+# Total capable of double CSIA
+print('% Samples capable of double CSIA')
+dfout.CClN$double = ifelse(dfout.CClN$uL500C.Vsmp <= dfout.CClN$Field.Vsmp, 1, 0)
+numDouble = sum(dfout.CClN$double, na.rm = T)
+(numDouble/numSamp)*100 # 47 %
+
+print('% Samples capable of single C - CSIA')
+dfout.CClN$singleC = ifelse(dfout.CClN$uL30C.Vsmp <= dfout.CClN$Field.Vsmp, 1, 0)
+numSingleC = sum(dfout.CClN$singleC, na.rm = T)
+(numSingleC/numSamp)*100 # 76 %
+
+print('% Samples capable of single Cl - CSIA')
+dfout.CClN$singleCl = ifelse(dfout.CClN$uL30Cl.Vsmp <= dfout.CClN$Field.Vsmp, 1, 0)
+numSingleCl = sum(dfout.CClN$singleCl, na.rm = T)
+(numSingleCl/numSamp)*100 # 84 %
+```
+

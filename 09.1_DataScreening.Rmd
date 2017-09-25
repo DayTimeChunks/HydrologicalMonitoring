@@ -519,8 +519,10 @@ wstidier <- wsSmall %>%
          -Qmax, -Qmean, 
          -CumRain, -RainInt,
          -dryHrsIni, -dryHrsMax, -dryHrsAve,
+         -noEventHrsMax,
          -noEventHrsIni, -noEventHrsAve) %>% # Melts data frame
   separate(measure, into = c("Location", "temporary_var")) %>% # parses the sep = "." into...
+  # Location will be first string of variable name
   spread(temporary_var, value) 
 
 wstidier$Type <- ifelse(wstidier$Location == "diss", "Dissolved (Outlet)", 
@@ -546,6 +548,7 @@ levels(wstidier$Source)
 levels(wstidier$Type)
 #wstidier$Source <- factor(wstidier$Source, levels = c("Bulk", "Plateau","Valley", "Outlet"))
 wstidier$Source <- factor(wstidier$Source, levels = c("Bulk", "North", "Valley", "South", "Outlet"))
+
 wstidier$Type <- factor(wstidier$Type, levels = c("Top Soil", "Dissolved (Outlet)", "Sediment" ))
 
 
@@ -831,8 +834,8 @@ wsALL
 
 # ggsave(wsALL, filename = "images/WaterSoilvsTime.png", width = 8, height = 5, units = "in", scale = 1)
 
-SAVE = T
-PC = T
+SAVE = F
+PC = F
 if (SAVE){
   if (PC) {
     # cairo and ggdraw having issues.. works fine on MAC though
