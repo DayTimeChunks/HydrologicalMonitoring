@@ -1,0 +1,222 @@
+---
+title: "Lab Enrichment"
+author: "PAZ"
+date: "26 septembre 2017"
+output: pdf_document
+---
+
+
+```{r, echo=FALSE, message=FALSE, include=FALSE} 
+knitr::opts_chunk$set(echo = FALSE, message=FALSE, warning = F)
+
+Sys.setlocale("LC_ALL", "English") 
+
+library("tidyr")
+#library("dplyr")
+library("ggplot2")
+library("ggrepel")
+library("zoo")
+library("scales")
+
+# Import lab values 
+source("global.R")
+```
+
+
+```{r}
+# Import raw data
+enrich = read.csv2('Data/EnrichmentExp.csv', sep = ";", dec = ".", header = T) 
+bio = subset(enrich, Type==as.character("Biotic") & Temp == 20)
+```
+
+# Rayleigh (20 \textdegree C, $\theta$: 20 \& 40)
+
+```{r}
+bio$DD13 <- bio$Delta - delta_ini
+bio$yRaleigh <- log((1000+delta_ini+bio$DD13)/(1000+delta_ini))
+bio$xRaleigh <- log(bio$C.SM/c_ini)
+expModel<-lm(yRaleigh~xRaleigh, data= bio) 
+
+cofsoil <- as.numeric(coef(expModel)[2]*1000)
+minX <- confint(expModel, "xRaleigh", level = 0.95)[1]*1000
+maxX <- confint(expModel, "xRaleigh", level = 0.95)[2]*1000
+se <- summary(expModel)$coef[[4]]*1000
+
+e_label <- sprintf("epsilon == %0.3f", cofsoil)
+cond_label = paste("theta:~20~+~40~and~degree~C:20")
+
+CI95 = maxX - cofsoil
+
+ggplot(data = subset(bio,  !is.na(yRaleigh) ), aes(x=xRaleigh, y=yRaleigh)) +
+  geom_point() +
+  stat_smooth(method = "lm", formula = y ~ x, se=F) +
+  annotate("text", x = -1.5, y = 0.007, label = as.character(e_label), parse = T, size = 3.5) +
+  annotate("text", x = -1.5, y = 0.006, label = cond_label, parse = T, size = 3.5) +
+  theme_bw()
+
+summary(expModel)
+```
+
+# Rayleigh (20 \textdegree C, $\theta$: 20)
+
+```{r}
+bio = subset(enrich, Type==as.character("Biotic") & Temp == 20 & Theta == 20)
+
+bio$DD13 <- bio$Delta - delta_ini
+bio$yRaleigh <- log((1000+delta_ini+bio$DD13)/(1000+delta_ini))
+bio$xRaleigh <- log(bio$C.SM/c_ini)
+expModel<-lm(yRaleigh~xRaleigh, data= bio) 
+
+cofsoil <- as.numeric(coef(expModel)[2]*1000)
+minX <- confint(expModel, "xRaleigh", level = 0.95)[1]*1000
+maxX <- confint(expModel, "xRaleigh", level = 0.95)[2]*1000
+se <- summary(expModel)$coef[[4]]*1000
+
+e_label <- sprintf("epsilon == %0.3f", cofsoil)
+cond_label = paste("theta:~20~and~degree~C:20")
+
+CI95 = maxX - cofsoil
+
+ggplot(data = subset(bio,  !is.na(yRaleigh) ), aes(x=xRaleigh, y=yRaleigh)) +
+  geom_point() +
+  stat_smooth(method = "lm", formula = y ~ x, se=F) +
+  annotate("text", x = -1.5, y = 0.007, label = as.character(e_label), parse = T, size = 3.5) +
+  annotate("text", x = -1.5, y = 0.006, label = cond_label, parse = T, size = 3.5) +
+  theme_bw()
+
+summary(expModel)
+```
+
+# Rayleigh (20 \textdegree C, $\theta$: 40)
+
+```{r}
+bio = subset(enrich, Type==as.character("Biotic") & Temp == 20 & Theta == 40)
+
+bio$DD13 <- bio$Delta - delta_ini
+bio$yRaleigh <- log((1000+delta_ini+bio$DD13)/(1000+delta_ini))
+bio$xRaleigh <- log(bio$C.SM/c_ini)
+expModel<-lm(yRaleigh~xRaleigh, data= bio) 
+
+cofsoil <- as.numeric(coef(expModel)[2]*1000)
+minX <- confint(expModel, "xRaleigh", level = 0.95)[1]*1000
+maxX <- confint(expModel, "xRaleigh", level = 0.95)[2]*1000
+se <- summary(expModel)$coef[[4]]*1000
+
+e_label <- sprintf("epsilon == %0.3f", cofsoil)
+cond_label = paste("theta:~40~and~degree~C:20")
+
+CI95 = maxX - cofsoil
+
+ggplot(data = subset(bio,  !is.na(yRaleigh) ), aes(x=xRaleigh, y=yRaleigh)) +
+  geom_point() +
+  stat_smooth(method = "lm", formula = y ~ x, se=F) +
+  annotate("text", x = -.5, y = 0.005, label = as.character(e_label), parse = T, size = 3.5) +
+  annotate("text", x = -.5, y = 0.004, label = cond_label, parse = T, size = 3.5) +
+  theme_bw()
+
+summary(expModel)
+```
+
+
+
+## Abiotic data
+
+### Abiotic - Rayleigh (20 \textdegree C, $\theta$: 20 \& 40)
+```{r}
+# Import raw data
+
+abiotic = subset(enrich, Type==as.character("Abiotic") & Temp == 20)
+
+abiotic$DD13 <- abiotic$Delta - delta_ini
+abiotic$yRaleigh <- log((1000+delta_ini+abiotic$DD13)/(1000+delta_ini))
+abiotic$xRaleigh <- log(abiotic$C.SM/c_ini)
+expModel<-lm(yRaleigh~xRaleigh, data= abiotic) 
+
+
+cofsoil <- as.numeric(coef(expModel)[2]*1000)
+minX <- confint(expModel, "xRaleigh", level = 0.95)[1]*1000
+maxX <- confint(expModel, "xRaleigh", level = 0.95)[2]*1000
+se <- summary(expModel)$coef[[4]]*1000
+
+e_label <- sprintf("epsilon == %0.3f", cofsoil)
+cond_label = paste("theta:~20~+~40~and~degree~C:20")
+
+CI95 = maxX - cofsoil
+
+ggplot(data = subset(abiotic,  !is.na(yRaleigh) ), aes(x=xRaleigh, y=yRaleigh)) +
+  geom_point() +
+  stat_smooth(method = "lm", formula = y ~ x, se=F) +
+  #annotate("text", x = -1.5, y = 0.007, label = as.character(e_label), parse = T, size = 3.5) +
+  #annotate("text", x = -1.5, y = 0.006, label = cond_label, parse = T, size = 3.5) +
+  theme_bw()
+
+summary(expModel)
+
+```
+
+
+### Abiotic - Rayleigh (20 \textdegree C, $\theta$: 20)
+
+```{r}
+
+abiotic = subset(enrich, Type==as.character("Abiotic") & Temp == 20 & Theta == 20)
+
+abiotic$DD13 <- abiotic$Delta - delta_ini
+abiotic$yRaleigh <- log((1000+delta_ini+abiotic$DD13)/(1000+delta_ini))
+abiotic$xRaleigh <- log(abiotic$C.SM/c_ini)
+expModel<-lm(yRaleigh~xRaleigh, data= abiotic) 
+
+
+cofsoil <- as.numeric(coef(expModel)[2]*1000)
+minX <- confint(expModel, "xRaleigh", level = 0.95)[1]*1000
+maxX <- confint(expModel, "xRaleigh", level = 0.95)[2]*1000
+se <- summary(expModel)$coef[[4]]*1000
+
+e_label <- sprintf("epsilon == %0.3f", cofsoil)
+cond_label = paste("theta:~20~+~40~and~degree~C:20")
+
+CI95 = maxX - cofsoil
+
+ggplot(data = subset(abiotic,  !is.na(yRaleigh) ), aes(x=xRaleigh, y=yRaleigh)) +
+  geom_point() +
+  stat_smooth(method = "lm", formula = y ~ x, se=F) +
+  #annotate("text", x = -1.5, y = 0.007, label = as.character(e_label), parse = T, size = 3.5) +
+  #annotate("text", x = -1.5, y = 0.006, label = cond_label, parse = T, size = 3.5) +
+  theme_bw()
+
+summary(expModel)
+
+```
+
+### Abiotic - Rayleigh (20 \textdegree C, $\theta$: 40)
+
+```{r}
+
+abiotic = subset(enrich, Type==as.character("Abiotic") & Temp == 20 & Theta == 40)
+
+abiotic$DD13 <- abiotic$Delta - delta_ini
+abiotic$yRaleigh <- log((1000+delta_ini+abiotic$DD13)/(1000+delta_ini))
+abiotic$xRaleigh <- log(abiotic$C.SM/c_ini)
+expModel<-lm(yRaleigh~xRaleigh, data= abiotic) 
+
+
+cofsoil <- as.numeric(coef(expModel)[2]*1000)
+minX <- confint(expModel, "xRaleigh", level = 0.95)[1]*1000
+maxX <- confint(expModel, "xRaleigh", level = 0.95)[2]*1000
+se <- summary(expModel)$coef[[4]]*1000
+
+e_label <- sprintf("epsilon == %0.3f", cofsoil)
+cond_label = paste("theta:~20~+~40~and~degree~C:20")
+
+CI95 = maxX - cofsoil
+
+ggplot(data = subset(abiotic,  !is.na(yRaleigh) ), aes(x=xRaleigh, y=yRaleigh)) +
+  geom_point() +
+  stat_smooth(method = "lm", formula = y ~ x, se=F) +
+  #annotate("text", x = -1.5, y = 0.007, label = as.character(e_label), parse = T, size = 3.5) +
+  #annotate("text", x = -1.5, y = 0.006, label = cond_label, parse = T, size = 3.5) +
+  theme_bw()
+
+summary(expModel)
+
+```

@@ -49,20 +49,22 @@ CHECK_ERR = FALSE
 ## Lab & field parameters
 ```{r}
 
+source("global.R")
+
 # Pure and cuve isotope average
-initialDelta = d13Co = -32.235
+#initialDelta = d13Co = -32.235
 
 # Lab enrichment:
 # Alteck
 # More degr. under saturation because anaerobic is best according to Fatima
-epsilon_max = -1.5 # +/- 0.3 (@ 20C, 20% vwc) 
-epsilon_min = -2.0 # +/- 0.2 (@ 20C, 40% vwc) 
+#epsilon_max = -1.5 # +/- 0.3 (@ 20C, 20% vwc) 
+#epsilon_min = -2.0 # +/- 0.2 (@ 20C, 40% vwc) 
 
-epsilon_mean = -1.75 # Lab
-sd(c(epsilon_max, epsilon_min))
+#epsilon_mean = -1.75 # Lab
+#sd(c(epsilon_max, epsilon_min))
 
-field_epsilon = -1.692547 # Field
-field_epsilon_sd = 0.363319 # ±
+#field_epsilon = -1.692547 # Field
+#field_epsilon_sd = 0.363319 # ±
 
 ```
 

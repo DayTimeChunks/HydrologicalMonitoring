@@ -48,9 +48,7 @@ getwd()
 ## Lab Parameters
 
 ```{r}
-# Pure and cuve isotope average
-d13Co = -32.253
-
+source("global.R")
 ```
 
 ## Field Assumptions
@@ -148,7 +146,8 @@ weeklySoilConc <- weeklySoilConc[,c("Filename",
                                     "Date.Soil",
                                     "Date.ti",
                                     "Conc.mug.g.dry.soil",
-                                    "Conc.ComSoil.SD")]
+                                    "Conc.ComSoil.SD",
+                                     "Mass.Soil.g", "theta.prct")]
 
 colnames(weeklySoilConc)[colnames(weeklySoilConc) == "Filename"] <- "ID"
 print("Soil Composites- Concentrations")
@@ -215,6 +214,9 @@ comp.CoIs$comp.IMP.d13C[is.na(comp.CoIs$comp.d13C)] <-
 
 print("Merged Soil Concentrations and Isotopes")
 str(comp.CoIs)  
+
+write.csv2(comp.CoIs, 
+           'Data/MonitoringScopeSoils_R.csv', row.names = F)
 ```
 
 

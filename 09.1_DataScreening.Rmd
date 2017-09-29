@@ -73,19 +73,7 @@ These values must be considered to be Missing at Random (MAR) as the missing val
 # Lab parameters
 
 ```{r}
-# Initial signature measured in tank
-initialDelta = d13Co = -32.253
-
-epsilon_mean= -2.2 # ± 0.4
-epsilon_lab = epsilon_mean
-
-# Calculated in this Book from Bulk signatures and bulk concentrations
-epsilonField_max = -1.37 + 0.53 
-epsilonField_min = -1.37 - 0.53  
-epsilonField_mean = -1.37 # ± 0.53
-
-# Closed system assumption applied to field for demonstration
-epsilon_field = epsilonField_mean
+source("global.R")
 ```
 
 
@@ -210,15 +198,15 @@ p <- ggplot(data = soilGrApp, aes(x=Conc.mug.g.dry.soil, y=DD13C.comp))+
   scale_y_continuous(breaks=c(0, 1, 2, 3 , 4 ,5) ) + 
   # scale_size_continuous(range = c(1, 5)) +
   guides(size=guide_legend(nrow=1)) +
-  annotate("rect", xmin=0, xmax=8, ymin=-0.5, ymax=0.5, alpha=0.2) +
-  annotate("text", x = 4, y = -0.8, label= "italic(Dilution)", parse=T, size = 4.5) +
-  geom_segment(aes(x = 6, y = -1, xend = 2.5, yend = -1),
+  annotate("text", x = 4, y = -0.3, label= "italic(Dilution)", parse=T, size = 4.5) +
+  geom_segment(aes(x = 6, y = -0.5, xend = 2.5, yend = -0.5),
                    arrow = arrow(length = unit(1/2, 'picas'), type = "closed")) +
   annotate("text", 
-           x = 4.0, y = 3.7, 
+           x = 4.0, y = 3.78, 
            label= "paste(\"(\", italic(Bio), \") \", italic(degradation) )", parse=T, size = 4.5, angle=332.5) +
   geom_segment(aes(x = 6, y = 2.2, xend = 2.5, yend = 4.5),
-                   arrow = arrow(length = unit(1/2, 'picas'), type = "closed"))
+                   arrow = arrow(length = unit(1/2, 'picas'), type = "closed")) +
+  annotate("rect", xmin=0, xmax=8, ymin=0, ymax=1, alpha=0.2)
   
   # geom_rect(aes(xmin=0, xmax=8, ymin=-0.5, ymax=0.5), colour = "grey", alpha = 0.5) + 
   #geom_hline(yintercept = 0.5, color = "dodgerblue4", linetype = "dotted") +
@@ -258,13 +246,12 @@ if (SAVE){
   #stat_smooth(method = "lm", formula = y~x, se=F) 
 ```
 
-### Closed system field enrichment derivation (for error estimation)
+### Field enrichment derivation (for error estimation)
 
 ```{r}
 soils$yRaleigh <- log((1000+d13Co+soils$DD13.Bulk)/(1000+d13Co))
 soils$xRaleigh <- log(soils$BulkCatch.Conc/soils$iniCo.Bulk)
 soilModel<-lm(yRaleigh~xRaleigh, data= soils) 
-summary(soilModel)
 
 cofsoil <- as.numeric(coef(soilModel)[2]*1000)
 minX <- confint(soilModel, "xRaleigh", level = 0.95)[1]*1000
@@ -280,6 +267,8 @@ ggplot(data = subset(soils,  !is.na(yRaleigh) ), aes(x=xRaleigh, y=yRaleigh)) +
   stat_smooth(method = "lm", formula = y ~ x, se=F) +
   annotate("text", x = -1.5, y = 0.003, label = as.character(e_label), parse = T, size = 3.5) +
   theme_bw()
+
+summary(soilModel)
 ```
 
 
@@ -390,34 +379,6 @@ ggplot(waterClean, aes(x=TotSMout.g, y=DD13C.diss))+
                  max.iter = 2e3,
                  nudge_x = .2)
 ```
-
-
-## Join XY waters and soils
-
-```{r}
-
-p_noLeg <- p + theme(legend.position = 'none')
-p_Leg <- get_legend(p)
-  
-water_noLeg <- waterIsoConc + theme(legend.position = 'none')  
-water_Leg <- get_legend(waterIsoConc)  
-
-grid_xyConIso <- plot_grid(p_noLeg, water_noLeg, 
-                    ncol =2, nrow = 1, align ="v" #,
-                    #labels = c("A", "B")
-                    )
-
-xyConcIso <- ggdraw() +
-  draw_plot(grid_xyConIso, x=0., y=0.1, width =  1, height = .90) + 
-  #draw_plot(water_noLeg, x=0.5, y = 0.0, width = 0.4, height = 1) +
-  draw_plot(p_Leg, x=0.48, y = 0.0, width = 0.1, height = 0.1) +
-  draw_label("A", x= 0.47, y = .95, size = 12, fontface = "bold") +
-  draw_label("B", x= 0.97, y = .95, size = 12, fontface = "bold")
-
-xyConcIso
-# ggsave(xyConcIso , filename = "images/waterSoil_DDvsConc.png", width = 8, height = 5, units = "in", scale = 1)
-```
-
 
 
 ### Correlations Waters
@@ -572,11 +533,12 @@ wstidier$Location <- as.factor(wstidier$Location)
 
 ```
 
-## Color palette
+
 
 ```{r}
-library(scales) 
-show_col(hue_pal()(12))
+# library(scales) 
+## Color palette
+# show_col(hue_pal()(12))
 
 # Bulk, North, Valley, South, Outlet  
 # "black", "#F8766D", "#00BA38", "#DE8C00", ("#619CFF" / "#00B4F0" / "#00BFC4")
@@ -648,7 +610,7 @@ wsALL_lab <- ggplot(data = wstidier2, aes(x = Date, y = measure, group = Source)
   scale_color_manual(name= "Source", 
                      # Actual order:
                      # Bulk, North, Outlet, South, Valley
-                      values = c("#DE8C00", "#F8766D", "#00BFC4", "#C77CFF", "#00BA38"
+                      values = c("#B79F00", "#F8766D", "#00BFC4", "#C77CFF", "#00BA38"
                                  # working solution:
                                  #c("black", "#F8766D", "#00BFC4", "#DE8C00", "#00BA38"
                                  #"black", "#D55E00",  "#00BFC4",  "#B79F00", "#00BA38"
@@ -660,7 +622,7 @@ wsALL_lab <- ggplot(data = wstidier2, aes(x = Date, y = measure, group = Source)
                      ) +
   
   scale_size_continuous(range = c(1, 6), breaks= c(0, 50, 100, 150, 200, 300), limits = c(0, 300))+
-  annotate("rect", xmin=mindate, xmax=maxdate, ymin=-0.5, ymax=0.5, alpha=0.2) 
+  annotate("rect", xmin=mindate, xmax=maxdate, ymin=0, ymax=1, alpha=0.2) 
   # scale_size_continuous(range = c(1, 3)) 
 
 #
@@ -753,7 +715,7 @@ wsALL_field <- ggplot(data = wstidier2, aes(x = Date, y = measure, group = Sourc
                         breaks=c(20, 40, 60, 70, 80, 85, 90, 95) )# breaks=seq(20, 120, 15))
   )  + 
   scale_color_manual(name= "Source", 
-                     values = c("#DE8C00", "#F8766D", "#00BFC4", "#C77CFF", "#00BA38"
+                     values = c("#B79F00", "#F8766D", "#00BFC4", "#C77CFF", "#00BA38"
                                 # c("black", "#F8766D", "#00BFC4", "#DE8C00", "#00BA38" 
                                 #  "black", "#D55E00",  "#00BFC4",  "#B79F00", "#00BA38"
                                  # Bulk, North, outlet, South, Valley
@@ -785,7 +747,7 @@ wsALL_field <- ggplot(data = wstidier2, aes(x = Date, y = measure, group = Sourc
                              #keyheight = 0,
                              #label.vjust = 0
                               )) +
-  annotate("rect", xmin=mindate, xmax=maxdate, ymin=-0.5, ymax=0.5, alpha=0.2) 
+  annotate("rect", xmin=mindate, xmax=maxdate, ymin=0, ymax=1, alpha=0.2) 
 
 #ggplotly(wsALL_field)
 wsALL_field
@@ -813,10 +775,10 @@ labely2 = expression(epsilon ["lab"])
 label <- substitute(paste(epsilon, " = ", epsilon_f, ", Field", epsilon, " = " , epsilon_l),
                     list(epsilon_f = signif(epsilon_field, 2), epsilon_l = signif(epsilon_lab, 2) ))
 
-label2 <- substitute(paste(epsilon ["field"] , " = ", epsilon_f, " \u00B1 ", "0.5" ,"\u2030"),
-                     list(epsilon_f = signif(epsilon_field, 2)))
+label2 <- substitute(paste(epsilon ["field"] , " = ", epsilon_f, " \u00B1 ", "0.53" ,"\u2030"),
+                     list(epsilon_f = signif(epsilon_field, 3)))
 
-label3 <- substitute(paste(epsilon ["lab"] , " = ", epsilon_l, " \u00B1 ", "0.4" ,"\u2030"),
+label3 <- substitute(paste(epsilon ["lab"] , " = ", epsilon_l, " \u00B1 ", "0.47" ,"\u2030"),
                      list(epsilon_l = signif(epsilon_lab, 3)))
 # adding label via ggdraw, in the ggdraw coordinates
 
@@ -824,10 +786,10 @@ label3 <- substitute(paste(epsilon ["lab"] , " = ", epsilon_l, " \u00B1 ", "0.4"
 wsALL <- ggdraw() +
   draw_plot(wsALL_lab_noLeg, x=0, y = 0.15, width = 1, height = 0.82) + # bottom
   draw_plot(wsALL_field_noLeg, x=0, y=.15, width = 0.945, height = .82) + # top
-  draw_label(label2, x= .88, y = .10, size = 15) +
-  draw_label(label3, x= .88, y = .05, size = 15) +
-  draw_label(labely1 , x= .90, y = .98, size = 14) +
-  draw_label(labely2 , x= .95, y = .98, size = 14) +
+  draw_label(label2, x= .886, y = .10, size = 15) + # Epsilon field (bottom)
+  draw_label(label3, x= .89, y = .05, size = 15) + # Epsilon lab (bottom)
+  draw_label(labely1 , x= .90, y = .98, size = 14) + # Epsilon field (top)
+  draw_label(labely2 , x= .95, y = .98, size = 14) + # Epsilon lab (top)
   draw_plot(wsAll_field_Leg, x=0.2, y=0.0, width = 0.50, height = 0.15)
  
 wsALL 
@@ -835,7 +797,7 @@ wsALL
 # ggsave(wsALL, filename = "images/WaterSoilvsTime.png", width = 8, height = 5, units = "in", scale = 1)
 
 SAVE = F
-PC = F
+PC = T
 if (SAVE){
   if (PC) {
     # cairo and ggdraw having issues.. works fine on MAC though
@@ -859,10 +821,10 @@ if (SAVE){
 ## Encodings
 
 ```{r}
-pdf('test.pdf',encoding="MacRoman")
-plot.new()
-text(0,labels="\u2030")
-dev.off()
+#pdf('test.pdf',encoding="MacRoman")
+#plot.new()
+#text(0,labels="\u2030")
+#dev.off()
 
 ```
 
@@ -1132,9 +1094,9 @@ ggplot(data = loads , aes(x=Events, y=value, fill = variable))+
         )
   # geom_bar(stat = "identity", position = position_dodge())
 
-WaterSoils$DIE <- WaterSoils$maxQ*WaterSoils$Volume.m3/WaterSoils$Duration.Hrs
+# WaterSoils$DIE <- WaterSoils$maxQ*WaterSoils$Volume.m3/WaterSoils$Duration.Hrs
 
-keepCor <- c("maxQ", "Duration.Hrs", "AveDischarge.m3.h", "Volume.m3", "DIE",
+keepCor <- c("maxQ", "Duration.Hrs", "AveDischarge.m3.h", "Volume.m3", # "DIE",
             "DissOXA.g", "DissESA.g", "DissSmeto.g", "FiltSmeto.g" #,
             #"NH4.mM", "TIC.ppm.filt", "Cl.mM", "NO3..mM", "PO4..mM", "NPOC.ppm", 
             #"TIC.ppm.unfilt", "TOC.ppm.unfilt"

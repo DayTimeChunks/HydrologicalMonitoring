@@ -64,29 +64,7 @@ getwd()
 ## Lab and reference values
 
 ```{r}
-# Pure and cuve isotope average
-d13Co = -32.25
-
-# Lab enrichment:
-# epsilon = -1.61
-
-# Lab enrichment:
-# Alteck
-#epsilon_max = -1.5 # +/- 0.3 (@ 20C, 20% vwc)
-#epsilon_min = -2.0 # +/- 0.2 (@ 20C, 40% vwc)
-#epsilon_mean = -1.75
-
-# Ehssan values:
-epsilon_max = -1.8 
-epsilon_min = -2.6 
-epsilon_mean = -2.2 # ± 0.4
-
-# Field values, after dilution correction (Van Breukelen 2008):
-# Calculated in Book 9.1
-epsilonField_max = -1.7 + 0.33 
-epsilonField_min = -1.7 - 0.33  
-epsilonField_mean = -1.7 # ± 0.33
-
+source("global.R")
 ```
 
 

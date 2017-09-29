@@ -48,9 +48,8 @@ library("cluster")
 # Lab parameters
 
 ```{r}
-# Initial signature measured in tank
-initialDelta = d13Co = -32.253
 
+source("global.R")
 # Define initial concentration (for Raleigh plots)
 #Co <- 8 # ug/g dry soil (based on Corn applications)
 # Co <- 6.53 # ug/g dry soil (based on Max conc. measured in soils)
@@ -60,21 +59,6 @@ initialDelta = d13Co = -32.253
 # rho2 = 2.20*10^6 # soil density [g/m3] (assume for May & June)
 # depth = 0.01 # [m]
 
-# Reference values
-# Ehssan values:
-epsilon_mean= -2.2 # ± 0.4
-dE <- 0.4
-epsilon_max = epsilon_mean + dE 
-epsilon_min = epsilon_mean - dE
-
-
-epsilon_lab = epsilon_mean
-
-# Calculated in this Book from Bulk signatures and bulk concentrations
-epsilonField_max = -1.3 + 0.24 
-epsilonField_min = -1.3 - 0.24  
-epsilonField_mean = -1.3 # ± 0.24
-epsilon_field = epsilonField_mean
 ```
 
 # Soils
@@ -233,27 +217,118 @@ soils$DD.T <-  soils$comp.d13C.Talweg - d13Co
 soils$DD.S <-  soils$comp.d13C.South - d13Co
 soils$DD.Bulk <- soils$BulkCatch.d13 - d13Co
 
-soils$Belsner.N <- (1- ((1000 + d13Co + soils$DD.N)/(1000+ d13Co))^(1000/epsilon_lab) )*100
-soils$Berr.Stat.N <- (1/-epsilon_lab)*
-  (100-soils$Belsner.N)*( (log(1-soils$Belsner.N/100))^2 * dE^2 + (soils$comp.d13C.SD.North)^2 + (.5)^2 )^(1/2)
+# From extraction methods (Charline's article):
+# For soils at 20% and 40% water content, could have reached up to: 0.765 
 
-soils$Belsner.T <- (1- ((1000 + d13Co + soils$DD.T)/(1000+ d13Co))^(1000/epsilon_lab) )*100
-soils$Berr.Stat.T <- (1/-epsilon_lab)*
-  (100-soils$Belsner.T)*( (log(1-soils$Belsner.T/100))^2 * dE^2 + (soils$comp.d13C.SD.Talweg)^2 + (.5)^2 )^(1/2)
-
-soils$Belsner.S <- (1- ((1000 + d13Co + soils$DD.S)/(1000+ d13Co))^(1000/epsilon_lab) )*100
-soils$Berr.Stat.S <- (1/-epsilon_lab)*
-  (100-soils$Belsner.S)*( (log(1-soils$Belsner.S/100))^2 * dE^2 + (soils$comp.d13C.SD.South)^2 + (.5)^2 )^(1/2)
+DeltaX <- 0.765 # From extraction method, instead of individual sample SD?
+Deltadelta0 <- 0.43 #
 
 soils$Belsner.Bulk <- (1- ((1000 + d13Co + soils$DD.Bulk)/(1000+ d13Co))^(1000/epsilon_lab) )*100
+soils$Belsner.N <- (1- ((1000 + d13Co + soils$DD.N)/(1000+ d13Co))^(1000/epsilon_lab) )*100
+soils$Belsner.T <- (1- ((1000 + d13Co + soils$DD.T)/(1000+ d13Co))^(1000/epsilon_lab) )*100
+soils$Belsner.S <- (1- ((1000 + d13Co + soils$DD.S)/(1000+ d13Co))^(1000/epsilon_lab) )*100
+
+
+# Statistical error
+soils$Berr.Stat.Bulk <- (1/-epsilon_lab)*
+  (100-soils$Belsner.Bulk)*( (log(1-soils$Belsner.Bulk/100))^2 
+                          * dE^2 + (soils$BulkCatch.d13.SD)^2 + (Deltadelta0)^2 )^(1/2)
+
+soils$Berr.Stat.N <- (1/-epsilon_lab)*
+  (100-soils$Belsner.N)*( (log(1-soils$Belsner.N/100))^2 
+                          * dE^2 + (soils$comp.d13C.SD.North)^2 + (Deltadelta0)^2 )^(1/2)
+
+soils$Berr.Stat.T <- (1/-epsilon_lab)*
+  (100-soils$Belsner.T)*( (log(1-soils$Belsner.T/100))^2 
+                          * dE^2 + (soils$comp.d13C.SD.Talweg)^2 + (Deltadelta0)^2 )^(1/2)
+
+soils$Berr.Stat.S <- (1/-epsilon_lab)*
+  (100-soils$Belsner.S)*( (log(1-soils$Belsner.S/100))^2 
+                          * dE^2 + (soils$comp.d13C.SD.South)^2 + (Deltadelta0)^2 )^(1/2)
+
+
+
+```
+
+## April error estimation
+
+```{r}
+# names(soils)
+subset(soils[, c( "Date.ti", 
+                  "Berr.Stat.Bulk", 
+                  "Berr.Stat.N", "Berr.Stat.T", "Berr.Stat.S", "Belsner.Bulk")], 
+              (Date.ti >= as.POSIXct("2016-04-18 20:30:00", tz = "EST") 
+                 & Date.ti < as.POSIXct("2016-05-01 00:00:00", tz = "EST"))
+              )
+```
+
+## June error estimation
+
+```{r}
+# names(soils)
+subset(soils[, c( "Date.ti", 
+                  "Berr.Stat.Bulk", 
+                  "Berr.Stat.N", "Berr.Stat.T", "Berr.Stat.S", "Belsner.Bulk")], 
+              (Date.ti >= as.POSIXct("2016-06-01 00:56:00", tz = "EST") 
+                 & Date.ti <= as.POSIXct("2016-06-28 14:52:00", tz = "EST"))
+              )
 ```
 
 
-Calculating errors from systematic variation in input parameters, in this case $\epsilon_{lab}$:
+
+
+# Systematic variation in input parameters, i.e., $\epsilon_{lab}$ vs  $\epsilon_{field}$:
 
 ```{r}
 soils$Belsner.BulkField <- (1- ((1000 + d13Co + soils$DD.Bulk)/(1000+ d13Co))^(1000/epsilon_field) )*100
 soils$Bdiff.LabField <- soils$Belsner.BulkField - soils$Belsner.Bulk
+```
+
+
+## April epsilon error ranges
+
+```{r}
+
+#View(
+  subset(soils[, c( "Date.ti", 
+                    "DD.Bulk", 
+                  "Belsner.Bulk",
+                  "Belsner.BulkField",
+                  "Bdiff.LabField",
+                  "Berr.Stat.Bulk", 
+                  "Berr.Stat.N", "Berr.Stat.T", "Berr.Stat.S", "Belsner.Bulk")], 
+              (Date.ti >= as.POSIXct("2016-04-18 20:30:00", tz = "EST") 
+                 & Date.ti < as.POSIXct("2016-05-01 00:00:00", tz = "EST"))
+              )
+#)
+
+#View(
+#  subset(soils[, c( "Date.ti", 
+#                    "DD.Bulk", 
+#                  "Belsner.Bulk",
+#                  "Belsner.BulkField",
+#                  "Bdiff.LabField",
+#                  "Berr.Stat.Bulk", 
+#                  "Berr.Stat.N", "Berr.Stat.T", "Berr.Stat.S", "Belsner.Bulk")]
+#              )
+#)
+```
+
+## June epsilon error ranges
+
+```{r}
+#View(
+  subset(soils[, c( "Date.ti", 
+                    "DD.Bulk", 
+                  "Belsner.Bulk",
+                  "Belsner.BulkField",
+                  "Bdiff.LabField",
+                  "Berr.Stat.Bulk", 
+                  "Berr.Stat.N", "Berr.Stat.T", "Berr.Stat.S", "Belsner.Bulk")], 
+              (Date.ti >= as.POSIXct("2016-06-07 12:00:00", tz = "EST") 
+                 & Date.ti <= as.POSIXct("2016-06-14 13:06:00", tz = "EST"))
+              )
+#)
 ```
 
 
@@ -353,12 +428,26 @@ soils$Mloss.g.T <- soils$CumAppMass.g.T.OT - (soils$Mdeg.g.T + soils$Mrem.g.T)
 soils$Mloss.g.S <- soils$CumAppMass.g.S.OT - (soils$Mdeg.g.S + soils$Mrem.g.S)
 soils$Mloss.g <- soils$CumAppMass.g.OT - (soils$Mdeg.g + soils$Mrem.g) 
 
-length(soils)
-names(soils)
+#length(soils)
+#names(soils)
 #View(soils[, c(1, 17:20, 5:8,  12,21,26,31, 15,24,29, 96:ncol(soils)) ])
 
+
+
+
+```
+
+## Mass Losses
+
+```{r}
 library(reshape2)
-s <- soils[, c(1, 12,21,26, 96:ncol(soils)) ]
+# names(soils)
+s <- soils[, c(1, 5, 12,21,26, 96:ncol(soils)) ]
+
+# Critial source areas = North and Talweg ares
+s$MlossCSA = (s$Mloss.g.N + s$Mloss.g.T)
+s$MlossCSA.prct = ((s$Mloss.g.N + s$Mloss.g.T) / s$Mloss.g)*100
+
 moltenSoil <- melt(s, id = "Date.ti")
 
 # Mass Losses
@@ -375,8 +464,29 @@ ggplot(data = s , aes(x=Date.ti))+
   scale_x_datetime(breaks = date_breaks("1 weeks"), labels = date_format("%b %d")) 
 
 # cor.test(soils$Mloss.g.N, soils$Mloss.g.T)
-
 ```
+
+## Critical Source Area - Losses
+
+### April
+
+```{r}
+subset(s[, c( "Date.ti", "CumAppMass.g.OT",
+                  "MlossCSA", "MlossCSA.prct")], (Date.ti >= as.POSIXct("2016-04-18 20:30:00", tz = "EST") 
+                 & Date.ti < as.POSIXct("2016-05-01 00:00:00", tz = "EST"))
+              )
+```
+
+### June
+
+```{r}
+subset(s[, c( "Date.ti", "CumAppMass.g.OT",
+                  "MlossCSA", "MlossCSA.prct")], 
+              (Date.ti >= as.POSIXct("2016-06-01 00:56:00", tz = "EST") 
+                 & Date.ti <= as.POSIXct("2016-06-28 14:52:00", tz = "EST"))
+              )
+```
+
 
 ### Summary absolute percent mass loss
 
@@ -389,6 +499,7 @@ soilsApril <- subset(soils, (Date.ti >= as.POSIXct("2016-04-18 20:30:00", tz = "
 
 soilsJune <- subset(soils, (Date.ti >= as.POSIXct("2016-06-01 00:56:00", tz = "EST") 
                  & Date.ti <= as.POSIXct("2016-06-28 14:52:00", tz = "EST")) )
+
 
 library(dplyr)
 sa <- soilsApril %>% 
@@ -451,9 +562,50 @@ soils$PrctLoss.N <- 100 - (soils$PrctRem.N + soils$PrctDeg.N)
 soils$PrctLoss.T <- 100 - (soils$PrctRem.T + soils$PrctDeg.T)
 soils$PrctLoss.S <- 100 - (soils$PrctRem.S + soils$PrctDeg.S)
 
+names(soils)
+```
+
+### April \% Remaining
+
+```{r}
+subset(soils[, c( "Date.ti", 
+                  "PrctRem.N", "PrctDeg.N", "PrctLoss.N", 
+                  "PrctRem.T", "PrctDeg.T", "PrctLoss.T",
+                  "PrctRem.S", "PrctDeg.S", "PrctLoss.S")], (Date.ti >= as.POSIXct("2016-04-18 20:30:00", tz = "EST") 
+                 & Date.ti < as.POSIXct("2016-05-01 00:00:00", tz = "EST"))
+              )
+      
+```
+
+
+### June \% Remaining
+ 
+```{r}
+subset(soils[, c( "Date.ti", 
+                  "PrctRem.N", "PrctDeg.N", "PrctLoss.N", 
+                  "PrctRem.T", "PrctDeg.T", "PrctLoss.T",
+                  "PrctRem.S", "PrctDeg.S", "PrctLoss.S")], 
+              (Date.ti >= as.POSIXct("2016-06-01 00:56:00", tz = "EST") 
+                 & Date.ti <= as.POSIXct("2016-06-28 14:52:00", tz = "EST"))
+              )
+      
+```
+
+## Critical Source Area contribution
+
+$$ M_{appl} $$
+
+```{r}
+
+```
+
+
+## Differences in degradation extent, $\epsilon_{lab}$ \textit{vs.} $\epsilon_{field}$ 
+
+```{r}
 # soils$RemPlusDeg <- soils$PrctRem + soils$PrctDeg
   
-names(soils)
+# names(soils)
 dropS <- c("Area.Catch", "Area.N", "Area.T", "Area.S", 
             "WeekSubWeek", 
            # Isotopes Soils
@@ -496,8 +648,9 @@ mean(soilsRay$Berr.Stat.Bulk[12:13])
 
 mean(soils$Berr.Stat.Field, na.rm = T)
 
-names(soilsRay)
+# names(soilsRay)
 ```
+
 
 
 Calculating a field enrichment after correcting for via breakdown factor ($B^*$),
@@ -564,7 +717,7 @@ if (FALSE){
 In contrast, in top soils, a slightly negative but not significant relationship between extent of dilution and degradation was found. This is to be expected as concentration in tops soils are lower than in aquifer systems for legacy contaminants. At lower concentrations, lack of sufficient substrate may be associated to lower bacterial communities capable of degradation. 
 
 
-# Waters
+# Waters (under draft, test only)
 
 Conversion of initial concentration in soils to pore water, assuming all S-met mass is available, may lead to an Fdil_w. 
 

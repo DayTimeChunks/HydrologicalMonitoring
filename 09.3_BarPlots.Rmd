@@ -50,20 +50,10 @@ SAVE = F
 ```
 
 
-
 # Lab parameters
 
 ```{r}
-# Initial signature measured in tank
-d13Co = -32.253
-
-# Reference values
-# Ehssan values:
-epsilon_lab = -2.2 # ± 0.4
-dE <- 0.4
-epsilon_max = epsilon_lab + dE 
-epsilon_min = epsilon_lab - dE
-
+source("global.R")
 ```
 
 # Import Soils & Waters
@@ -544,7 +534,8 @@ balAllplot
 #ggsave(balAllplot, filename = "images/MB_CSIA_Bars.png", width = 8, height = 5, units = "in", scale = 1)
 
 
-
+SAVE = F
+PC = T
 if (SAVE){
   if (PC){
       ggsave(balAllplot, 
