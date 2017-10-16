@@ -354,7 +354,8 @@ ajTidy$Sink <- factor(ajTidy$Sink, levels = c("Bs" , "fs" , "Unk", "Rem",
                                               "Bw", "TPout" , "fw" , "SMout",
                                               "degTheo", "remainTheo"))
 
- 
+
+write.csv2(ajTidy, "Data/BarPlotData_R.csv", row.names = F) 
 ```
 
 ## Plot Soils
@@ -391,6 +392,8 @@ SoilBars <- ggplot(data = subset(ajTidy,
 SoilBars
 
 ajTidy$CI95 <- signif(ajTidy$measure - ajTidy$SD1, 2)
+
+# ggsave(SoilBars, filename = "images/SoilBars.png") 
 ```
 
 ## Plot Waters
@@ -434,8 +437,9 @@ OutBars <- ggplot(data = subset(ajTidy,
                                  )) +
   guides(fill=guide_legend(ncol=3))
 
-OutBars
 
+OutBars
+# ggsave(OutBars, filename = "images/OutBars.png") 
 ```
 
 ## Theoretical
@@ -477,6 +481,7 @@ theoBars <- ggplot(data = subset(ajTidy, type == 'Predicted') ,
 #display.pal(pal, sel=1:length(pal), names=F)
 
 theoBars
+# ggsave(theoBars, filename = "images/TheoBars.png") 
 ```
 
 ## Merge both Outlet and Soils - BARS

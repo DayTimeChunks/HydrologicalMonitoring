@@ -22,11 +22,105 @@ library("scales")
 source("global.R")
 ```
 
+## Extraction error correlation - Alteck Soils
+```{r}
+c = c(5, 10, 20, 35, 50, 5, 10, 20, 35, 50)
+sh = c(0.993, 1.000, -0.179, 1.184, 0.810, 0.732, 0.566, 0.831, 1.008, 0.704)
+
+cor.test(c, sh)
+```
+## Difference between error means - Water
+
+Two tailed, if P < 0.05, we reject the null hypothesis that u1 = u2.
+
+Results show that we cannot reject $H_o$ (i.e., that means are equal, thus no sig. difference exists between means and the two populations distributions do not differ.
+```{r}
+mQ = c(-0.118, -0.497, -0.203, -0.432, 1.062, -0.114)
+mean(mQ)
+
+envW = c(1.218, 0.966, 0.422, -0.131)
+mean(c(envW, mQ))
+
+# If P < 0.05, reject the null hypothesis that u1 = u2.
+wilcox.test(mQ, envW, paired = F)
+
+```
+## Difference between error means - Soils
+
+### Paddy vs Rouff
+
+```{r}
+paddy = c(-1.468, 0.572, -0.033, 0.378, -0.297, -0.918, 1.500, -1.047, 0.052, -0.186)
+rouff = c(1.620, 1.520, 1.773, 1.534, 1.217, 0.021, 1.361, 1.170, 1.328, 1.194)
+
+# If P < 0.05, reject the null hypothesis that u1 = u2.
+wilcox.test(paddy, rouff, paired = T)
+```
+
+Result: Paddy and Rouff are significantly different.
+
+
+### Paddy vs Alteck
+```{r}
+alteck = c(0.993, 1.000, -0.179, 1.184, 0.810, 0.732, 0.566, 0.831, 1.008, 0.704)
+mean(alteck)
+# If P < 0.05, reject the null hypothesis that u1 = u2.
+wilcox.test(paddy, alteck, paired = T)
+```
+
+Result: Paddy and Alteck are significantly different.
+
+### Rouff vs Alteck
+```{r}
+wilcox.test(rouff, alteck, paired = T)
+```
+
+Result: Rouffach and Alteck are significantly different.
 
 ```{r}
 # Import raw data
 enrich = read.csv2('Data/EnrichmentExp.csv', sep = ";", dec = ".", header = T) 
 bio = subset(enrich, Type==as.character("Biotic") & Temp == 20)
+
+bio$DD13 <- bio$Delta - delta_ini
+cor.test(bio$Delta , bio$C.SM)
+
+pearson_r <- cor.test(bio$Delta , bio$C.SM)[4]
+r_label <- sprintf("Pearson~r == %0.2f", pearson_r)
+p_value <- cor.test(bio$Delta, bio$C.SM)[3]
+
+if (p_value < 0.0001){
+  p_label <- "(P < 0.001)"
+} else if (p_value < 0.001) {
+  p_label <- "(P < 0.001)"
+} else if (p_value < 0.015) {
+  p_label <- ("P < 0.01")
+} else {
+  p_label <- "Check significance"
+}
+
+b = ggplot(data = bio, aes(x=C.SM, y=DD13))+
+  geom_errorbar(aes(ymin = DD13 - SD, ymax = DD13 + SD)) +
+  geom_point(aes(group = Theta, size = Days)) +
+  
+  # geom_errorbarh(aes(xmin = Conc.mug.g.dry.soil - Conc.ComSoil.SD, xmax = Conc.mug.g.dry.soil + Conc.ComSoil.SD)) +
+  stat_smooth(data = bio, 
+              aes(x=C.SM, y=DD13), method = "lm", formula = y ~ x, se=F) +
+  scale_size_continuous(range = c(1, 5), breaks= c(1, 10, 50, 100, 200), limits = c(1, 200)) + 
+  scale_y_continuous(breaks=c(0, 1, 2, 3 , 4 ,5, 6, 7 , 8) ) + 
+  # geom_point(aes(group = ID, size = timeSinceApp.NoSo)) + # , colour = Source)) +  # , shape = ngC.Label)) +
+  theme_minimal() +
+  theme(legend.position = "top" ,
+        text = element_text(size=23)
+        ) +
+  labs(size="   Days after spiking") + #, shape = "Mass Carbon") +
+  ylab(expression(paste({Delta~delta}^"13","C", ' (\u2030)'))) +
+  xlab(expression(paste("S-met Soil Concentration  ", {({mu}*g / g~dry~wt.)}))) +
+  annotate("text", x = 2.0, y = 4.7, label = as.character(r_label), 
+           size = 5,
+           parse = T) + 
+  annotate("text", x = 2.0, y = 4.0, label = p_label, parse = T, size = 5) +
+  annotate("rect", xmin=0, xmax=3.5, ymin=-0.9, ymax=0.9, alpha=0.2)
 ```
 
 # Rayleigh (20 \textdegree C, $\theta$: 20 \& 40)
@@ -61,7 +155,6 @@ summary(expModel)
 
 ```{r}
 bio = subset(enrich, Type==as.character("Biotic") & Temp == 20 & Theta == 20)
-
 bio$DD13 <- bio$Delta - delta_ini
 bio$yRaleigh <- log((1000+delta_ini+bio$DD13)/(1000+delta_ini))
 bio$xRaleigh <- log(bio$C.SM/c_ini)
@@ -122,12 +215,52 @@ summary(expModel)
 ## Abiotic data
 
 ### Abiotic - Rayleigh (20 \textdegree C, $\theta$: 20 \& 40)
-```{r}
-# Import raw data
 
+```{r}
 abiotic = subset(enrich, Type==as.character("Abiotic") & Temp == 20)
 
 abiotic$DD13 <- abiotic$Delta - delta_ini
+pearson_r <- cor.test(abiotic$Delta , abiotic$C.SM)[4]
+r_label <- sprintf("Pearson~r == %0.2f", pearson_r)
+p_value <- cor.test(abiotic$Delta, abiotic$C.SM)[3]
+
+if (p_value < 0.0001){
+  p_label <- "(P < 0.001)"
+} else if (p_value < 0.001) {
+  p_label <- "(P < 0.001)"
+} else if (p_value < 0.015) {
+  p_label <- ("P < 0.01")
+} else {
+  p_label <-  sprintf("P == %0.2f", p_value)
+}
+
+ab = ggplot(data = abiotic, aes(x=C.SM, y=DD13))+
+  geom_errorbar(aes(ymin = DD13 - SD, ymax = DD13 + SD)) +
+  geom_point(aes(group = Theta, size = Days)) +
+  
+  # geom_errorbarh(aes(xmin = Conc.mug.g.dry.soil - Conc.ComSoil.SD, xmax = Conc.mug.g.dry.soil + Conc.ComSoil.SD)) +
+  stat_smooth(data = abiotic, 
+              aes(x=C.SM, y=DD13), method = "lm", formula = y ~ x, se=F) +
+  scale_size_continuous(range = c(1, 5), breaks= c(1, 10, 50, 100, 200), limits = c(1, 200)) + 
+  scale_y_continuous(breaks=c(0, 1, 2, 3 , 4 ,5, 6, 7 , 8) ,  limits = c(-0.9, 8)) + 
+  # geom_point(aes(group = ID, size = timeSinceApp.NoSo)) + # , colour = Source)) +  # , shape = ngC.Label)) +
+  theme_minimal() +
+  theme(legend.position = "top" ,
+        text = element_text(size=23)
+        ) +
+  labs(size="   Days after spiking") + #, shape = "Mass Carbon") +
+  ylab(expression(paste({Delta~delta}^"13","C", ' (\u2030)'))) +
+  xlab(expression(paste("S-met Soil Concentration  ", {({mu}*g / g~dry~wt.)}))) +
+  annotate("text", x = 3.0, y = 4.7, label = as.character(r_label), 
+           size = 5,
+           parse = T) + 
+  annotate("text", x = 3.0, y = 4.0, label = p_label, parse = T, size = 5) +
+  annotate("rect", xmin=0, xmax=max(abiotic$C.SM), ymin=-0.9, ymax=0.9, alpha=0.2)
+```
+
+
+```{r}
+# Import raw data
 abiotic$yRaleigh <- log((1000+delta_ini+abiotic$DD13)/(1000+delta_ini))
 abiotic$xRaleigh <- log(abiotic$C.SM/c_ini)
 expModel<-lm(yRaleigh~xRaleigh, data= abiotic) 

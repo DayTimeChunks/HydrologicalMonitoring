@@ -205,6 +205,9 @@ km$cluster
 
 sum(km$cluster == 3)/length(km$cluster)
 
+
+citation(package = "stats")
+citation(package = "vegan")
 ```
 
 

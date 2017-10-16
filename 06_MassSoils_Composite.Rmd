@@ -161,7 +161,10 @@ if (length(weeklySoilIso) == 1){
 colnames(weeklySoilIso)
 weeklySoilIso$ID <- NULL
 weeklySoilIso <- weeklySoilIso[complete.cases(weeklySoilIso[, "d.13C.12C"]), ]
-weeklySoilIso$DD13 <- weeklySoilIso$d.13C.12C - -32.253
+
+# Correct for soil shift
+weeklySoilIso$d.13C.12C = round( (weeklySoilIso$d.13C.12C - meanshift), 1) 
+weeklySoilIso$DD13 <- weeklySoilIso$d.13C.12C - initialDelta
 colnames(weeklySoilIso)[colnames(weeklySoilIso) == "Filename"] <- "ID"
 
 weeklySoilIso <- weeklySoilIso[, c("ID",

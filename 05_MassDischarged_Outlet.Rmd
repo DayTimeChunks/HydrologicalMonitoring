@@ -141,7 +141,9 @@ if (length(outletIso) == 1){
 str(outletIso)
 
 colnames(outletIso)
-outletIso$DD13 <- outletIso$d.13C.12C - -32.253
+# Correct for extraction shift
+outletIso$d.13C.12C = round( (outletIso$d.13C.12C - meanshift_w), 1)
+outletIso$DD13 <- outletIso$d.13C.12C - initialDelta
 
 # Filter isotope data:
 filtersIso = read.csv2("Data/MESAlteck_FilterIsotopes.csv", header = T, dec = ".")
@@ -395,7 +397,7 @@ out.CoIs$CumOutMELsm.g = cumsum(out.CoIs$MELsm.g)
 
 ```{r}
 # Hydrochemistrty
-out.CoIs = merge(out.CoIs, hydroChem, by= "WeekSubWeek", all = T)
+# out.CoIs = merge(out.CoIs, hydroChem, by= "WeekSubWeek", all = F)
 ```
 
 

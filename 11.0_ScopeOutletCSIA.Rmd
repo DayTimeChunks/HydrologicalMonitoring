@@ -219,7 +219,7 @@ g = ggplot(data= df.tidy)+
                              VialSize == "uL30C")), 
             aes(x = Vsmp, y = C.smp, group = VialSize, colour = VialSize) ) +
   geom_point(data=subset(df.tidy, VialSize == "Field" & !is.na(CSIA)), 
-             colour = "blue", alpha = 0.5,
+             colour = "blue", alpha = 0.5, size = size,
              aes(x = Vsmp, y = C.smp, 
                  group = VialSize,  shape = CSIA #, 
                  #size = AveDischarge.m3.h
@@ -257,7 +257,7 @@ g = ggplot(data= df.tidy)+
                      ) + 
   xlab(expression(paste( "Volume ", "(L)"))) +
   ylab(expression(paste("Outlet S-met Conc.  ", {({mu}*g / L)}))) +
-  annotate("rect", xmin=3.9, xmax=4, ymin=0, ymax=30, alpha=0.2) +
+  annotate("rect", xmin=3.9, xmax=4, ymin=0, ymax=30, alpha=1) +
   geom_segment(aes(x = 5, y = 0.005, xend = 4.1, yend = 0.005),
                    arrow = arrow(length = unit(1/2, 'picas'), type = "closed")) +
   annotate("text", 
@@ -290,7 +290,7 @@ g = ggplot(data= df.tidy)+
   
 # g
 
-SAVE = T
+SAVE = F
 PC = T
 if (SAVE){
   if (PC){
@@ -301,7 +301,7 @@ if (SAVE){
 
   }
 }
-# ggsave(g, filename = "images/CSIAScope.png" )# , width = 12, height = 8, units = "cm", scale = 1)
+# ggsave(g, filename = "images/CSIAScope.png"  , width = 12, height = 8 )#, units = "cm", scale = 1)
 # dfout.C$check500 = ifelse(dfout.C$uL500.Vsmp >= dfout.C$Field.Vsmp, 1, 0)
 ```
 
