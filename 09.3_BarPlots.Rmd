@@ -92,9 +92,9 @@ sw <- sw[, (names(sw) %in% keepMB)]
 ```{r}
 
 # Half-life calculations (days)
-median_half <- 29 
-max_half <- 12
-min_half <- 46
+median_half <- 21 
+max_half <- 7.6
+min_half <- 37.6
 
 sw$No_First <- ifelse(sw$Appl.Mass.g.OT == 0, NA, sw$Appl.Mass.g.OT)
 sw$No_Second <- sw$No_First

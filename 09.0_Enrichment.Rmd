@@ -53,6 +53,8 @@ wilcox.test(mQ, envW, paired = F)
 paddy = c(-1.468, 0.572, -0.033, 0.378, -0.297, -0.918, 1.500, -1.047, 0.052, -0.186)
 rouff = c(1.620, 1.520, 1.773, 1.534, 1.217, 0.021, 1.361, 1.170, 1.328, 1.194)
 
+mean(paddy)
+sd(paddy)
 # If P < 0.05, reject the null hypothesis that u1 = u2.
 wilcox.test(paddy, rouff, paired = T)
 ```
