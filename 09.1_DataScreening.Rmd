@@ -181,10 +181,10 @@ soilGrApp.S <- soilGrApp.S[ , !(names(soilGrApp.S) %in% dropAppDates)]
 soilGrApp <- rbind(soilGrApp.N, soilGrApp.T)
 soilGrApp <- rbind(soilGrApp, soilGrApp.S)
 
-
+# comp.d13C.SD, replaced by: prop.d13C.SD
 
 p <- ggplot(data = soilGrApp, aes(x=Conc.mug.g.dry.soil, y=DD13C.comp))+
-  geom_errorbar(aes(ymin = DD13C.comp - comp.d13C.SD, ymax = DD13C.comp + comp.d13C.SD)) +
+  geom_errorbar(aes(ymin = DD13C.comp - prop.d13C.SD, ymax = DD13C.comp + prop.d13C.SD)) +
   geom_errorbarh(aes(xmin = Conc.mug.g.dry.soil - Conc.ComSoil.SD, xmax = Conc.mug.g.dry.soil + Conc.ComSoil.SD)) +
   stat_smooth(data = subset(soilGrApp, Conc.mug.g.dry.soil < 8), 
               aes(x=Conc.mug.g.dry.soil, y=DD13C.comp), method = "lm", formula = y ~ poly(x, 2), se=F) +
@@ -235,15 +235,21 @@ p
 # 
 # ggsave(p, filename = "images/DDvsConc_soils_2.pdf", device = "pdf", dpi = 300,  scale = 2)
 
+
+# Note: SD are error propagated: prop.d13C.SD
 SAVE = F
-PC = T
+PC = F
 if (SAVE){
   if (PC){
     ggsave(p, 
        filename = "D:/Documents/these_pablo/WriteUp/Alteck_PNAS_LaTeX/images/DDvsConc_soils.pdf", 
        device = "pdf", dpi = 600,  scale = 1, # )# ,
        width = 8.7, height = 6)
-
+  } else {
+    ggsave(p, 
+     filename = "/Users/DayTightChunks/Documents/PhD/Writeups/PNAS/Alteck_PNAS_LaTeX/images/DDvsConc_soils.pdf", 
+      device=cairo_pdf, dpi = 600,  scale = 1, # )# ,
+       width = 8.7, height = 6)
   }
 }
 
@@ -254,7 +260,7 @@ if (SAVE){
 
 ```{r, echo = FALSE}
 pPNG <- ggplot(data = soilGrApp, aes(x=Conc.mug.g.dry.soil, y=DD13C.comp))+
-  geom_errorbar(aes(ymin = DD13C.comp - comp.d13C.SD, ymax = DD13C.comp + comp.d13C.SD)) +
+  geom_errorbar(aes(ymin = DD13C.comp - prop.d13C.SD, ymax = DD13C.comp + prop.d13C.SD)) +
   geom_errorbarh(aes(xmin = Conc.mug.g.dry.soil - Conc.ComSoil.SD, xmax = Conc.mug.g.dry.soil + Conc.ComSoil.SD)) +
   stat_smooth(data = subset(soilGrApp, Conc.mug.g.dry.soil < 8), 
               aes(x=Conc.mug.g.dry.soil, y=DD13C.comp), method = "lm", formula = y ~ poly(x, 2), se=F) +
@@ -628,6 +634,9 @@ wstidier$Location <- as.factor(wstidier$Location)
 # Dissolved has been selected, but not soils or filters
 wstidier2 = subset(wstidier, SD <= 0.54 & Date <= as.POSIXct('2016-06-24 14:52:00', tz = "EST"))  
 
+# Propagating error
+wstidier2$SD = round((wstidier2$SD^2 + initialDeltaError^2)^(1/2), 1)
+
 write.csv2(wstidier2, "Data/OutletSoilsPlot_R.csv", row.names = F)
 
 mindate = min(wstidier2$Date)
@@ -669,17 +678,18 @@ wsALL_lab <- ggplot(data = wstidier2, aes(x = Date, y = measure, group = Source)
   #            method = "lm", formula = y ~ poly(x, 2), se = T, aes(colour = 'South'), alpha = 0.2, size=0.2) +
   theme_bw() + 
   
-  scale_x_datetime(breaks = date_breaks("1 month"), labels = date_format("%b %d")) +
+  scale_x_datetime(breaks = date_breaks("3 months"), labels = date_format("%b %d")) +
   #scale_x_datetime(breaks = date_breaks("2 weeks"), labels = date_format("%b %d")) +
   theme(text = element_text(size=17),
         legend.position="top"
-        # axis.title.x = element_blank(),
+        #axis.title.x = element_blank()
         # axis.text.x=element_text(angle = 45, hjust = 1)
         ) +
   # geom_smooth(data=subset(ws, Source != "Outlet"), method = "lm", formula = y ~ poly(x, 2)) +
   xlab("Date") + 
   #ylab(expression(paste({Delta~delta}^"13","C", ' (\u2030)'))) +
   scale_y_continuous(
+    breaks=c(0, 1, 2, 3 , 4 ,5), 
     expression(paste({Delta~delta}^"13","C", ' (\u2030)')),
     sec.axis = sec_axis(trans = ~ (1-((1000 + d13Co + .)/(1000+d13Co))^(1000/epsilon_lab))*100 , 
                         name = "Degradation (%)", 
@@ -787,6 +797,7 @@ wsALL_field <- ggplot(data = wstidier2, aes(x = Date, y = measure, group = Sourc
   xlab("Date") + 
   #ylab(expression(paste({Delta~delta}^"13","C", ' (\u2030)'))) +
   scale_y_continuous(
+    breaks=c(0, 1, 2, 3 , 4 ,5), 
     expression(paste({Delta~delta}^"13","C", ' (\u2030)')),
     sec.axis = sec_axis(trans = ~ (1-((1000 + d13Co + .)/(1000+d13Co))^(1000/epsilon_field))*100 , 
                         name = element_blank(),
@@ -876,7 +887,7 @@ wsALL
 # ggsave(wsALL, filename = "images/WaterSoilvsTime.png", width = 8, height = 5, units = "in", scale = 1)
 
 SAVE = F
-PC = T
+PC = F
 if (SAVE){
   if (PC) {
     # cairo and ggdraw having issues.. works fine on MAC though

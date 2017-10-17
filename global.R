@@ -7,6 +7,8 @@ rendement.waters = 1
 # Cuve SD
 initialDeltaError = 0.4
 
+initialDeltaErrorExtraction = 0.5
+
 # Mean of soil moisture conditions: 0.2 and 0.4
 alteck = c(0.993, 1.000, -0.179, 1.184, 0.810, 0.732, 0.566, 0.831, 1.008, 0.704)
 paddy = c(-1.468, 0.572, -0.033, 0.378, -0.297, -0.918, 1.500, -1.047, 0.052, -0.186)
@@ -17,9 +19,11 @@ if (round(mean(c(alteck, paddy)), 1) <= 0.5){
   meanshift = round(mean(c(alteck, paddy)), 1)
 }
 
-sd_alteckSoilShift= sd(alteck)
+# Soil methods
+round(mean(c(alteck, paddy)), 1)
+sd_SoilsShift= round( sd(c(alteck), c(paddy)), 1) 
 
-propagatedError = round((sd_alteckSoilShift^2 + initialDeltaError^2)^0.5, 1) 
+propagatedError = round((sd_SoilsShift^2 + initialDeltaErrorExtraction^2)^0.5, 1) 
 
 # Shifts extraction water
 #mQ = #  # Removed those at x150 
@@ -36,6 +40,14 @@ if (round(mean(c(envW, mQ)), 1) <= 0.5){
 meanshift_miliQ = 0
 prpagatedError_w = round((sd(c(mQ, envW))^2 + initialDeltaError^2)^0.5, 1) 
 
+# Water methods reported
+round(mean(c(mean(envW), mean(mQ) )), 1)
+
+round(mean(sd(envW), sd(mQ) ), 1)
+
+# Rac-metolachklor:
+round( mean(c(0.01, 0.3)), 1) # means
+mean(c(0.8, 0.4)) # SDs
 
 # Initial signature measured in tank
 # Pure and cuve isotope average

@@ -66,6 +66,7 @@ Result: Paddy and Rouff are significantly different.
 ```{r}
 alteck = c(0.993, 1.000, -0.179, 1.184, 0.810, 0.732, 0.566, 0.831, 1.008, 0.704)
 mean(alteck)
+
 # If P < 0.05, reject the null hypothesis that u1 = u2.
 wilcox.test(paddy, alteck, paired = T)
 ```
@@ -78,6 +79,18 @@ wilcox.test(rouff, alteck, paired = T)
 ```
 
 Result: Rouffach and Alteck are significantly different.
+
+### Propagated error 
+
+Propagated error accounts for 1 SD of initial product and 1 SD from the method
+
+```{r}
+# Computed in "global.R"
+propagatedError
+```
+
+
+## Degradation experiments and $\varepsilon_{lab}$ derivation 
 
 ```{r}
 # Import raw data

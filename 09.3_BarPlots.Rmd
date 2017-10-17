@@ -45,7 +45,7 @@ library("cluster")
 
 
 # Saving images?
-PC = T
+PC = F
 SAVE = F
 ```
 
@@ -510,11 +510,11 @@ balAllplot <- ggdraw() +
   draw_plot(TheoBars_noLeg, x=0.23, y=.55, width =  1, height = .4) +
   draw_plot(OutBars_noLeg, x=-.2, y=.05, width =  1, height = .4) +
   
-  draw_label("A", x= 0.15, y = .85, size = 12, fontface = "bold") +
+  draw_label("A", x= 0.15, y = .86, size = 12, fontface = "bold") +
   draw_label("C", x= 0.15, y = .35, size = 12, fontface = "bold") +
-  draw_label("B", x= 0.39, y = .85, size = 12, fontface = "bold") +
+  draw_label("B", x= 0.39, y = .86, size = 12, fontface = "bold") +
   draw_label("D", x= 0.39, y = .35, size = 12, fontface = "bold") +
-  draw_label("E", x= 0.67, y = .85, size = 12, fontface = "bold") +
+  draw_label("E", x= 0.67, y = .86, size = 12, fontface = "bold") +
   
   draw_plot(SoilBars_Leg, x=(0.243 + 0.05) , y = 0.35, width = 1, height = 0.1) +
   draw_plot(OutBars_Leg, x=(0.280 + 0.05), y = 0.2, width = 1, height = 0.1) +
@@ -540,7 +540,7 @@ balAllplot
 
 
 SAVE = F
-PC = T
+PC = F
 if (SAVE){
   if (PC){
       ggsave(balAllplot, 
@@ -551,7 +551,7 @@ if (SAVE){
       ggsave(balAllplot, 
          filename = "/Users/DayTightChunks/Documents/PhD/Writeups/PNAS/Alteck_PNAS_LaTeX/images/balAllplot.pdf", 
          device="pdf", dpi = 600,  scale = 1, # )# ,
-         width = 11.4, height = 5)
+         width = 7, height = 5.5)
     }
   }
 
