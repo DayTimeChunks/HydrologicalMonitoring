@@ -7,23 +7,27 @@ rendement.waters = 1
 # Cuve SD
 initialDeltaError = 0.4
 
+# Analytical
+maxAnalyticalError = 0.5
+
+# Experiment
 initialDeltaErrorExtraction = 0.5
 
 # Mean of soil moisture conditions: 0.2 and 0.4
 alteck = c(0.993, 1.000, -0.179, 1.184, 0.810, 0.732, 0.566, 0.831, 1.008, 0.704)
 paddy = c(-1.468, 0.572, -0.033, 0.378, -0.297, -0.918, 1.500, -1.047, 0.052, -0.186)
 
-if (round(mean(c(alteck, paddy)), 1) <= 0.5){
+if (round(mean(c(alteck)), 1) <= 0.5){
   meanshift = 0
 } else {
-  meanshift = round(mean(c(alteck, paddy)), 1)
+  meanshift = round(mean(c(alteck)), 1)
 }
 
 # Soil methods
-round(mean(c(alteck, paddy)), 1)
-sd_SoilsShift= round( sd(c(alteck), c(paddy)), 1) 
+round(mean(c(alteck)), 1)
+sd_SoilsShift= round( sd(c(alteck)), 1) 
 
-propagatedError = round((sd_SoilsShift^2 + initialDeltaErrorExtraction^2)^0.5, 1) 
+propagatedError = round((sd_SoilsShift^2 + maxAnalyticalError^2 + initialDeltaErrorExtraction^2 + maxAnalyticalError^2)^0.5, 1) 
 
 # Shifts extraction water
 #mQ = #  # Removed those at x150 

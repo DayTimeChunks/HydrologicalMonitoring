@@ -15,6 +15,10 @@ Sys.setlocale("LC_ALL", "English")
 
 Degradation extent is calculated based on closed and open system Rayleigh equations
 
+# Data used
+
+- **MassBalance_R.csv** (Book 07)
+
 # Packages
 
 ```{r, warning=FALSE,}
@@ -51,7 +55,7 @@ library("cluster")
 
 source("global.R")
 # Define initial concentration (for Raleigh plots)
-#Co <- 8 # ug/g dry soil (based on Corn applications)
+# Co <- 8 # ug/g dry soil (based on Corn applications)
 # Co <- 6.53 # ug/g dry soil (based on Max conc. measured in soils)
 # Note: Each transect now has individual starting concentration
 
@@ -346,7 +350,7 @@ The above allows us to calculate the breakdown (B\*) and dilution factors (D\*).
 
 Calculating B* is given by:
 
-$$B^* = \frac{log(f_{dil})}{log(f_{tot})} $$
+$$B^* = \frac{log(f_{deg})}{log(f_{tot})} $$
 
 and their relationship $D*/B*$ which relates the extent of dilution relative to degradation.
 

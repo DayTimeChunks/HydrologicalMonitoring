@@ -238,7 +238,7 @@ p
 
 # Note: SD are error propagated: prop.d13C.SD
 SAVE = F
-PC = F
+PC = T
 if (SAVE){
   if (PC){
     ggsave(p, 
@@ -501,6 +501,8 @@ Or this: https://github.com/tidyverse/ggplot2/wiki/Align-two-plots-on-a-page
 # SD min. selection line 914 (for dissolved)
 WaterSoils <- merge(waterClean, soils, by = "Date.ti", all = T)
 
+# Save for SI Graphs (book 11.2)
+write.csv2(WaterSoils, "Data/WaterSoils_R.csv", row.names = F)
 
 # Choose and rearrange variables
 # names(WaterSoils)
@@ -819,14 +821,15 @@ wsALL_field <- ggplot(data = wstidier2, aes(x = Date, y = measure, group = Sourc
                             #title=expression("Source"),
                             #title.vjust = -1,
                             nrow = 2, 
-                            title.position = "top",
-                            keyheight = 1.5
+                            keyheight = 1.5,
+                            title.position = "top"
                             ), 
          shape=guide_legend(title=("Type"), 
                             order = 2,
                             nrow=2, 
                             title.position = "top", 
-                            keyheight = 1.5, title.vjust = NULL, label.vjust = NULL
+                            keyheight = 1.5, 
+                            title.vjust = NULL, label.vjust = NULL
                             ), 
          size = guide_legend(order = 3, 
                              #title=expression("Mean Discharge"), 
@@ -887,7 +890,7 @@ wsALL
 # ggsave(wsALL, filename = "images/WaterSoilvsTime.png", width = 8, height = 5, units = "in", scale = 1)
 
 SAVE = F
-PC = F
+PC = T
 if (SAVE){
   if (PC) {
     # cairo and ggdraw having issues.. works fine on MAC though
@@ -1062,6 +1065,8 @@ Based on ANOVA tests, there is:
 
 ```{r}
 names(WaterSoils)
+
+# ISotope values to test
 keepDDtest <- c(
   "Date.ti",
   "diss.d13C.x", # "DD13C.diss",
@@ -1069,9 +1074,17 @@ keepDDtest <- c(
   #"DD13C.North", "DD13C.Talweg", "DD13C.South"
 )
 
+# Concnetrations to plot as box plot
+keepConctest <- c( "Date.ti",
+                   "Conc.mug.L" , 
+                   "Conc.mug.g.dry.soil.S" , "Conc.mug.g.dry.soil.T", "Conc.mug.g.dry.soil.N") 
+
 wsStatTest <- WaterSoils[, colnames(WaterSoils) %in% keepDDtest]
+wsStatTestConc <- WaterSoils[, colnames(WaterSoils) %in% keepConctest]
 
 mwsStatTest <- melt(wsStatTest, id="Date.ti")
+mwsStatTestConc <- melt(wsStatTestConc, id="Date.ti")
+
 mwsStatTest$Group1 <- ifelse(mwsStatTest$variable == "diss.d13C.x", "Outlet", "Soil")
 mwsStatTest$Group2 <- ifelse(mwsStatTest$variable == "diss.d13C.x", "Outlet", 
                              ifelse(mwsStatTest$variable == "comp.d13C.Talweg", "Valley", "Plateau"))
@@ -1114,6 +1127,60 @@ aov.res.grp3.df$P <- round(aov.res.grp3.df$`p adj`, 3)
 # High p-value indicates no significant difference
 write.csv(aov.res.grp3.df, "aovResISOs_ranked.csv", row.names = T)
 ```
+
+## Box plot outlet vs soils ()
+
+```{r}
+mwsStatTest$Group4 <- ifelse(mwsStatTest$variable == "diss.d13C.x" & # Outlet
+                                   mwsStatTest$Date.ti > as.POSIXct('2016-06-05 00:06:00', tz = 'EST'), "Outlet(Late)",
+                                 ifelse(mwsStatTest$variable == "diss.d13C.x" & 
+                                   mwsStatTest$Date.ti <= as.POSIXct('2016-06-05 00:06:00', tz = 'EST'), "Outlet(Early)",
+                                 # South
+                                 ifelse(mwsStatTest$variable == "comp.d13C.South" & 
+                                   mwsStatTest$Date.ti < as.POSIXct('2016-06-05 00:06:00', tz = 'EST'), "South(Early)",
+                                   ifelse(mwsStatTest$variable == "comp.d13C.South" & 
+                                     mwsStatTest$Date.ti > as.POSIXct('2016-06-05 00:06:00', tz = 'EST'), "South(Late)",
+                                # Valley
+                                     ifelse(mwsStatTest$variable == "comp.d13C.Talweg" & 
+                                   mwsStatTest$Date.ti < as.POSIXct('2016-06-05 00:06:00', tz = 'EST'), "Valley(Early)",
+                                   ifelse(mwsStatTest$variable == "comp.d13C.Talweg" & 
+                                     mwsStatTest$Date.ti > as.POSIXct('2016-06-05 00:06:00', tz = 'EST'), "Valley(Late)",
+                                 # North
+                                     ifelse(mwsStatTest$variable == "comp.d13C.North" & 
+                                   mwsStatTest$Date.ti < as.POSIXct('2016-06-05 00:06:00', tz = 'EST'), "North(Early)",
+                                   ifelse(mwsStatTest$variable == "comp.d13C.North" & 
+                                     mwsStatTest$Date.ti > as.POSIXct('2016-06-05 00:06:00', tz = 'EST'), "North(Late)", NA
+                                  ))))))))
+
+
+
+boxplot(mwsStatTest$value ~ mwsStatTest$Group4)
+
+mwsStatTestConc$Group4 <- ifelse(mwsStatTestConc$variable == "Conc.mug.L" & # Outlet
+                                   mwsStatTestConc$Date.ti > as.POSIXct('2016-06-05 00:06:00', tz = 'EST'), "Outlet(Late)",
+                                 ifelse(mwsStatTestConc$variable == "Conc.mug.L" & 
+                                   mwsStatTestConc$Date.ti <= as.POSIXct('2016-06-05 00:06:00', tz = 'EST'), "Outlet(Early)",
+                                 # South
+                                 ifelse(mwsStatTestConc$variable == "Conc.mug.g.dry.soil.S" & 
+                                   mwsStatTestConc$Date.ti < as.POSIXct('2016-06-05 00:06:00', tz = 'EST'), "South(Early)",
+                                   ifelse(mwsStatTestConc$variable == "Conc.mug.g.dry.soil.S" & 
+                                     mwsStatTestConc$Date.ti > as.POSIXct('2016-06-05 00:06:00', tz = 'EST'), "South(Late)",
+                                # Valley
+                                     ifelse(mwsStatTestConc$variable == "Conc.mug.g.dry.soil.T" & 
+                                   mwsStatTestConc$Date.ti < as.POSIXct('2016-06-05 00:06:00', tz = 'EST'), "Valley(Early)",
+                                   ifelse(mwsStatTestConc$variable == "Conc.mug.g.dry.soil.T" & 
+                                     mwsStatTestConc$Date.ti > as.POSIXct('2016-06-05 00:06:00', tz = 'EST'), "Valley(Late)",
+                                 # North
+                                     ifelse(mwsStatTestConc$variable == "Conc.mug.g.dry.soil.N" & 
+                                   mwsStatTestConc$Date.ti < as.POSIXct('2016-06-05 00:06:00', tz = 'EST'), "North(Early)",
+                                   ifelse(mwsStatTestConc$variable == "Conc.mug.g.dry.soil.N" & 
+                                     mwsStatTestConc$Date.ti > as.POSIXct('2016-06-05 00:06:00', tz = 'EST'), "North(Late)", NA
+                                  ))))))))
+boxplot(mwsStatTestConc$value ~ mwsStatTestConc$Group4)
+
+
+```
+
 
 ## ANOVA and ANOSIM
 Not actually used, as Grouping 3 does not have homegenity of variance 

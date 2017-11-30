@@ -1,0 +1,420 @@
+---
+title: "SI Graphs Water Research"
+author: "PAZ"
+date: "23 novembre 2017"
+output: pdf_document
+---
+
+
+```{r, echo=FALSE, message=FALSE, include=FALSE}
+Sys.setlocale("LC_ALL", "English")
+```
+
+## Purpose
+
+This produces a Hyetograph (rainfall and discharge data) based on 2 min intrevals. 
+
+Input files:
+
+- **groupAlteck2016_R** (Contains discharge and rainfall @ 2 min)
+
+Output files:
+
+- **nothing for now** 
+
+## Libraries
+```{r}
+library(dplyr)
+library(tidyr)
+library(zoo)
+library(reshape)
+library(ggplot2)
+library("ggrepel")
+
+library("plotly")
+library("cowplot")
+library("gridExtra")
+library("Cairo")
+library("GGally")
+library("scales")
+
+library("plotKML")
+
+# getwd()
+# setwd("D:/Documents/these_pablo/Alteckendorf2016/HydrologicalMonitoring")
+```
+
+## Data
+
+```{r}
+# Discharge and 2 min rainfall 
+hydro = read.csv2("Data/groupAlteck2016_R.csv")
+hydro$Date = as.POSIXct(strptime(hydro$DateCheck.S,
+                                 "%d/%m/%Y %H:%M", tz="EST") )
+# names(hydro)
+qra <- hydro[, c("Date", "Q.HW1", "Rain.mm")]
+
+# Outlet Concentrations 
+aodf = read.csv2("Data/WeeklyHydroContam_R.csv")
+# names(aodf)
+c = aodf[, c("ti", "Conc.mug.L" ,  "Conc.SD" , "Event", "Events")]
+c$ti <- as.POSIXct(strptime(c$ti, "%Y-%m-%d %H:%M", tz="EST"))
+sum(is.na(c$ti)) == 0
+
+# Discharge and concentrations
+ch = merge(qra, c, by.x = "Date", by.y="ti", all = T)
+
+# Transect soils
+weeklySoil = read.csv2("Data/WeeklySoils_Rng.csv", na.strings=c('#DIV/0!', '', 'NA'), header = TRUE)
+weeklySoil$Date.ti <- as.POSIXct(strptime(weeklySoil$Date.ti, "%Y-%m-%d %H:%M", tz="EST")) 
+sum(is.na(weeklySoil$Date.ti))
+# weeklySoil$Conc.ComSoil.SD <- 
+#  ifelse(weeklySoil$Conc.ComSoil.SD == as.character("#DIV/0!"), NA, as.numeric(as.character(weeklySoil$Conc.ComSoil.SD)))
+                                  
+# weeklySoil = weeklySoil %>%
+#  group_by(Transect) %>%
+#  arrange(Transect, Wnum)
+
+# names(weeklySoil)
+```
+
+## Conversions
+
+Convert rainfall data [$mm$] to the same units as discharge [$m^3/h$]
+
+```{r}
+ch$Rain.mm = ifelse(is.na(ch$Rain.mm), 0, ch$Rain.mm)
+ch$Q.HW1 = ifelse(is.na(ch$Q.HW1), 0, ch$Q.HW1)
+
+# Catchment area
+area <- 47*10**4 # [m2]
+ch$precip_m3 = ch$Rain.mm/10^3 * area
+
+sum(is.na(ch$precip_m3))
+sum(is.na(ch$Q.HW1))
+# Calculate the range needed to avoid having your hyetograph and hydrograph overlap 
+maxRange <- 1*(max(ch$precip_m3) + max(ch$Q.HW1)) - 800
+
+# Create a function to backtransform the axis labels for precipitation
+precip_labels <- function(x) {round( ((x / area) * 10^3), digits = 2) } # X will be precip_m3 -> convert to mm
+
+# Plot the data
+hy = ggplot(data = ch,
+       aes(x = Date)) +
+  theme_minimal() +
+  # Use geom_tile to create the inverted hyetograph. geom_tile has a bug that displays a warning message for height and width, you can ignore it.
+  geom_tile(aes(y = -1*(precip_m3/2-maxRange), # y = the center point of each bar, as geom_tile uses variable as center point
+                height = precip_m3,
+                width = 1
+                ),
+            fill = "gray50",
+            color = "forestgreen") +
+  theme(# axis.text.x=element_text(angle = 45, hjust = 1) 
+        #axis.text.x=element_blank(),
+        axis.title.x=element_blank()
+        #legend.position="top"
+        )+
+  scale_x_datetime(breaks = date_breaks("2 weeks"), labels = date_format("%b %d")) +
+  # Plot your discharge data
+  geom_line(aes(y = Q.HW1),
+            color = "blue") +
+  # Create a second axis with sec_axis() and format the labels to display the original precipitation units.
+  scale_y_continuous(name = expression(paste("Discharge " , {({m^3}/h)} )),
+                     sec.axis = sec_axis(trans = ~-1*(.-maxRange), # Equivalent to: y2 = -1*(y1 - maxRange) 
+                                         name = "Precipitation (mm)",
+                                         labels = precip_labels)) # x here is = precip_cuft
+
+hy
+```
+
+
+
+# Concentrations
+
+```{r}
+names(ch)
+ch$Event = na.locf(ch$Event)
+ch$Event = as.factor(ch$Event)
+ch$Season = ifelse(ch$Date > as.POSIXct('2016-05-25 00:06:00', tz = 'EST'), "Late", "Early")
+
+out = ggplot(data = ch,
+       aes(x = Date, y = Conc.mug.L)) +
+  geom_point(aes(group = Event, colour = Season)) +
+  theme_minimal() +
+  theme(# axis.text.x=element_text(angle = 45, hjust = 1) ,
+        # axis.text.x=element_blank(),
+        axis.title.x=element_blank(),
+        legend.position="bottom"
+        )+
+  ylab(expression(atop("Conc. S-Meto. ", paste({({mu}*g / L)} )))) +
+  scale_y_continuous( breaks = c(28, 26, 18,16,14,12,10, 8, 6, 4, 2, 0), limits = c(0, 28) ) +
+  
+  # Smooth linear models
+  geom_smooth(data=subset(ch[2203:43539, ]), method = "lm", formula = y ~ poly(x, 2), se = F) +
+  geom_smooth(data=subset(ch[43539:nrow(ch)-1000, ]), method = "lm", formula = y ~ poly(x, 2), se= F) +
+  
+  scale_x_datetime(breaks = date_breaks("2 weeks"), labels = date_format("%b %d")) + 
+  geom_text_repel(aes(label=Events), # WeekSubWeek or Weeks
+                  size = 3,
+                  arrow = arrow(length = unit(0.005, 'npc'), type = "closed"),
+                  force = 0.5, 
+                  point.padding = unit(0.5, 'lines'), 
+                  max.iter = 2e3,
+                  nudge_x = .05, show.legend = F) +
+  guides(col = guide_legend(nrow = 2, title.position = "top"))
+  
+out
+```
+
+
+## Soil Concentrations
+
+```{r}
+weeklySoil$Transect = as.character(weeklySoil$Transect)
+weeklySoil$Transect = ifelse(weeklySoil$Transect == "N", "North", 
+                             ifelse(weeklySoil$Transect == "T", "Talweg",
+                                    ifelse(weeklySoil$Transect == "S", "South", NA)
+                             )
+)
+weeklySoil$Transect <- factor(weeklySoil$Transect, levels = c("North", "Talweg", "South"))
+levels( weeklySoil$Transect)
+
+#, fig.height=3, fig.width=3}
+lb1a2 <- paste("App.")
+lbW012 <- paste("App.W0/1/2")
+lbW9 <- paste("App.W9")
+
+limits_conc_soil <- aes(ymin=Conc.mug.g.dry.soil-Conc.ComSoil.SD,  ymax=Conc.mug.g.dry.soil+Conc.ComSoil.SD)
+#limits_conc_soil <- aes(ymin=mean-0.5, ymax=mean+0.5)
+
+pd <- position_dodge(0.5) # move them .05 to the left and right
+
+co = ggplot(weeklySoil[4:48, ], 
+           aes(x=Date.ti, y=Conc.mug.g.dry.soil, colour=Transect, group = Transect)) + 
+  
+  geom_point() +
+  geom_line() +
+  
+  # Error bars
+  geom_errorbar(limits_conc_soil, width=.1, position=pd) +
+  # scale_y_continuous(limits=c(0,10),oob = rescale_none) +
+  
+  # Themes and axes
+  theme_minimal() +
+  theme(legend.position = "top",
+        # axis.text.x=element_text(angle = 45, hjust = 1),
+        #axis.text.x=element_blank(), 
+        axis.title.x=element_blank()
+        ) +
+  
+  scale_x_datetime(breaks = date_breaks("2 weeks"), labels = date_format("%b %d")) +
+  ylab(expression(atop("Conc. S-Meto. ", paste({({mu}*g / g.soil.dry)} )))) +
+  # facet_wrap(~Transect, nrow = 3) +
+  xlab("Date") +
+  # theme() +
+  # scale_x_datetime(breaks = date_breaks("1 weeks"), labels = date_format("%b %d")) +
+  
+  # Smooth linear models
+  # stat_smooth(method = "lm", formula = y ~ poly(x, 2)) +
+  # stat_smooth(method = "lm") +
+  
+  # Text
+  # W0 Application
+  # annotate("text", x = as.POSIXct('2016-03-25 08:04:00'), y = 4, label = lb1a2, parse = T, size = 3.0) +
+  geom_segment(aes(x = as.POSIXct('2016-04-14 08:04:00'), y = 0.5, xend = as.POSIXct('2016-03-26 01:04:00'), yend = -0), color = "black",
+               arrow = arrow(length = unit(0.2, "cm"))) +
+
+  # W1 Application
+  geom_segment(aes(x = as.POSIXct('2016-04-14 08:04:00'), y = 0.5, 
+                   xend = as.POSIXct('2016-04-05 08:04:00'), yend = 0), color = "black", 
+               arrow = arrow(length = unit(0.2, "cm"))) +
+  # W2 Application
+  annotate("text", x = as.POSIXct('2016-04-15 08:04:00'), y = 1, label = lb1a2, parse = T, size = 3.0) +
+  geom_segment(aes(x = as.POSIXct('2016-04-14 08:04:00'), y = 0.5, 
+                   xend = as.POSIXct('2016-04-13 08:04:00'), yend = 0), color = "black", 
+               arrow = arrow(length = unit(0.2, "cm"))) +
+  # W9 Application
+  annotate("text", x = as.POSIXct('2016-05-26 08:04:00'), y = 4.5, label = lb1a2, parse = T, size = 3.0) +
+  geom_segment(aes(x = as.POSIXct('2016-05-26 08:04:00'), y = 4, 
+                   xend = as.POSIXct('2016-05-26 08:04:00'), yend = 0), color = "black", 
+               arrow = arrow(length = unit(0.2, "cm"))) +
+
+  geom_text_repel(aes(label=as.factor(Wnum)),
+                 size = 3,
+                  arrow = arrow(length = unit(0.005, 'npc'), type = "closed"),
+                  force = 0.5, 
+                  point.padding = unit(0.5, 'lines'), 
+                 max.iter = 2e3,
+                nudge_x = .05,
+                show.legend = F) +
+  guides(col = guide_legend(nrow = 3, title.position = "top"))
+co
+
+# Linear model
+# ggsave(co, filename = "CompositeConcLM.png", width = 7, height = 5, units = "in", scale = 1)
+
+## ggsave(co, filename = "CompositeConcLM.tiff", height = 10, width = 8.7, units = 'cm')
+
+# No linear model
+# ggsave(co, filename = "CompositeConc.png", width = 7, height = 5, units = "in", scale = 1)
+
+```
+
+## Merge hyetograph, outlet and soil concentrations
+
+```{r}
+
+hy_noLeg <- hy + theme(legend.position = 'none')
+out_noLeg = out +  theme(legend.position = 'none')
+co_noLeg = co +  theme(legend.position = 'none')
+
+out_leg <- get_legend(out)
+co_leg <- get_legend(co)
+
+
+
+#plot_grid(OutBars_noLeg, SoilBars_noLeg,
+#                    ncol =1, nrow = 2, align ="v" )
+#,
+#                    labels = c("A", "C", "B", "D"))
+
+ml <- ggdraw() + 
+#ggdraw() +
+  
+  draw_plot(hy_noLeg, x=0.02, y = 0.6, width = 0.95, height = .31) +
+  draw_plot(out_noLeg, x=0.0, y=.30, width =  .92, height = .31) +
+  draw_plot(co_noLeg, x=0.03, y=.00, width =  .88, height = .31) +
+  
+  draw_plot(out_leg, x=(0.5 ), y = 0.45, width = .8, height = 0.1) +
+  draw_plot(co_leg, x=(0.5) , y = 0.15, width = .8, height = 0.1) +
+  
+  draw_label("A", x= 0.9, y = .91, size = 12, fontface = "bold") +
+  draw_label("B", x= 0.9, y = .62, size = 12, fontface = "bold") +
+  draw_label("C", x= 0.9, y = .31, size = 12, fontface = "bold")
+
+ml
+
+SAVE = T
+PC = T
+if (SAVE){
+  if (PC){
+      ggsave(ml, 
+           filename = "D:/Documents/these_pablo/WriteUp/WaterResearch/images/multilevel.pdf", 
+           device = "pdf", dpi = 600,  scale = 1, # )# ,
+           width = 7, height = 11)
+    } else {
+      ggsave(ml, 
+         filename = "/Users/DayTightChunks/Documents/PhD/Writeups/WaterResearch/images/multilevel.pdf", 
+         device="pdf", dpi = 600,  scale = 1, # )# ,
+         width = 7, height = 11)
+    }
+  }
+
+```
+### Saving
+
+```{r}
+#ggsave(balAllplot, filename = "images/MB_CSIA_Bars.png", width = 8, height = 5, units = "in", scale = 1)
+
+
+
+```
+
+
+# Sources (Plot with map)
+
+```{r}
+# Water and soils transposed data
+WaterSoils <- read.csv2("Data/WaterSoils_R.csv")
+WaterSoils$Date.ti = as.POSIXct(strptime(WaterSoils$Date.ti,
+                                 "%Y-%m-%d %H:%M", tz="EST") )
+sum(is.na(WaterSoils$Date.ti))
+# View(WaterSoils)
+# Concnetrations to plot as box plot
+keepDDtest <- c(
+  "Date.ti",
+  "diss.d13C.x", # "DD13C.diss",
+  "comp.d13C.North", "comp.d13C.Talweg", "comp.d13C.South" #,
+  #"DD13C.North", "DD13C.Talweg", "DD13C.South"
+)
+
+ws <- WaterSoils[, colnames(WaterSoils) %in% keepDDtest]
+ws <- melt(ws, id="Date.ti")
+
+ws$Source <- ifelse(ws$variable == "diss.d13C.x" , "Outlet",
+                    ifelse(ws$variable == "comp.d13C.South", "South",
+                           ifelse(ws$variable == "comp.d13C.Talweg", "Valley", 
+                                  ifelse(ws$variable == "comp.d13C.North", "North", NA 
+                    ))))
+
+ws$Season = ifelse(ws$Date.ti > as.POSIXct('2016-05-25 00:06:00', tz = 'EST'), "Late", "Early")
+
+ws$Group4 <- ifelse(ws$variable == "diss.d13C.x" & # Outlet
+                                   ws$Date.ti > as.POSIXct('2016-05-25 00:06:00', tz = 'EST'), "Outlet(Late)",
+                                 ifelse(ws$variable == "diss.d13C.x" & 
+                                   ws$Date.ti <= as.POSIXct('2016-05-25 00:06:00', tz = 'EST'), "Outlet(Early)",
+                                 # South
+                                 ifelse(ws$variable == "comp.d13C.South" & 
+                                   ws$Date.ti < as.POSIXct('2016-05-25 00:06:00', tz = 'EST'), "South(Early)",
+                                   ifelse(ws$variable == "comp.d13C.South" & 
+                                     ws$Date.ti > as.POSIXct('2016-05-25 00:06:00', tz = 'EST'), "South(Late)",
+                                # Valley
+                                     ifelse(ws$variable == "comp.d13C.Talweg" & 
+                                   ws$Date.ti < as.POSIXct('2016-05-25 00:06:00', tz = 'EST'), "Valley(Early)",
+                                   ifelse(ws$variable == "comp.d13C.Talweg" & 
+                                     ws$Date.ti > as.POSIXct('2016-05-25 00:06:00', tz = 'EST'), "Valley(Late)",
+                                 # North
+                                     ifelse(ws$variable == "comp.d13C.North" & 
+                                   ws$Date.ti < as.POSIXct('2016-05-25 00:06:00', tz = 'EST'), "North(Early)",
+                                   ifelse(ws$variable == "comp.d13C.North" & 
+                                     ws$Date.ti > as.POSIXct('2016-05-25 00:06:00', tz = 'EST'), "North(Late)", NA
+                                  ))))))))
+
+ws$Source = factor(ws$Source, levels = c( "Outlet",  "Valley", "North", "South"))
+levels(ws$Source)
+ws$Source = as.factor(ws$Source)
+
+sources <- ggplot(ws, aes(Source, value)) + 
+  geom_boxplot(aes(colour=Season)) + 
+  theme_minimal() +
+  theme(text = element_text(size=17))+
+  # guides(col = guide_legend(nrow = 2)) +
+  #theme(axis.text.x=element_text(angle = 45, hjust = 1) ,
+        #axis.text.x=element_blank(),
+        #axis.title.x=element_blank(),
+        # legend.position="bottom"
+  #      )+
+  ylab(expression(paste({delta}^"13","C", ' (\u2030)'))) 
+
+sources
+  
+late = subset(ws, Date.ti > as.POSIXct('2016-05-25 00:06:00', tz = 'EST'))
+early = subset(ws, Date.ti <= as.POSIXct('2016-05-25 00:06:00', tz = 'EST'))
+  
+# Non-parameteric
+# Reject Ho that pop. means are the same if low p-value
+earlyGr4 <- kruskal.test(value ~ as.factor(Group4), data = early) 
+earlyGr4 # result is high p value, thus cannot reject that pop. are the same (therefore, no difference)
+
+lateGr4 <- kruskal.test(value ~ as.factor(Group4), data = late)
+lateGr4 # Low p-value, therefore reject Ho that groups are the same.
+
+SAVE = T
+PC = T
+if (SAVE){
+  if (PC){
+      ggsave(sources, 
+           filename = "D:/Documents/these_pablo/WriteUp/WaterResearch/images/boxplot.pdf", 
+           device = "pdf", dpi = 600,  scale = 1, # )# ,
+           width = 8.7, height = 4)
+    } else {
+      ggsave(sources, 
+         filename = "/Users/DayTightChunks/Documents/PhD/Writeups/WaterResearch/images/boxplot.pdf", 
+         device="pdf", dpi = 600,  scale = 1, # )# ,
+         width = 8.7, height = 4)
+    }
+}
+
+```
+
+
