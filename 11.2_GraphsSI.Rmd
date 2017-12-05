@@ -98,6 +98,9 @@ maxRange <- 1*(max(ch$precip_m3) + max(ch$Q.HW1)) - 800
 # Create a function to backtransform the axis labels for precipitation
 precip_labels <- function(x) {round( ((x / area) * 10^3), digits = 2) } # X will be precip_m3 -> convert to mm
 
+lims <- as.POSIXct(strptime(c("2016-03-25 00:04:00","2016-07-12 01:00:00"), format = "%Y-%m-%d %H:%M"))    
+
+
 # Plot the data
 hy = ggplot(data = ch,
        aes(x = Date)) +
@@ -110,18 +113,19 @@ hy = ggplot(data = ch,
             fill = "gray50",
             color = "forestgreen") +
   theme(# axis.text.x=element_text(angle = 45, hjust = 1) 
-        #axis.text.x=element_blank(),
+        axis.text.x=element_blank(),
         axis.title.x=element_blank()
         #legend.position="top"
         )+
-  scale_x_datetime(breaks = date_breaks("2 weeks"), labels = date_format("%b %d")) +
+  scale_x_datetime(limits = lims, breaks = date_breaks("2 weeks"), labels = date_format("%b %d")) +
   # Plot your discharge data
   geom_line(aes(y = Q.HW1),
             color = "blue") +
   # Create a second axis with sec_axis() and format the labels to display the original precipitation units.
-  scale_y_continuous(name = expression(paste("Discharge " , {({m^3}/h)} )),
+  # ylab(expression(atop("Conc. S-Meto. ", paste({({mu}*g / L)} )))) +
+  scale_y_continuous(name = expression(atop("Discharge", paste({({m^3}/h)} ))),
                      sec.axis = sec_axis(trans = ~-1*(.-maxRange), # Equivalent to: y2 = -1*(y1 - maxRange) 
-                                         name = "Precipitation (mm)",
+                                         name = expression(atop("Precipitation", paste("(mm)"))),
                                          labels = precip_labels)) # x here is = precip_cuft
 
 hy
@@ -137,33 +141,43 @@ ch$Event = na.locf(ch$Event)
 ch$Event = as.factor(ch$Event)
 ch$Season = ifelse(ch$Date > as.POSIXct('2016-05-25 00:06:00', tz = 'EST'), "Late", "Early")
 
-out = ggplot(data = ch,
+tags = FALSE
+
+out_dates = ggplot(data = ch,
        aes(x = Date, y = Conc.mug.L)) +
+  geom_errorbar(aes(ymin = Conc.mug.L - Conc.SD, ymax = Conc.mug.L + Conc.SD, colour = Season)) +
   geom_point(aes(group = Event, colour = Season)) +
   theme_minimal() +
-  theme(# axis.text.x=element_text(angle = 45, hjust = 1) ,
-        # axis.text.x=element_blank(),
-        axis.title.x=element_blank(),
-        legend.position="bottom"
-        )+
   ylab(expression(atop("Conc. S-Meto. ", paste({({mu}*g / L)} )))) +
-  scale_y_continuous( breaks = c(28, 26, 18,16,14,12,10, 8, 6, 4, 2, 0), limits = c(0, 28) ) +
+  scale_y_continuous( breaks = c(28, 24, 20, 16, 12, 8, 4, 0), limits = c(0, 28) ) +
   
   # Smooth linear models
   geom_smooth(data=subset(ch[2203:43539, ]), method = "lm", formula = y ~ poly(x, 2), se = F) +
   geom_smooth(data=subset(ch[43539:nrow(ch)-1000, ]), method = "lm", formula = y ~ poly(x, 2), se= F) +
   
-  scale_x_datetime(breaks = date_breaks("2 weeks"), labels = date_format("%b %d")) + 
-  geom_text_repel(aes(label=Events), # WeekSubWeek or Weeks
+  scale_x_datetime(limits = lims, breaks = date_breaks("2 weeks"), labels = date_format("%b %d")) +
+  guides(col = guide_legend(nrow = 2, title.position = "top"))
+  
+out = out_dates +   
+  theme(# axis.text.x=element_text(angle = 45, hjust = 1) ,
+        axis.text.x=element_blank(),
+        axis.title.x=element_blank(),
+        legend.position="right"
+        )
+  
+
+if (tags){
+  out + geom_text_repel(aes(label=Events), # WeekSubWeek or Weeks
                   size = 3,
                   arrow = arrow(length = unit(0.005, 'npc'), type = "closed"),
                   force = 0.5, 
                   point.padding = unit(0.5, 'lines'), 
                   max.iter = 2e3,
-                  nudge_x = .05, show.legend = F) +
-  guides(col = guide_legend(nrow = 2, title.position = "top"))
+                  nudge_x = .05, show.legend = F)
   
-out
+}
+  
+out_dates
 ```
 
 
@@ -172,11 +186,11 @@ out
 ```{r}
 weeklySoil$Transect = as.character(weeklySoil$Transect)
 weeklySoil$Transect = ifelse(weeklySoil$Transect == "N", "North", 
-                             ifelse(weeklySoil$Transect == "T", "Talweg",
+                             ifelse(weeklySoil$Transect == "T", "Valley",
                                     ifelse(weeklySoil$Transect == "S", "South", NA)
                              )
 )
-weeklySoil$Transect <- factor(weeklySoil$Transect, levels = c("North", "Talweg", "South"))
+weeklySoil$Transect <- factor(weeklySoil$Transect, levels = c("North", "Valley", "South"))
 levels( weeklySoil$Transect)
 
 #, fig.height=3, fig.width=3}
@@ -188,6 +202,10 @@ limits_conc_soil <- aes(ymin=Conc.mug.g.dry.soil-Conc.ComSoil.SD,  ymax=Conc.mug
 #limits_conc_soil <- aes(ymin=mean-0.5, ymax=mean+0.5)
 
 pd <- position_dodge(0.5) # move them .05 to the left and right
+
+# xlims = xlim(as.POSIXct('2016-03-25 00:04:00', tz = 'EST'), as.POSIXct('2016-07-12 01:00:00', tz = 'EST') )
+
+tags = FALSE
 
 co = ggplot(weeklySoil[4:48, ], 
            aes(x=Date.ti, y=Conc.mug.g.dry.soil, colour=Transect, group = Transect)) + 
@@ -201,13 +219,12 @@ co = ggplot(weeklySoil[4:48, ],
   
   # Themes and axes
   theme_minimal() +
-  theme(legend.position = "top",
+  theme(legend.position = "right",
         # axis.text.x=element_text(angle = 45, hjust = 1),
-        #axis.text.x=element_blank(), 
+        # axis.text.x=element_blank(), 
         axis.title.x=element_blank()
         ) +
-  
-  scale_x_datetime(breaks = date_breaks("2 weeks"), labels = date_format("%b %d")) +
+
   ylab(expression(atop("Conc. S-Meto. ", paste({({mu}*g / g.soil.dry)} )))) +
   # facet_wrap(~Transect, nrow = 3) +
   xlab("Date") +
@@ -238,16 +255,21 @@ co = ggplot(weeklySoil[4:48, ],
   geom_segment(aes(x = as.POSIXct('2016-05-26 08:04:00'), y = 4, 
                    xend = as.POSIXct('2016-05-26 08:04:00'), yend = 0), color = "black", 
                arrow = arrow(length = unit(0.2, "cm"))) +
+  guides(col = guide_legend(nrow = 3, title.position = "top")) +
+  scale_x_datetime(limits = lims, breaks = date_breaks("2 weeks"), labels = date_format("%b %d"))
 
-  geom_text_repel(aes(label=as.factor(Wnum)),
+if (tags){
+  co + geom_text_repel(aes(label=as.factor(Wnum)),
                  size = 3,
                   arrow = arrow(length = unit(0.005, 'npc'), type = "closed"),
                   force = 0.5, 
                   point.padding = unit(0.5, 'lines'), 
                  max.iter = 2e3,
                 nudge_x = .05,
-                show.legend = F) +
-  guides(col = guide_legend(nrow = 3, title.position = "top"))
+                show.legend = F)
+}
+
+
 co
 
 # Linear model
@@ -272,30 +294,29 @@ out_leg <- get_legend(out)
 co_leg <- get_legend(co)
 
 
+grid1 = plot_grid(
+      hy_noLeg, 
+      out_noLeg,
+      co_noLeg,
+      ncol = 1,
+      align = 'hv')
 
-#plot_grid(OutBars_noLeg, SoilBars_noLeg,
-#                    ncol =1, nrow = 2, align ="v" )
-#,
-#                    labels = c("A", "C", "B", "D"))
-
-ml <- ggdraw() + 
-#ggdraw() +
+ml = ggdraw() +
+  draw_plot(grid1, x=0.02, y = 0.0, width = 0.95, height = .95) +
+  draw_plot(out_leg, x=(0.53 ), y = 0.44, width = .8, height = 0.1) +
+  draw_plot(co_leg, x=(0.53) , y = 0.11, width = .8, height = 0.1) +
   
-  draw_plot(hy_noLeg, x=0.02, y = 0.6, width = 0.95, height = .31) +
-  draw_plot(out_noLeg, x=0.0, y=.30, width =  .92, height = .31) +
-  draw_plot(co_noLeg, x=0.03, y=.00, width =  .88, height = .31) +
-  
-  draw_plot(out_leg, x=(0.5 ), y = 0.45, width = .8, height = 0.1) +
-  draw_plot(co_leg, x=(0.5) , y = 0.15, width = .8, height = 0.1) +
-  
-  draw_label("A", x= 0.9, y = .91, size = 12, fontface = "bold") +
-  draw_label("B", x= 0.9, y = .62, size = 12, fontface = "bold") +
-  draw_label("C", x= 0.9, y = .31, size = 12, fontface = "bold")
-
+  draw_label("A", x= 0.94, y = .93, size = 12, fontface = "bold") +
+  draw_label("B", x= 0.94, y = .62, size = 12, fontface = "bold") +
+  draw_label("C", x= 0.94, y = .31, size = 12, fontface = "bold")
 ml
 
-SAVE = T
-PC = T
+
+
+
+
+SAVE = F
+PC = F
 if (SAVE){
   if (PC){
       ggsave(ml, 
@@ -304,20 +325,64 @@ if (SAVE){
            width = 7, height = 11)
     } else {
       ggsave(ml, 
-         filename = "/Users/DayTightChunks/Documents/PhD/Writeups/WaterResearch/images/multilevel.pdf", 
+         filename = "/Users/DayTightChunks/Documents/PhD/Writeups/Journals/WaterResearch/images/multilevel.pdf", 
          device="pdf", dpi = 600,  scale = 1, # )# ,
          width = 7, height = 11)
     }
   }
 
 ```
-### Saving
+
+
+
+# Grid arrange
 
 ```{r}
+
+
 #ggsave(balAllplot, filename = "images/MB_CSIA_Bars.png", width = 8, height = 5, units = "in", scale = 1)
+## convert plots to gtable objects
+library(gtable)
+library(grid) # low-level grid functions are required
+g1 <- ggplotGrob(hy_noLeg)
+# g1 <- gtable_add_cols(g1, unit(0,"mm")) # add a column for missing legend
+g2 <- ggplotGrob(out_noLeg)
+g3 <- ggplotGrob(co_noLeg)
+# g <- rbind(g2, g3, size="first") # stack the two plots
+g <- rbind(g1, g2, g3, size="first") # stack the two plots
+g$widths <- unit.pmax(g1$widths, g2$widths, g3$widths) # use the largest widths
+# center the legend vertically
+# g$layout[grepl("guide", g$layout$name),c("t","b")] <- c(1,nrow(g))
+grid.newpage()
+grid.draw(g)
+
+
+# Plot grid option, embedding different plot_grid 's
+
+library(cowplot)
+
+theme_set(theme_minimal())
+
+embeds <- 
+  plot_grid(
+    plot_grid(
+      hy_noLeg, 
+      out_noLeg,
+      co_noLeg,
+      ncol = 1,
+      align = 'hv'),
+    plot_grid(
+      ggplot(),
+      out_leg,
+      co_leg,
+      ncol =1
+    ), rel_widths = c(9,1)
+  )
 
 
 
+  
+  
 ```
 
 
@@ -377,7 +442,7 @@ ws$Source = as.factor(ws$Source)
 sources <- ggplot(ws, aes(Source, value)) + 
   geom_boxplot(aes(colour=Season)) + 
   theme_minimal() +
-  theme(text = element_text(size=17))+
+  
   # guides(col = guide_legend(nrow = 2)) +
   #theme(axis.text.x=element_text(angle = 45, hjust = 1) ,
         #axis.text.x=element_blank(),
@@ -385,6 +450,8 @@ sources <- ggplot(ws, aes(Source, value)) +
         # legend.position="bottom"
   #      )+
   ylab(expression(paste({delta}^"13","C", ' (\u2030)'))) 
+
+sources_big = sources + theme(text = element_text(size=17))
 
 sources
   
@@ -399,8 +466,8 @@ earlyGr4 # result is high p value, thus cannot reject that pop. are the same (th
 lateGr4 <- kruskal.test(value ~ as.factor(Group4), data = late)
 lateGr4 # Low p-value, therefore reject Ho that groups are the same.
 
-SAVE = T
-PC = T
+SAVE = F
+PC = F
 if (SAVE){
   if (PC){
       ggsave(sources, 
@@ -409,12 +476,86 @@ if (SAVE){
            width = 8.7, height = 4)
     } else {
       ggsave(sources, 
-         filename = "/Users/DayTightChunks/Documents/PhD/Writeups/WaterResearch/images/boxplot.pdf", 
-         device="pdf", dpi = 600,  scale = 1, # )# ,
+         filename = "/Users/DayTightChunks/Documents/PhD/Writeups/Journals/WaterResearch/images/boxplot.pdf", 
+         device=cairo_pdf, dpi = 600,  scale = 1, # )# ,
          width = 8.7, height = 4)
     }
 }
 
 ```
+## Grid with sources
 
+```{r}
+
+out_dates_noLeg = out_dates  + theme(legend.position = 'none')
+sources_noLeg = sources + theme(legend.position = 'none')
+so_leg = get_legend(sources) 
+grid2 = plot_grid(
+      hy_noLeg, 
+      out_dates_noLeg,
+      sources_noLeg,
+      ncol = 1,
+      align = 'v')
+
+ml2 = ggdraw() +
+  draw_plot(grid2, x=0.02, y = 0.0, width = 0.95, height = .95) +
+  draw_plot(out_leg, x=(0.53 ), y = 0.44, width = .8, height = 0.1) +
+  draw_plot(so_leg, x=(0.53) , y = 0.11, width = .8, height = 0.1) +
+  
+  draw_label("A", x= 0.94, y = .93, size = 12, fontface = "bold") +
+  draw_label("B", x= 0.94, y = .62, size = 12, fontface = "bold") +
+  draw_label("C", x= 0.94, y = .31, size = 12, fontface = "bold")
+ml2
+```
+
+## All four graphs together
+
+```{r}
+
+hy_noLeg <- hy + theme(legend.position = 'none')
+out_noLeg = out +  theme(legend.position = 'none')
+co_noLeg = co +  theme(legend.position = 'none')
+
+out_leg <- get_legend(out)
+co_leg <- get_legend(co)
+
+grid3 = plot_grid(
+      hy_noLeg, 
+      out_noLeg,
+      co_noLeg,
+      sources_noLeg,
+      ncol = 1,
+      align = 'v')
+
+ml3 = ggdraw() +
+  draw_plot(grid3, x=0.02, y = 0.0, width = 0.95, height = .95) +
+  draw_plot(out_leg, x=(0.54 ), y = 0.56, width = .8, height = 0.1) +
+  draw_plot(co_leg, x=(0.54 ), y = 0.32, width = .8, height = 0.1) +
+  draw_plot(so_leg, x=(0.54) , y = 0.08, width = .8, height = 0.1) +
+  
+  draw_label("A", x= 0.94, y = .93, size = 12, fontface = "bold") +
+  draw_label("B", x= 0.94, y = .69, size = 12, fontface = "bold") +
+  draw_label("C", x= 0.94, y = .47, size = 12, fontface = "bold") +
+  draw_label("D", x= 0.94, y = .23, size = 12, fontface = "bold")
+ml3
+```
+## Save
+
+```{r}
+SAVE = F
+PC = F
+if (SAVE){
+  if (PC){
+      ggsave(ml3, 
+           filename = "D:/Documents/these_pablo/WriteUp/WaterResearch/images/multilevel4.pdf", 
+           device = "pdf", dpi = 600,  scale = 1, # )# ,
+           width = 7, height = 10)
+    } else {
+      ggsave(ml3, 
+         filename = "/Users/DayTightChunks/Documents/PhD/Writeups/Journals/WaterResearch/images/multilevel4.pdf", 
+         device=cairo_pdf, dpi = 600,  scale = 1, # )# ,
+         width = 7, height = 10)
+    }
+  }
+```
 
