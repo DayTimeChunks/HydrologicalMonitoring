@@ -97,4 +97,90 @@ ggplot(data = rain12m, aes(x = Date)) +
 
 ```
 
+# Average intensity at 30 min rainfall 
+
+```{r}
+rain30 <- read.csv2("Data/30minRain.csv", dec = ".")
+# head(rain30)
+
+rain30$Date = as.POSIXct(strptime(rain30$Time,
+                                 "%d/%m/%Y %H:%M", tz="EST") )
+
+rain30$DayMoYr = as.POSIXct(strptime(rain30$Time,
+                                   "%d/%m/%Y", tz="EST")  ) 
+
+
+rain30$Month <- 
+  ifelse(rain30$DayMoYr >= as.POSIXct("2016-03-24 00:30:00", tz = "EST") &
+           rain30$DayMoYr < as.POSIXct("2016-04-01 00:00:00", tz = "EST"), "March",
+         ifelse(rain30$DayMoYr >= as.POSIXct("2016-04-01 00:00:00", tz = "EST") &
+                  rain30$DayMoYr < as.POSIXct("2016-05-01 00:00:00", tz = "EST"), "April",
+                ifelse(rain30$DayMoYr >= as.POSIXct("2016-05-01 00:00:00", tz = "EST") &
+                         rain30$DayMoYr < as.POSIXct("2016-06-01 00:00:00", tz = "EST"), "May",
+                       ifelse(rain30$DayMoYr >= as.POSIXct("2016-06-01 00:00:00", tz = "EST") & 
+                                rain30$DayMoYr < as.POSIXct("2016-07-01 00:00:00", tz = "EST"), "June", "July" )
+                            )
+                     )
+         )
+
+rain30$mm.hr = rain30$Cumm.mm*(60/30)
+
+# Delete all days with 0 rainfall
+r<-rain30[!(rain30$mm.hr==0),]
+
+library("dplyr")
+rain <- r %>%
+  group_by(Month) %>%
+  dplyr::summarize(Int.mm.hr = mean(mm.hr))
+
+rainSD <- r %>%
+  group_by(Month) %>%
+  dplyr::summarize(Int.mm.hr = sd(mm.hr))
+
+rainSum <- r %>%
+  group_by(Month) %>%
+  dplyr::summarize(CummRain = sum(Cumm.mm))
+```
+
+# Discharge summary
+
+```{r}
+head(qra)
+
+qra$Month <- 
+  ifelse(qra$Date >= as.POSIXct("2016-03-24 00:30:00", tz = "EST") &
+           qra$Date < as.POSIXct("2016-04-01 00:00:00", tz = "EST"), "March",
+         ifelse(qra$Date >= as.POSIXct("2016-04-01 00:00:00", tz = "EST") &
+                  qra$Date < as.POSIXct("2016-05-01 00:00:00", tz = "EST"), "April",
+                ifelse(qra$Date >= as.POSIXct("2016-05-01 00:00:00", tz = "EST") &
+                         qra$Date < as.POSIXct("2016-06-01 00:00:00", tz = "EST"), "May",
+                       ifelse(qra$Date >= as.POSIXct("2016-06-01 00:00:00", tz = "EST") & 
+                                qra$Date < as.POSIXct("2016-07-01 00:00:00", tz = "EST"), "June", "July" )
+                            )
+                     )
+         )
+
+qra$VolQ = qra$Q.HW1/60*2 # * 2 min / 60min = m3
+qra$VolR = qra$Rain.mm/10^3*area # * m * m2 
+
+qr = qra %>% 
+  group_by(Month) %>%
+  select(VolQ, VolR) %>%
+  summarise_each(funs(sum = sum)) 
+
+qr$Qmonth = qr$VolQ_sum/30
+qr$Restit = (qr$VolQ_sum/qr$VolR_sum)*100
+
+qr2 = qra %>% 
+  group_by(Month) %>%
+  select(VolQ, VolR) %>%
+  summarise_each(funs(mean = mean, 
+                      sd = sd))
+
+
+
+```
+
+
+
 

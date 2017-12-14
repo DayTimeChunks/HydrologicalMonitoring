@@ -79,7 +79,9 @@ keepMB <- c("Date.ti", "ID.N", "Duration.Hrs",
             "TotSMout.g", "TotSMout.g.SD" , 
             "MELsm.g", "MELsm.g.SD",
             # CSIA Soils
-            "BulkCatch.d13" , "BulkCatch.d13.SD",
+            "BulkCatch.d13" , "BulkCatch.d13.SD", 
+            # For maximum soil degradation 
+            "DD13C.South" , 
             # CSIA Waters
             "diss.d13C" , "SD.d13C"
             )
@@ -221,6 +223,8 @@ sw$Bw.SD1 <-
 sw$Bw.SD2 <-
   (1- ((1000 + d13Co + sw$DD.diss)/(1000+ d13Co))^(1000/epsilon_min) )*100
 
+
+
 sw$fw.measure <- 100 - sw$Bw.measure
 sw$fw.SD1 <- 100 - sw$Bw.SD2
 sw$fw.SD2 <- 100 - sw$Bw.SD1
@@ -232,6 +236,17 @@ sw$Bs.SD1 <-
   (1- ((1000 + d13Co + sw$DD.Bulk)/(1000+ d13Co))^(1000/epsilon_max) )*100
 sw$Bs.SD2 <-
   (1- ((1000 + d13Co + sw$DD.Bulk)/(1000+ d13Co))^(1000/epsilon_min) )*100
+
+# South (maximum fractionation in Abstract)
+sw$Bsouth <- 
+  (1- ((1000 + d13Co + sw$DD13C.South)/(1000+ d13Co))^(1000/epsilon_lab) )*100
+
+sw$Bsouth.SD1 <- 
+  (1- ((1000 + d13Co + sw$DD13C.South)/(1000+ d13Co))^(1000/epsilon_max) )*100
+sw$Bsouth.SD2 <- 
+  (1- ((1000 + d13Co + sw$DD13C.South)/(1000+ d13Co))^(1000/epsilon_min) )*100
+
+
 
 sw$fs.measure <- 100 - sw$Bs.measure
 sw$fs.SD1 <- 100 - sw$Bs.SD2
@@ -268,6 +283,10 @@ dropSW <- c("Duration.Hrs" , "TotSMout.g", "TotSMout.g.SD", "MELsm.g" ,"MELsm.g.
              "CumOutSmeto.g.SD",   "CumOutMELsm.g.SD" ,  "DD.diss", "DD.Bulk")
 
 sw <- sw[, !(names(sw) %in% dropSW)]
+
+#sw$LossBulk = 100 - sw$Rem.measure - sw$Bs.measure
+#sw$LossBulk.SD1 = 100 - sw$Rem.SD2 - sw$Bs.SD1
+#sw$LossBulk.SD2 = 100 - sw$Rem.SD1 - sw$Bs.SD2
 
 ```
 ## Select dates

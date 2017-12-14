@@ -387,7 +387,16 @@ hydroAlteck2016$Type = ifelse(is.na(hydroAlteck2016$sampleQ), "Discharge", "Samp
 head(hydroAlteck2016)
 sum(is.na(hydroAlteck2016$Q.HW1))
 
+
+
+
 ```
+
+## Plot a discharge graph with samples
+```{r}
+# hy =  subset(hydroAlteck2016, Date >=  & Date <= )
+```
+
 
 ### Merge rainfall data
 

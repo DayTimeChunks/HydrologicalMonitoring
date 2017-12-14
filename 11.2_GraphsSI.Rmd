@@ -122,7 +122,7 @@ hy = ggplot(data = ch,
   geom_line(aes(y = Q.HW1),
             color = "blue") +
   # Create a second axis with sec_axis() and format the labels to display the original precipitation units.
-  # ylab(expression(atop("Conc. S-Meto. ", paste({({mu}*g / L)} )))) +
+  # ylab(expression(atop("Conc. S-met ", paste({({mu}*g / L)} )))) +
   scale_y_continuous(name = expression(atop("Discharge", paste({({m^3}/h)} ))),
                      sec.axis = sec_axis(trans = ~-1*(.-maxRange), # Equivalent to: y2 = -1*(y1 - maxRange) 
                                          name = expression(atop("Precipitation", paste("(mm)"))),
@@ -148,7 +148,7 @@ out_dates = ggplot(data = ch,
   geom_errorbar(aes(ymin = Conc.mug.L - Conc.SD, ymax = Conc.mug.L + Conc.SD, colour = Season)) +
   geom_point(aes(group = Event, colour = Season)) +
   theme_minimal() +
-  ylab(expression(atop("Conc. S-Meto. ", paste({({mu}*g / L)} )))) +
+  ylab(expression(atop("Conc. S-met ", paste({({mu}*g / L)} )))) +
   scale_y_continuous( breaks = c(28, 24, 20, 16, 12, 8, 4, 0), limits = c(0, 28) ) +
   
   # Smooth linear models
@@ -225,7 +225,7 @@ co = ggplot(weeklySoil[4:48, ],
         axis.title.x=element_blank()
         ) +
 
-  ylab(expression(atop("Conc. S-Meto. ", paste({({mu}*g / g.soil.dry)} )))) +
+  ylab(expression(atop("Conc. S-met ", paste({({mu}*g / g.soil.dry)} )))) +
   # facet_wrap(~Transect, nrow = 3) +
   xlab("Date") +
   # theme() +
@@ -449,7 +449,8 @@ sources <- ggplot(ws, aes(Source, value)) +
         #axis.title.x=element_blank(),
         # legend.position="bottom"
   #      )+
-  ylab(expression(paste({delta}^"13","C", ' (\u2030)'))) 
+  # ylab(expression(paste('S-met ', {delta}^"13","C", ' (\u2030)'))) 
+  ylab(expression(atop(paste({delta}^"13","C", '  S-met '), paste({' (\u2030)'} )))) 
 
 sources_big = sources + theme(text = element_text(size=17))
 
@@ -543,7 +544,7 @@ ml3
 
 ```{r}
 SAVE = F
-PC = F
+PC = T
 if (SAVE){
   if (PC){
       ggsave(ml3, 
@@ -557,5 +558,93 @@ if (SAVE){
          width = 7, height = 10)
     }
   }
+```
+
+
+## Double isotope graph
+
+```{r}
+
+oDual = WaterSoils[ , c("Date.ti", "WeekSubWeek", "diss.d13C.x", "SD.d13C.x")]
+oDual$WeekSubWeek = as.character(oDual$WeekSubWeek)
+  
+oDual$WeekSubWeek = ifelse(oDual$Date.ti == as.POSIXct("2016-03-25 00:04:00", tz= "EST"), "Product", oDual$WeekSubWeek)
+oDual$diss.d13C.x = ifelse(oDual$Date.ti == as.POSIXct("2016-03-25 00:04:00", tz= "EST"), -32.2, oDual$diss.d13C.x)
+oDual$SD.d13C.x = ifelse(oDual$Date.ti == as.POSIXct("2016-03-25 00:04:00", tz= "EST"), 0.4, oDual$SD.d13C.x)
+
+
+n = read.csv2("Data/NitrogenIRMS.csv", dec = ".")
+n$WeekSubWeek = as.character(n$WeekSubWeek)
+n[nrow(n)+1,] = c("Product", as.numeric(1.9), as.numeric(0.5))
+
+#row = c("Product", as.numeric(1.9), as.numeric(0.5)) 
+#n = rbind(n, row)
+#str(n)
+oDual = merge(oDual, n, by = "WeekSubWeek", all = F)
+oDual$diss.d15N = as.numeric(oDual$diss.d15N)
+oDual$SD.d15N = as.numeric(oDual$SD.d15N)
+
+oDual$Month = ifelse(oDual$Date.ti >= as.POSIXct("2016-03-24 00:30:00", tz = "EST") &
+           oDual$Date.ti < as.POSIXct("2016-04-01 00:00:00", tz = "EST"), "April",
+         ifelse(oDual$Date.ti >= as.POSIXct("2016-04-01 00:00:00", tz = "EST") &
+                  oDual$Date.ti < as.POSIXct("2016-05-01 00:00:00", tz = "EST"), "April",
+                ifelse(oDual$Date.ti >= as.POSIXct("2016-05-01 00:00:00", tz = "EST") &
+                         oDual$Date.ti < as.POSIXct("2016-06-01 00:00:00", tz = "EST"), "May",
+                       ifelse(oDual$Date.ti >= as.POSIXct("2016-06-01 00:00:00", tz = "EST") & 
+                                oDual$Date.ti < as.POSIXct("2016-07-01 00:00:00", tz = "EST"), "June", "July" )
+                            )
+                     )
+         )
+
+oDual$Season = ifelse(oDual$Date.ti > as.POSIXct('2016-05-25 00:06:00', tz = 'EST'), "Late", "Early")
+
+y = oDual$diss.d15N
+y.sd = oDual$SD.d15N
+
+x = oDual$diss.d13C.x
+x.sd = oDual$SD.d13C.x
+
+d = ggplot(data = oDual, aes(x=x, y=y, group = Month, colour = Month, shape = Month))+
+  theme_minimal() +
+  geom_errorbar(aes(ymin = y - y.sd, ymax = y + y.sd)) +
+  geom_errorbarh(aes(xmin = x - x.sd, xmax = x + x.sd)) +
+  geom_point() +
+  ylab(expression(paste({delta}^"15","N", ' (\u2030)'))) +
+  xlab(expression(paste({delta}^"13","C", ' (\u2030)'))) +
+  theme(text = element_text(size=17))
+  
+# View(subset(oDual, WeekSubWeek == "Product" ))
+
+tags = T
+oDual$Label = ifelse(oDual$WeekSubWeek != "Product", NA, "Product") #  as.factor(oDual$WeekSubWeek)
+if (tags){
+d = d +  geom_label_repel(data = subset(oDual),  aes(label=Label),
+                 arrow = arrow(length = unit(0.005, 'npc'), type = "closed"),
+                 force = 0.1, 
+                 point.padding = unit(1, 'lines'), 
+                 max.iter = 2e3,
+                 nudge_x = .1, nudge_y = -0.2, show.legend = F)
+}
+
+d = d + scale_x_continuous(breaks = seq(-33, -29, by=0.5) )
+
+d
+
+SAVE = F
+PC = T
+if (SAVE){
+  if (PC){
+      ggsave(d, 
+           filename = "D:/Documents/these_pablo/WriteUp/WaterResearch/images/dual.pdf", 
+           device = "pdf", dpi = 600,  scale = 1, # )# ,
+           width = 7, height = 6)
+    } else {
+      ggsave(d, 
+         filename = "/Users/DayTightChunks/Documents/PhD/Writeups/Journals/WaterResearch/images/dual.pdf", 
+         device=cairo_pdf, dpi = 600,  scale = 1, # )# ,
+         width = 7, height = 6)
+    }
+  }
+
 ```
 

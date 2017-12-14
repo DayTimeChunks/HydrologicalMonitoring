@@ -210,7 +210,7 @@ soils$Tprct.Bulk <- (1-soils$ftot.Bulk)*100
 
 ```
 
-Calculating degradation and respective statistical variation errors in B, according to [@Thulnner2012]: 
+Calculating degradation and respective statistical variation errors in B, according to [@Thullner2012]: 
 
 $$ | \Delta B | = \frac{1}{| \epsilon |} \cdot (100 - B[\%]) \cdot \sqrt{(ln(1-B[\%]/100))^2 \cdot (\Delta \epsilon)^2 + (\Delta \delta_x)^2 + (\Delta \delta_0)^2} $$
 
@@ -250,8 +250,11 @@ soils$Berr.Stat.S <- (1/-epsilon_lab)*
   (100-soils$Belsner.S)*( (log(1-soils$Belsner.S/100))^2 
                           * dE^2 + (soils$comp.d13C.SD.South)^2 + (Deltadelta0)^2 )^(1/2)
 
-
-
+# Abstract Calcs
+soils$RemPrc = (soils$CatchMassSoil.g/soils$CumAppMass.g.OT)*100
+soils$LossPrc = 100 - soils$RemPrc - soils$Belsner.Bulk
+soils$LossPrc.Low = 100 - (soils$Belsner.Bulk+soils$Berr.Stat.Bulk) - soils$RemPrc
+soils$LossPrc.High = 100 - (soils$Belsner.Bulk-soils$Berr.Stat.Bulk) - soils$RemPrc
 ```
 
 ## April error estimation
