@@ -1,4 +1,7 @@
 
+# Alteck Catchment area
+catchment_area = 47 * 10000
+
 rendement.soils = 1/0.24
 rendement.waters = 1 
 

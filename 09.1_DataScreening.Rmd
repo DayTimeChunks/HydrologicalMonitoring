@@ -186,10 +186,10 @@ soilGrApp <- rbind(soilGrApp, soilGrApp.S)
 p <- ggplot(data = soilGrApp, aes(x=Conc.mug.g.dry.soil, y=DD13C.comp))+
   geom_errorbar(aes(ymin = DD13C.comp - prop.d13C.SD, ymax = DD13C.comp + prop.d13C.SD)) +
   geom_errorbarh(aes(xmin = Conc.mug.g.dry.soil - Conc.ComSoil.SD, xmax = Conc.mug.g.dry.soil + Conc.ComSoil.SD)) +
-  stat_smooth(data = subset(soilGrApp, Conc.mug.g.dry.soil < 8), 
-              aes(x=Conc.mug.g.dry.soil, y=DD13C.comp), method = "lm", formula = y ~ poly(x, 2), se=F) +
+  #stat_smooth(data = subset(soilGrApp, Conc.mug.g.dry.soil < 8), 
+  #            aes(x=Conc.mug.g.dry.soil, y=DD13C.comp), method = "lm", formula = y ~ poly(x, 2), se=F) +
   # geom_point(aes(group = ID, size = timeSinceApp.NoSo)) + # , colour = Source)) +  # , shape = ngC.Label)) +
-  geom_point(aes(group = ID, size = timeSinceApp)) +
+  geom_point(aes(group = Transect, colour = Transect, size = timeSinceApp)) +
   # theme_bw() +
   theme_minimal() +
   theme(legend.position = "top",

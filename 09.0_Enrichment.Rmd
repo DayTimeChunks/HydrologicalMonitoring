@@ -11,15 +11,32 @@ knitr::opts_chunk$set(echo = FALSE, message=FALSE, warning = F)
 
 Sys.setlocale("LC_ALL", "English") 
 
-library("tidyr")
-#library("dplyr")
-library("ggplot2")
-library("ggrepel")
-library("zoo")
-library("scales")
-
 # Import lab values 
 source("global.R")
+
+library(sm)
+library(vioplot)
+
+library(dplyr)
+library(tidyr)
+library(zoo)
+library(reshape)
+library(ggplot2)
+library("ggrepel")
+
+library("plotly")
+library("cowplot")
+library("gridExtra")
+library("Cairo")
+library("GGally")
+library("scales")
+
+library("plotKML")
+
+# Stats
+library("vegan")
+library("cluster")
+
 ```
 
 ## Extraction error correlation - Alteck Soils
@@ -89,15 +106,69 @@ Propagated error accounts for 1 SD of initial product and 1 SD from the method
 propagatedError
 ```
 
-
-## Degradation experiments and $\varepsilon_{lab}$ derivation 
+## All data
 
 ```{r}
 # Import raw data
 enrich = read.csv2('Data/EnrichmentExp.csv', sep = ";", dec = ".", header = T) 
+
+inital = subset(enrich, Days == 1)
+iniDelta = mean(inital$Delta)
+enrich$DD13 <- enrich$Delta - initialDelta
+enrich$DD13m <- enrich$Delta - iniDelta
+
+
+
+exp = ggplot(data = enrich, aes(x=Days, y=DD13m, group = Type, colour = Type))+
+  geom_errorbar(aes(ymin = DD13m - SD, ymax = DD13m + SD)) +
+  geom_point() + 
+  theme_minimal() +
+  stat_smooth(method = "lm", formula = y ~ x, se=F) +
+  ylab(expression(paste({Delta~delta}^"13","C", ' (\u2030)'))) 
+  
+exp
+# Note: SD are error propagated: prop.d13C.SD
+SAVE = F
+PC = F
+if (SAVE){
+  if (PC){
+    ggsave(exp, 
+       filename = "D:/Documents/these_pablo/WriteUp/Alteck_PNAS_LaTeX/images/DDvsDays.pdf", 
+       device = "pdf", dpi = 600,  scale = 1, # )# ,
+       width = 8.7, height = 6)
+  } else {
+    ggsave(exp,
+     filename = "/Users/DayTightChunks/Documents/PhD/Writeups/DDvsDays.pdf", 
+      device=cairo_pdf, dpi = 600,  scale = 1, # )# ,
+       width = 8.7, height = 6)
+  }
+}
+# ggsave(exp, filename = "/Users/DayTightChunks/Documents/PhD/Writeups/DegExp2.png" , width = 8.7, height = 6 )#, units = "cm", scale = 1)
+```
+
+# Delta vs Conc
+
+```{r}
+g = ggplot(data = enrich, aes(x=C.SM, y=DD13m))+
+  geom_errorbar(aes(ymin = DD13m - SD, ymax = DD13m + SD)) +
+  geom_point(aes(group = Type, colour = Type, size = Days)) + 
+  theme_minimal() +
+  # stat_smooth(method = "lm", formula = y ~ x, se=F) +
+  ylab(expression(paste({Delta~delta}^"13","C", ' (\u2030)'))) 
+
+g
+
+# ggsave(g, filename = "/Users/DayTightChunks/Documents/PhD/Writeups/DegExp1.png" , width = 8.7, height = 6 )#, units = "cm", scale = 1)
+```
+
+
+## Degradation experiments and $\varepsilon_{lab}$ derivation 
+
+```{r}
+
 bio = subset(enrich, Type==as.character("Biotic") & Temp == 20)
 
-bio$DD13 <- bio$Delta - delta_ini
+
 cor.test(bio$Delta , bio$C.SM)
 
 pearson_r <- cor.test(bio$Delta , bio$C.SM)[4]
