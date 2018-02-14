@@ -111,29 +111,228 @@ propagatedError
 ```{r}
 # Import raw data
 enrich = read.csv2('Data/EnrichmentExp.csv', sep = ";", dec = ".", header = T) 
+enrich = subset(enrich, Temp == 20)
+enrich$Type = as.character(enrich$Type)
 
-inital = subset(enrich, Days == 1)
+# Initial mean concentration
+inital = subset(enrich, Days == 1 ) # & Type == "Biotic")
+iConc = mean(inital$C.SM)
+
+# Iniital Delta in deg experiment
 iniDelta = mean(inital$Delta)
 enrich$DD13 <- enrich$Delta - initialDelta
 enrich$DD13m <- enrich$Delta - iniDelta
 
+abiotic = subset(enrich, Type == "Abiotic" & Temp == 20)
+biotic = subset(enrich, Type == "Biotic" & Temp == 20)
 
+```
+
+# Degradation rate constant ($k_{1/2}$), DT50 and DT90 (Overall)
+
+Single frist order rate model based on:
+
+https://www.epa.gov/pesticide-science-and-assessing-pesticide-risks/degradation-kinetics-equations
+
+```{r}
+# Get Degradation rate constant 
+
+biotic$lnCtC0 = log(biotic$C.SM/iConc) 
+deg.lm = lm(lnCtC0 ~ Days, data = biotic)
+out = summary(deg.lm)
+
+k = -as.numeric(coef(deg.lm)[2])
+
+high = -confint(deg.lm, level = 0.95)[2,1]
+low = -confint(deg.lm, level = 0.95)[2,2]
+CI = high - k
+se = sqrt(diag(vcov(deg.lm)))[2]
+
+k
+se[[1]]
+
+ggplot(data = biotic, aes(y=lnCtC0, x = Days))+
+  geom_point() +
+  theme_minimal() +
+  stat_smooth(method = "lm", formula = y ~ x, se=F)
+  
+DT50 = log(2)/k
+DT50_high = log(2)/(k+se[[1]])
+DT50_low = log(2)/(k-se[[1]])
+
+
+DT90 = log(10)/k
+DT90_high = log(10)/(k+se[[1]])
+
+p_k = lmp(deg.lm)
+
+# Overall
+# DT50
+DT50
+DT50 - DT50_high
+
+# DT90
+DT90
+DT90 - DT90_high
+```
+
+# At 20 % Moisture
+
+```{r}
+biotic_20 = subset(biotic, Temp == 20 & Theta == 20)
+
+deg.lm = lm(lnCtC0 ~ Days, data = biotic_20)
+out = summary(deg.lm)
+
+k = -as.numeric(coef(deg.lm)[2])
+
+high = -confint(deg.lm, level = 0.95)[2,1]
+low = -confint(deg.lm, level = 0.95)[2,2]
+CI = high - k
+se = sqrt(diag(vcov(deg.lm)))[2]
+
+k
+se[[1]]
+
+ggplot(data = biotic, aes(y=lnCtC0, x = Days))+
+  geom_point() +
+  theme_minimal() +
+  stat_smooth(method = "lm", formula = y ~ x, se=F)
+  
+DT50 = log(2)/k
+DT50_high = log(2)/(k+se[[1]])
+DT50_low = log(2)/(k-se[[1]])
+
+
+DT90 = log(10)/k
+DT90high = log(10)/(k+se[[1]])
+
+p_k = lmp(deg.lm)
+
+# Overall
+# DT50
+DT50
+DT50-DT50_high
+
+# DT90
+DT90
+DT90-DT90high
+```
+
+# At 20 % Moisture
+
+```{r}
+biotic_40 = subset(biotic, Temp == 20 & Theta == 40)
+
+deg.lm = lm(lnCtC0 ~ Days, data = biotic_40)
+out = summary(deg.lm)
+
+k = -as.numeric(coef(deg.lm)[2])
+
+high = -confint(deg.lm, level = 0.95)[2,1]
+low = -confint(deg.lm, level = 0.95)[2,2]
+CI = high - k
+se = sqrt(diag(vcov(deg.lm)))[2]
+
+k
+se[[1]]
+
+ggplot(data = biotic, aes(y=lnCtC0, x = Days))+
+  geom_point() +
+  theme_minimal() +
+  stat_smooth(method = "lm", formula = y ~ x, se=F)
+  
+DT50 = log(2)/k
+DT50_high = log(2)/(k+se[[1]])
+DT50_low = log(2)/(k-se[[1]])
+
+
+DT90 = log(10)/k
+DT90high = log(10)/(k+se[[1]])
+
+p_k = lmp(deg.lm)
+
+# Overall
+# DT50
+DT50
+DT50-DT50_high
+
+# DT90
+DT90
+DT90-DT90high
+```
+
+# Conc. vs. $\Delta \delta$ (based on ini. conc of the experimental setup)
+
+```{r}
+
+
+```
+
+
+# $\Delta \delta$ vs time
+
+```{r}
+
+
+
+enrich$C.SMprct = (enrich$C.SM/c_ini)*100
+
+# Test Models - DD vs Time
+abiotic.lm = lm(DD13m ~ Days, data=abiotic)
+summary(abiotic.lm)
+
+biotic.lm = lm(DD13m ~ Days, data=biotic)
+summary(biotic.lm)
+
+
+# Function to retriece the p-value
+# lmp() see file: global.r
+p_abiotic = lmp(abiotic.lm)
+p_biotic = lmp(biotic.lm)
+
+cof_abiotic <- as.numeric(coef(abiotic.lm)[2])
+cof_biotic <- as.numeric(coef(biotic.lm)[2])
+
+cofa_label <- sprintf("beta == %0.3f", cof_abiotic)
+pa_label <- sprintf("P == %0.2f", p_abiotic)
+
+cofb_label <- sprintf("beta == %0.3f", cof_biotic)
+pb_label <- sprintf("P < %0.4f", p_biotic)
+
+formula = sprintf("y == beta * X")
+
+
+# Draw graphs
+
+red = "#F8766D"
+blue = "#00BFC4"
 
 exp = ggplot(data = enrich, aes(x=Days, y=DD13m, group = Type, colour = Type))+
   geom_errorbar(aes(ymin = DD13m - SD, ymax = DD13m + SD)) +
   geom_point() + 
   theme_minimal() +
+  theme(legend.position = "top",
+        text = element_text(size=17)) +
   stat_smooth(method = "lm", formula = y ~ x, se=F) +
+  annotate("text", x = 150.0, y = 6.0, label = formula, parse = T, size = 4, colour = blue) +
+  annotate("text", x = 150.0, y = 5.5, label = cofb_label, parse = T, size = 4, colour= blue) +
+  annotate("text", x = 150.0, y = 5.0, label = pb_label, parse = T, size = 4, colour = blue) + 
+  annotate("text", x = 150.0, y = 2.3, label = formula, parse = T, size = 4, colour = red) +
+  annotate("text", x = 150.0, y = 1.8, label = cofa_label, parse = T, size = 4, colour= red) +
+  annotate("text", x = 150.0, y = 1.3, label = pa_label, parse = T, size = 4, colour = red) +
   ylab(expression(paste({Delta~delta}^"13","C", ' (\u2030)'))) 
+
+
   
 exp
 # Note: SD are error propagated: prop.d13C.SD
 SAVE = F
-PC = F
+PC = T
 if (SAVE){
   if (PC){
     ggsave(exp, 
-       filename = "D:/Documents/these_pablo/WriteUp/Alteck_PNAS_LaTeX/images/DDvsDays.pdf", 
+       filename = "D:/Documents/these_pablo/WriteUp/Images/DDvsDays.pdf", 
        device = "pdf", dpi = 600,  scale = 1, # )# ,
        width = 8.7, height = 6)
   } else {
@@ -146,15 +345,67 @@ if (SAVE){
 # ggsave(exp, filename = "/Users/DayTightChunks/Documents/PhD/Writeups/DegExp2.png" , width = 8.7, height = 6 )#, units = "cm", scale = 1)
 ```
 
+
 # Delta vs Conc
 
 ```{r}
-g = ggplot(data = enrich, aes(x=C.SM, y=DD13m))+
-  geom_errorbar(aes(ymin = DD13m - SD, ymax = DD13m + SD)) +
-  geom_point(aes(group = Type, colour = Type, size = Days)) + 
+enrich = read.csv2('Data/EnrichmentExp.csv', sep = ";", dec = ".", header = T) 
+enrich$Temp = as.numeric(enrich$Temp)
+# enrich$Days = as.factor(enrich$Days)
+abiotic = subset(enrich, Type == "Abiotic")
+abiotic2020 = subset(enrich, Type == "Abiotic" & Temp == 20 & Theta == 20)
+abiotic2040 = subset(enrich, Type == "Abiotic" & Temp == 20 & Theta == 40)
+abiotic3020 = subset(enrich, Type == "Abiotic" & Temp == 30 & Theta == 20)
+abiotic3040 = subset(enrich, Type == "Abiotic" & Temp == 30 & Theta == 40)
+
+ini2020 = abiotic2020$C.SM[1]
+ini2040 = abiotic2040$C.SM[1]
+abiotic2020$C.SMprct = (abiotic2020$C.SM/ini2020)
+abiotic2040$C.SMprct = (abiotic2040$C.SM/ini2040)
+
+ini3020 = abiotic3020$C.SM[1]
+ini3040 = abiotic3040$C.SM[1]
+abiotic3020$C.SMprct = (abiotic3020$C.SM/ini3020)
+abiotic3040$C.SMprct = (abiotic3040$C.SM/ini3040)
+
+df1 = rbind(abiotic2020, abiotic2040)
+
+mab <- aggregate(C.SMprct~Days, df1, mean) 
+SDab = aggregate(C.SMprct~Days, df1, sd)
+
+ab = merge(mab, SDab, by = "Days")
+ab$Type = as.factor("Abiotic")
+
+biotic2020 = subset(enrich, Type == "Biotic" & Temp == 20 & Theta == 20)
+biotic2040 = subset(enrich, Type == "Biotic" & Temp == 20 & Theta == 40)
+ini2020 = biotic2020$C.SM[1]
+ini2040 = biotic2040$C.SM[1]
+biotic2020$C.SMprct = (biotic2020$C.SM/ini2020)
+biotic2040$C.SMprct = (biotic2040$C.SM/ini2040)
+
+df2 = rbind(biotic2020, biotic2040) # , abiotic2020, abiotic2040)
+
+
+mb <- aggregate(C.SMprct~Days, df2, mean) 
+SDb = aggregate(C.SMprct~Days, df2, sd)
+
+b = merge(mb, SDb, by = "Days")
+b$Type = as.factor("Biotic")
+
+aba = rbind(ab, b)
+
+ggplot(data = subset(aba), aes(y=C.SMprct.x, x=Days, group = Type, colour = Type))+
+  geom_errorbar(aes(ymin = C.SMprct.x - C.SMprct.y, ymax = C.SMprct.x + C.SMprct.y)) +
+  geom_point() + 
+  theme_minimal()
+
+df3 = rbind(df2, df1)
+g = ggplot(data = subset(df3), aes(y=C.SMprct, x=Days))+
+  # geom_errorbar(aes(ymin = DD13 - SD, ymax = DD13 + SD)) +
+  geom_point(aes(group = Type, colour = Type)) + 
   theme_minimal() +
   # stat_smooth(method = "lm", formula = y ~ x, se=F) +
-  ylab(expression(paste({Delta~delta}^"13","C", ' (\u2030)'))) 
+  ylab(expression(paste("C"["t"]/"C"["0"], ' (-)'))) 
 
 g
 

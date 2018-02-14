@@ -67,6 +67,7 @@ source("global.R")
 
 # Soils
 
+
 ```{r}
 
 
@@ -135,7 +136,7 @@ $$\Delta = 1000 \cdot ln \Big( \frac{ 10^{-3} \delta^{13}_t C + 1}{10^{-3} \delt
 
 Note that to meet the relationships D\* > 1 and 0 < B\* < 1 initial concentrations need to be accurate. From Van Breukelen (2007):
 
-(i) if B\* exceeds 1, the predicted concentration decrease is larger than observed, 
+(i) if B\* exceeds 1, the predicted concentration decrease is larger than observed (i.e. too much degradation being predicted with the chosen $\varepsilon_{lab}$, and thus $\varepsilon_{true}$should be more negative), 
 (ii) if B\* is negative, downgradient concentrations are higher than the source concentration. 
 
 Modified to top soils, in the above cases, application of the open system Rayleigh equation [would] thereby point out that the boundary conditions [e.g. initial concentrations] must be different.
@@ -209,6 +210,11 @@ soils$Bprct.Bulk <- (1-soils$fdeg.Bulk)*100
 soils$Tprct.Bulk <- (1-soils$ftot.Bulk)*100
 
 ```
+
+
+# Uncertainty due to statistical variation of input parameters
+
+TODO: Move this section below, continue here with Open Rayleigh, not statistical variation of input parameters. 
 
 Calculating degradation and respective statistical variation errors in B, according to [@Thullner2012]: 
 
@@ -347,7 +353,7 @@ soils$Berr.Stat.Field <- (1/-epsilon_field)*
   (100-soils$Belsner.BulkField)*( (log(1-soils$Belsner.BulkField/100))^2 * dE^2 + (0.5)^2 + (.5)^2 )^(1/2)
 ```
 
-
+# Contined from Open Rayleigh
 
 The above allows us to calculate the breakdown (B\*) and dilution factors (D\*). Note that the relationships D\* > 1 and B\* < 1 must be met, otherwise $\epsilon_{true}$ is incorrect or iniitial concentrations are incorrect (or both). 
 

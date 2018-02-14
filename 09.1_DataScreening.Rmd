@@ -22,7 +22,7 @@ Buttigieg PL, Ramette A (2014) A Guide to Statistical Analysis in Microbial Ecol
 
 # Files Used
 
-- **MassBalance_R.csv**
+- **MassBalance_R.csv** (Book 07 - Soils & Discharge Merged)
 - **WeeklySoils_Rng.csv** (Book 06 - Mass Soils COmposite)
 
 # Files Written
@@ -40,7 +40,6 @@ library(tidyr)
 library(zoo)
 library(reshape)
 library(ggplot2)
-library("ggrepel")
 
 library("plotly")
 library("cowplot")
@@ -189,7 +188,7 @@ p <- ggplot(data = soilGrApp, aes(x=Conc.mug.g.dry.soil, y=DD13C.comp))+
   #stat_smooth(data = subset(soilGrApp, Conc.mug.g.dry.soil < 8), 
   #            aes(x=Conc.mug.g.dry.soil, y=DD13C.comp), method = "lm", formula = y ~ poly(x, 2), se=F) +
   # geom_point(aes(group = ID, size = timeSinceApp.NoSo)) + # , colour = Source)) +  # , shape = ngC.Label)) +
-  geom_point(aes(group = Transect, colour = Transect, size = timeSinceApp)) +
+  geom_point(aes(group = Transect, colour = Transect, size = Wnum)) +
   # theme_bw() +
   theme_minimal() +
   theme(legend.position = "top",
@@ -623,7 +622,8 @@ wstidier$Location <- as.factor(wstidier$Location)
 ```{r}
 # library(scales) 
 ## Color palette
-# show_col(hue_pal()(12))
+# 
+show_col(hue_pal()(12))
 
 # Bulk, North, Valley, South, Outlet  
 # "black", "#F8766D", "#00BA38", "#DE8C00", ("#619CFF" / "#00B4F0" / "#00BFC4")

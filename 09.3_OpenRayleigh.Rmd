@@ -1,0 +1,364 @@
+---
+title: "Open Rayleigh - Revised"
+author: "PAZ"
+date: "13 février 2018"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, warning=FALSE, message = FALSE)
+Sys.setlocale("LC_ALL", "English")
+```
+
+# Introduction
+
+Degradation extent is calculated based on open system Rayleigh equations. The following steps have been taken:
+
+
+1. The initial transect (cumulative) mass has been calculated based on the original farmer surveys (Book 05, MassDischarge_Outlet).
+2. Mass has been converted to concentration (by assuming a constant soil bulk density)
+3. 
+
+# Data used
+
+- **MassBalance_R.csv** (Book 07)
+
+# Packages
+
+```{r, warning=FALSE,}
+library(sm)
+library(vioplot)
+
+library(dplyr)
+library(tidyr)
+library(zoo)
+library(reshape)
+library(ggplot2)
+library("ggrepel")
+
+if (FALSE){
+  library("plotly")
+  library("cowplot")
+  library("gridExtra")
+  library("Cairo")
+  library("GGally")
+  library("scales")
+  
+  library("plotKML")
+  
+  # Stats
+  library("vegan")
+  library("cluster")
+  
+  # Saving a xlxs file
+  # library(xlsx)
+  }
+
+```
+
+# Parameters & assumptions
+
+```{r}
+
+source("global.R")
+
+# Fresh tilled
+rho1 = 0.98*10^6 # soil density [g/m3] Leaching experiment, "freshly tilled" soil
+depth1 = 0.007 # [m] # Fresh tilled
+
+epsilon_true = epsilon_lab
+epsilon_streit = -1.9
+
+```
+
+# Farmer plots on transects
+
+```{r}
+
+farm = read.csv2("Data/FarmerPlots.csv", header = TRUE, dec = ".")
+farm$Farmer = as.character(farm$Farmer)
+farm$onTrans = as.character(farm$onTrans)
+farm$Crop = as.character(farm$Crop)
+farm$Transect = as.character(farm$Transect)
+farm$Date = as.POSIXct(farm$Date, "%d/%m/%Y", tz = "EST")
+# Consider only plots on transect
+farm = subset(farm, onTrans == "True")
+```
+
+
+## Technical sheets 
+
+Below are Mercantor Gold and Dual Gold dossages for Corn and Beet. Based on the technical sheets initial concentrations are too low for what was measured in the field. Inspection of the cumulative initial concentration (below) against measured concentrations suggest that Friess and Mathis may have doubled the MG dose. Both farmers also applied MG significantly earlier than all other farmers (about 2-3 weeks). Increasing dosage may have therefore been a motivation to ensure effective weed control. Doubling the dose for Friess and Mathis results in adequate minimum initial concentrations for both North and Talweg and South transects, respectively.
+
+```{r}
+DOUBLED = TRUE
+if (DOUBLED){
+  double = 2
+} else {
+  double = 1
+}
+
+# Product Conc [g/L S-met]
+# Dual Gold & Mercantor Gold
+DG = 915 # g/L S-met
+MG = 960 # g/L
+
+# Dosages # L/m2
+Dbeet = NA
+Dcorn = 2.1 * 1/10^4 # L/Ha * 1 Ha / 10000 m2
+Mbeet = 0.6 * 1/10^4 * double
+Mbeet.Friess = 0.6 * 1/10^4 * double # (Likely larger dosage, early in the season)
+Mbeet.Mathis = 0.6 * 1/10^4 * (double+1) # (Likely larger dosage, early in the season)
+Mcorn = 2.0 * 1/10^4
+
+# Dosage X Prod. Conc = g/m2
+```
+
+# Applications - Initial survey
+
+1. Compute the cummulative mass applied for each transect in separate tables 
+2. Compute D* and B* and evaluate required conditions
+3. Determine whether $\varepsilon$ or the initial mass applied needs to be revised for each transect.
+
+```{r}
+farm1 = farm
+farm1$appMass = ifelse(farm$Farmer == "Schmitt", farm$m2*Dcorn*DG, 
+                      ifelse(farm$Crop == "Corn", farm$m2*Mcorn*MG,
+                             ifelse(farm$Farmer == "Friess", farm$m2*Mbeet.Friess*MG, 
+                                    ifelse(farm$Farmer == "Mathis", farm$m2*Mbeet.Mathis*MG,
+                                           farm$m2*Mbeet*MG)))) # [g S-met]
+```
+
+
+# Import measured concentrations & $\delta C$
+
+```{r}
+soils = read.csv2("Data/WeeklySoils_Rng.csv", header = TRUE)
+names(soils)
+
+soils$Date = as.POSIXct(soils$Date.Soil, "%d/%m/%Y %H:%M", tz = "EST")
+soils$Transect = as.character(soils$Transect)
+soils = soils[, c( "Date", "Transect" , "Conc.mug.g.dry.soil", "comp.d13C" , "DD13C.comp")]
+
+```
+
+# Separate into transects
+
+## Initial soil concentrations based on total mass applied (Open Rayleigh requirements)
+
+Open system Rayleigh calculations require estimation of cumulative initial concentration ($C_{Tr_0}(t)$) after any number of plot applications $a$ taking place in a composite sample (i.e. Transect ($Tr$)) and given by:
+
+$$ C_{Tr_{0}}(t) = \frac{\sum^A_{a=1}M_a(t)}{A_{Tr} \cdot D \cdot \rho_b } $$
+
+where, $M_a(t)$ is the total mass applied on transect $Tr$ due to application $a$ at time $t$, the total plot area associated to the transect ($A_{Tr}$) (i.e. this is proportional to sampling points along transect, and not extrapolated to areas that the transect did not cross). 
+
+## North
+
+```{r}
+# Inputs
+north1 = subset(farm1, Transect == "N")
+nArea = sum(north1$m2)
+n = north1 %>%
+  group_by(Date) %>%
+  summarize(totMass = sum(appMass),
+            totArea = sum(m2))
+n = n[order(n$Date),] 
+n$cumMass = cumsum(n$totMass)
+n$cumConc = ((n$cumMass/(nArea*depth1))*(1/rho1))*10^6 # ug s-met/g soil
+n = n[, c("Date", "cumConc")]
+
+# Measured & Inputs (merged)
+northSoils = subset(soils, Transect == "N")
+northSoils = merge(northSoils, n, by = "Date", all = T) 
+northSoils$cumConc = na.locf(northSoils$cumConc)
+northSoils = northSoils[complete.cases(northSoils$Conc.mug.g.dry.soil),]
+
+northSoils = northSoils[2:nrow(northSoils) , ]
+
+```
+
+# Talweg
+
+```{r}
+# Inputs
+talweg1 = subset(farm1, Transect == "T")
+nArea = sum(talweg1$m2)
+t = talweg1 %>%
+  group_by(Date) %>%
+  summarize(totMass = sum(appMass),
+            totArea = sum(m2))
+t = t[order(t$Date),] 
+t$cumMass = cumsum(t$totMass)
+t$cumConc = ((t$cumMass/(nArea*depth1))*(1/rho1))*10^6 # ug s-met/g soil
+t = t[, c("Date", "cumConc")]
+
+# Measured & Inputs (merged)
+talwegSoils = subset(soils, Transect == "T")
+talwegSoils = merge(talwegSoils, t, by = "Date", all = T) 
+talwegSoils$cumConc = na.locf(talwegSoils$cumConc)
+talwegSoils = talwegSoils[complete.cases(talwegSoils$Conc.mug.g.dry.soil),]
+talwegSoils = talwegSoils[2:nrow(talwegSoils) , ]
+```
+
+# South
+
+```{r}
+# Inputs
+south1 = subset(farm1, Transect == "S")
+nArea = sum(south1$m2)
+s = south1 %>%
+  group_by(Date) %>%
+  summarize(totMass = sum(appMass),
+            totArea = sum(m2))
+s = s[order(s$Date),] 
+s$cumMass = cumsum(s$totMass)
+s$cumConc = ((s$cumMass/(nArea*depth1))*(1/rho1))*10^6 # ug s-met/g soil
+s = s[, c("Date", "cumConc")]
+
+# Measured & Inputs (merged)
+southSoils = subset(soils, Transect == "S")
+southSoils = merge(southSoils, s, by = "Date", all = TRUE) 
+southSoils$cumConc = na.locf(southSoils$cumConc)
+southSoils = southSoils[complete.cases(southSoils$Conc.mug.g.dry.soil),]
+southSoils = southSoils[2:nrow(southSoils) , ]
+```
+
+# Accounting for dilution
+
+The Rayleigh equation assumes that $f$ reflects solely reduction in concentrations due to degradation and should thus be expressed as $f_{degradation}$. Accounting for dilution processes, the remaining fraction that is measured in the field sample becomes then $f_{total}$, where:
+
+$$ f_{total} = f_{degradation} \cdot f_{dilution} = \frac{C_t}{C_0}$$
+
+
+```{r}
+northSoils$ftot = northSoils$Conc.mug.g.dry.soil/northSoils$cumConc
+talwegSoils$ftot = talwegSoils$Conc.mug.g.dry.soil/talwegSoils$cumConc
+southSoils$ftot = southSoils$Conc.mug.g.dry.soil/southSoils$cumConc
+```
+
+Rearanging, 
+
+$$f_{degradation} = f_{total} \cdot F$$
+
+The dilution factor $F$ (i.e. the number of times the source volume has become diluted at the observation location) can be calculated if $\epsilon_{lab}$ is known such that:
+
+$$F = e^{(\Delta/\epsilon_{lab}-lnf_{total})}$$
+
+$$\Delta = 1000 \cdot ln \Big( \frac{ 10^{-3} \delta^{13}_t C + 1}{10^{-3} \delta^{13}_0 C + 1} \Big)$$
+
+```{r}
+
+# Streitwieser Semiclassical Limits
+northSoils$Delta <- 1000*log( (10^-3*northSoils$comp.d13C +1)/(10^-3*d13Co+1) )
+talwegSoils$Delta <- 1000*log( (10^-3*talwegSoils$comp.d13C +1)/(10^-3*d13Co+1) )
+southSoils$Delta <- 1000*log( (10^-3*southSoils$comp.d13C +1)/(10^-3*d13Co+1) )
+
+northSoils$Fdil = 
+  exp( northSoils$Delta/epsilon_true -log(northSoils$ftot) ) 
+talwegSoils$Fdil = 
+  exp(talwegSoils$Delta/epsilon_true -log(talwegSoils$ftot) ) 
+southSoils$Fdil = 
+  exp(southSoils$Delta/epsilon_true -log(southSoils$ftot) ) 
+
+# (B) Streitwieser Semiclassical Limits
+northSoils$Fdil_mx = 
+  exp( northSoils$Delta/epsilon_streit -log(northSoils$ftot) ) 
+talwegSoils$Fdil_mx = 
+  exp(talwegSoils$Delta/epsilon_streit -log(talwegSoils$ftot) ) 
+southSoils$Fdil_mx = 
+  exp(southSoils$Delta/epsilon_streit -log(southSoils$ftot) ) 
+```
+
+
+The above allows us to calculate the breakdown (B\*) and dilution factors (D\*). Note that the relationships D\* > 1 and B\* < 1 must be met, otherwise $\epsilon_{true}$ is incorrect or iniitial concentrations are incorrect (or both). 
+
+Note that to meet the relationships D\* > 1 and 0 < B\* < 1 initial concentrations need to be accurate. From Van Breukelen (2007):
+
+(i) if B\* exceeds 1, the predicted concentration decrease is larger than observed (i.e. too much degradation being predicted with the chosen $\varepsilon_{lab}$, and thus $\varepsilon_{true}$should be more negative), 
+(ii) if B\* is negative, downgradient concentrations are higher than the source concentration. 
+
+Modified to top soils, in the above cases, application of the open system Rayleigh equation [would] thereby point out that the boundary conditions [e.g. initial concentrations] must be different.
+
+Calculating B\* and  D\* is given by:
+
+$$B^* = \frac{log(f_{deg})}{log(f_{tot})} $$
+
+$$D^* = \frac{log(f_{dil})}{log(f_{tot})} = 1-B^* $$
+
+and their relationship $D*/B*$ which relates the extent of dilution relative to degradation.
+
+```{r}
+
+# (A) Lab epsilon
+northSoils$Dstar = log(1/northSoils$Fdil)/log(northSoils$ftot)
+northSoils$Bstar = 1 - northSoils$Dstar # log(northSoils$fdeg)/log(northSoils$ftot)
+northSoils$DB = northSoils$Dstar/northSoils$Bstar
+
+talwegSoils$Dstar = log(1/talwegSoils$Fdil)/log(talwegSoils$ftot)
+talwegSoils$Bstar = 1 - talwegSoils$Dstar  # log(talwegSoils$fdeg)/log(talwegSoils$ftot)
+talwegSoils$DB = talwegSoils$Dstar/talwegSoils$Bstar
+
+southSoils$Dstar = log(1/southSoils$Fdil)/log(southSoils$ftot)
+southSoils$Bstar = 1 - southSoils$Dstar # log(southSoils$fdeg)/log(southSoils$ftot)
+southSoils$DB = southSoils$Dstar/southSoils$Bstar
+
+# (B) Streitwieser Semiclassical Limits
+northSoils$Dstar_mx = log(1/northSoils$Fdil_mx)/log(northSoils$ftot)
+northSoils$Bstar_mx = 1 - northSoils$Dstar_mx # log(northSoils$fdeg)/log(northSoils$ftot)
+northSoils$DB_mx = northSoils$Dstar_mx/northSoils$Bstar_mx
+
+talwegSoils$Dstar_mx = log(1/talwegSoils$Fdil_mx)/log(talwegSoils$ftot)
+talwegSoils$Bstar_mx = 1 - talwegSoils$Dstar_mx  # log(talwegSoils$fdeg)/log(talwegSoils$ftot)
+talwegSoils$DB_mx = talwegSoils$Dstar/talwegSoils$Bstar
+
+southSoils$Dstar_mx = log(1/southSoils$Fdil_mx)/log(southSoils$ftot)
+southSoils$Bstar_mx = 1 - southSoils$Dstar_mx # log(southSoils$fdeg)/log(southSoils$ftot)
+southSoils$DB_mx = southSoils$Dstar_mx/southSoils$Bstar_mx
+```
+
+
+
+## Rayleigh (closed system, Elsner's notation)
+
+$$ ln (\frac{1000 + \delta ^{13}C_0 + \Delta\delta^{13}C }{1000 + \delta^{13} C_0 }) = (\alpha - 1) \cdot ln f = \frac{\epsilon}{1000} \cdot ln f $$
+
+
+# Plotting
+
+```{r}
+
+if (FALSE){
+ggplot(data = northSoils , aes(x=Date))+
+  geom_point(aes(y = Dstar, colour = "D*N")) +
+  theme_bw() 
+
+ggplot(data = talwegSoils , aes(x=Date))+
+  geom_point(aes(y = Dstar, colour = "D*T")) +
+  theme_bw() 
+
+ggplot(data = southSoils , aes(x=Date))+
+  geom_point(aes(y = Dstar, colour = "D*S")) +
+  theme_bw() 
+}
+
+if (TRUE){
+  ggplot(data = northSoils , aes(x=Date))+
+  geom_point(aes(y = Bstar, colour = "B*N")) +
+  theme_bw() 
+
+  ggplot(data = talwegSoils , aes(x=Date))+
+    geom_point(aes(y = Bstar, colour = "B*T")) +
+    theme_bw() 
+
+  ggplot(data = southSoils , aes(x=Date))+
+    geom_point(aes(y = Bstar, colour = "B*S")) +
+    theme_bw() 
+}
+
+
+
+
+
+  
+```
+

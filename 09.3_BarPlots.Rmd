@@ -80,8 +80,7 @@ keepMB <- c("Date.ti", "ID.N", "Duration.Hrs",
             "MELsm.g", "MELsm.g.SD",
             # CSIA Soils
             "BulkCatch.d13" , "BulkCatch.d13.SD", 
-            # For maximum soil degradation 
-            "DD13C.South" , 
+            # For maximum soil degradation# "DD13C.South" , 
             # CSIA Waters
             "diss.d13C" , "SD.d13C"
             )
@@ -92,12 +91,11 @@ sw <- sw[, (names(sw) %in% keepMB)]
 ## Theoretical calculations
 
 ```{r}
-
 # Half-life calculations (days)
-median_half <- 21 
-max_half <- 7.6
-min_half <- 37.6
+# See global.r for DT50's
 
+# Track each of the main applications (4 major applications considered)
+# Caclulate degradation due to cumulative days based on each individual application
 sw$No_First <- ifelse(sw$Appl.Mass.g.OT == 0, NA, sw$Appl.Mass.g.OT)
 sw$No_Second <- sw$No_First
 sw$No_Second[1] <- 0
@@ -175,8 +173,44 @@ sw$degTheo.SD1 <- 100 - sw$remainTheo.SD2
 sw$degTheo.SD2 <- 100 - sw$remainTheo.SD1
 
 colnames(sw)
+
+theo = sw[,c("Date.ti", "CumAppMass.g.OT", 
+             "remain_1st_29d" , "remain_2nd_29d" , "remain_3rd_29d", "remain_4th_29d",
+             "remain_1st_46d", "remain_2nd_46d", "remain_3rd_46d", "remain_4th_46d", 
+             "remain_1st_12d", "remain_2nd_12d", "remain_3rd_12d", "remain_4th_12d"
+             )]
+theo$rem29d = (theo$remain_1st_29d + theo$remain_2nd_29d + theo$remain_3rd_29d + theo$remain_4th_29d)/theo$CumAppMass.g.OT
+theo$rem46d = (theo$remain_1st_46d + theo$remain_2nd_46d + theo$remain_3rd_46d + theo$remain_4th_46d)/theo$CumAppMass.g.OT
+theo$rem12d = (theo$remain_1st_12d + theo$remain_2nd_12d + theo$remain_3rd_12d + theo$remain_4th_12d)/theo$CumAppMass.g.OT
+
+theo = theo[, c("Date.ti", "rem12d", "rem29d", "rem46d")]
+
+mtheo = melt(theo, id=c("Date.ti"))
+ggplot(data = mtheo, aes(x=Date.ti, y=value, colour=variable))+
+  geom_line() +
+  theme_minimal()
+
+sfo = theo
+sfo$Days = seq.int(nrow(sfo))
+ini = sw$CumAppMass.g.OT[nrow(sw)-1]
+sfo$Mtd21 = ini*exp((-log(2)/median_half)*(sfo$Days))
+sfo$Mtd8 = ini*exp((-log(2)/max_half)*(sfo$Days))
+sfo$Mtd38 = ini*exp((-log(2)/min_half)*(sfo$Days))
+
+sfo = sfo[,c("Days", "Mtd21", "Mtd8", "Mtd38")]
+sfo = melt(sfo, id=c("Days"))
+ggplot(data=sfo, aes(x=Days, y=value, colour=variable))+
+  geom_point() +
+  theme_minimal()
+```
+
+# Reduce Data Frame
+
+```{r}
+
+
 dropTheo <- c("No_First", "No_Second" ,"No_Third", "No_Fourth",
-                "CumDays_First", "CumDays_Second", "CumDays_Third", "CumDays_Fourth",
+               # "CumDays_First", "CumDays_Second", "CumDays_Third", "CumDays_Fourth",
                 "remain_1st_29d", "remain_2nd_29d", "remain_3rd_29d", "remain_4th_29d", 
                 "remain_1st_46d", "remain_2nd_46d", "remain_3rd_46d", "remain_4th_46d",
                 "remain_1st_12d", "remain_2nd_12d", "remain_3rd_12d", "remain_4th_12d",
@@ -238,13 +272,17 @@ sw$Bs.SD2 <-
   (1- ((1000 + d13Co + sw$DD.Bulk)/(1000+ d13Co))^(1000/epsilon_min) )*100
 
 # South (maximum fractionation in Abstract)
-sw$Bsouth <- 
+INSPECT = F
+if (INSPECT){
+  sw$Bsouth <- 
   (1- ((1000 + d13Co + sw$DD13C.South)/(1000+ d13Co))^(1000/epsilon_lab) )*100
 
 sw$Bsouth.SD1 <- 
   (1- ((1000 + d13Co + sw$DD13C.South)/(1000+ d13Co))^(1000/epsilon_max) )*100
 sw$Bsouth.SD2 <- 
   (1- ((1000 + d13Co + sw$DD13C.South)/(1000+ d13Co))^(1000/epsilon_min) )*100
+}
+
 
 
 
@@ -314,11 +352,13 @@ April <- subset(sw, (Date.ti >= as.POSIXct("2016-04-18 20:30:00", tz = "EST")
 
 June <- subset(sw, (Date.ti >= as.POSIXct("2016-06-01 00:56:00", tz = "EST") 
                  & Date.ti <= as.POSIXct("2016-06-28 14:52:00", tz = "EST")) )
+# Narrow range
+June <- subset(sw, (Date.ti >= as.POSIXct("2016-06-07 12:00:00", tz = "EST") 
+                 & Date.ti <= as.POSIXct("2016-06-14 13:06:00", tz = "EST")) )
 #soils.June <- soils.June[complete.cases(soils.June[ , "ID.N"]), ]
 
 
-# Take the last day of April
-# April <- April[nrow(April),]
+# Take an average of the obtained values for selected date ranges
 library(dplyr)
 a <- April %>% 
   summarise_each(funs(mean(. , na.rm=T) )) 
@@ -329,18 +369,6 @@ j <- June %>%
 a$Month <- "April"
 j$Month <- "June"
 
-
-# Take June 14 (two rows), fill in the earliest value if NA,  and select the last row. 
-#June <- subset(June, (Date.ti >= as.POSIXct("2016-06-07 12:00:00", tz = "EST") 
-#                 & Date.ti <= as.POSIXct("2016-06-14 00:00:00", tz = "EST")
-#                 ) )
-#June <- June[1, ]
-# June <- na.locf(June)[nrow(June), ]
-
-#aj <- rbind(April, June)[, 2:ncol(June) ]
-aj <- rbind(a, j)[, 2:ncol(j) ]
-
-# aj$Loss <- 100 -(aj$Bs.measure + aj$Rem.measure)
 ```
 
 
@@ -348,7 +376,8 @@ aj <- rbind(a, j)[, 2:ncol(j) ]
 ## Tidying up and plotting
 
 ```{r}
-
+# Get rid of date and cummulative days, and merge april and june
+aj <- rbind(a, j)[, 6:ncol(j) ]
 ajTidy <- aj %>%
   gather(measure, value, -Month) %>% # Melts data frame
   separate(measure, into = c("Sink", "temporary_var")) %>% # parses the sep = "." into...
@@ -576,3 +605,73 @@ if (SAVE){
 
 
 ```
+
+
+# Simplified Figure
+
+```{r}
+ajTidy$Sink = as.character(ajTidy$Sink)
+simp = subset(ajTidy, Sink == "remainTheo" | Sink == "fs" | Sink == "fw" | Sink == "Rem" | Sink == "TPout")
+
+simp$Sink = as.factor(simp$Sink)
+levels(simp$Sink)
+simp$Sink <- factor(simp$Sink, levels = c("remainTheo", "fs", "Rem", "fw", "TPout"))
+
+red = "#F8766D"
+green = "#00BA38"
+brown = "#DE8C00"
+violet = "#C77CFF"
+palegreen = "#B79F00"
+darkblue = "#619CFF"
+brightblue1 = "#00BFC4"
+brightblue2 = "#00B4F0"
+
+simplebar = ggplot(data = simp,  aes(x=Month, y=measure, fill = Sink, ymin=SD1, ymax=SD2))+
+  geom_bar(stat = "identity", position = "dodge", width = NULL) +
+  geom_errorbar(#aes(ymin=SD1, ymax=SD2),
+                 position=position_dodge(0.9),
+                 width=.4
+                 ) + 
+  theme_minimal() +
+  ylab("% S-met") +
+  theme(text = element_text(size=17),
+        axis.title.x = element_blank()) +
+        scale_fill_manual(name= "Estimation Approach",
+                          values = c(violet , green, brown, darkblue, brightblue1),
+                          breaks=c("remainTheo", "fs", "Rem", "fw", "TPout"),
+                          labels=c("A. Reference Non-degr. (DT50)",  "B. Soil Non-degr. (CSIA-f)", "C. Soil Remain. Mass (MB)", 
+                                   "D. Outlet Non-degr. (CSIA-f)", "E. Outlet Loadings (MB)" )) +
+        guides(fill=guide_legend(ncol=1))
+  
+simplebar
+
+
+SAVE = F
+PC = T
+if (SAVE){
+  if (PC){
+      ggsave(simplebar, 
+           filename = "D:/Documents/these_pablo/WriteUp/Images/barplot.pdf", 
+           device = "pdf", dpi = 600,  scale = 1, # )# ,
+           width = 7, height = 5)
+    } else {
+      ggsave(simplebar, 
+         filename = "/Users/DayTightChunks/Documents/PhD/Writeups/PNAS/Alteck_PNAS_LaTeX/images/balAllplot.pdf", 
+         device="pdf", dpi = 600,  scale = 1, # )# ,
+         width = 7, height = 5)
+    }
+  }
+
+```
+
+# Color pallette
+
+```{r}
+library(scales) 
+## Color palette
+show_col(hue_pal()(12))
+
+
+
+```
+

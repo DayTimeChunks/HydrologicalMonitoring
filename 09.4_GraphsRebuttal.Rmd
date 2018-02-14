@@ -1,0 +1,697 @@
+---
+title: "Graphs Rebuttal"
+author: "PAZ"
+date: "5 février 2018"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, warning=FALSE, message = FALSE)
+Sys.setlocale("LC_ALL", "English")
+```
+
+
+# Packages
+
+```{r, warning=FALSE}
+
+library(ggplot2)
+```
+
+
+# Lab and other parameters
+
+```{r}
+source("global.R")
+```
+
+
+
+## Soils from Book: 06, to merge with "timeApps" 
+
+```{r}
+
+# Soils
+soils = read.csv2("Data/MassBalance_R.csv", 
+                       na.strings=c('#DIV/0!', '', 'NA'), header = TRUE)
+names(soils)
+
+colnames(soils)[colnames(soils) == "ti"] <- "Date.ti"
+soils$Date.ti <- as.POSIXct(strptime(soils$Date.ti, 
+                                          "%Y-%m-%d %H:%M", tz="EST")) # csv typos, option 1
+sum(is.na(soils$Date.ti)) == 0
+
+initialDelta
+
+# Get rid of imputed values to avoid bias
+soils$DD13C.North <- (ifelse(!is.na(soils$comp.d13C.SD.North), soils$comp.d13C.North - (initialDelta), NA))
+soils$DD13C.Talweg <- (ifelse(!is.na(soils$comp.d13C.SD.Talweg), soils$comp.d13C.Talweg - (initialDelta), NA))
+soils$DD13C.South <- (ifelse(!is.na(soils$comp.d13C.SD.South), soils$comp.d13C.South - (initialDelta), NA))
+
+
+dropSoil <- c("WeekSubWeek", # "Event", 
+              "CumOutDiss.g", "CumOutFilt.g", "CumOutAppMass.g",  "CumOutMELsm.g", 
+              # "CumAppMass.g",
+              # "ID.N",  
+              "ID.T",  "Area.N", "Area.T", "Area.S",
+              "comp.d13C.SE.North", "comp.d13C.SE.Talweg", "comp.d13C.SE.South", 
+              "ngC.SD","ngC.SE", "N_compsoil" )#, "N_ngC")
+soils <- soils[ , !(names(soils) %in% dropSoil)]
+
+soilsCheck <- soils[complete.cases(soils[ , "ID.N"]),]
+
+names(soils)
+
+timeApps <- soils[ , c("Date.ti", "timeSinceApp", "timeSinceApp.NoSo", 
+                        "timeSinceApp.N", "timeSinceApp.T" , "timeSinceApp.S",
+                       "Event",
+                       "iniCo.ug.g.N",  "iniCo.ug.g.T" , "iniCo.ug.g.S")]
+
+  
+
+# Quasi-Molten SOILS
+soilGroups = read.csv2("Data/WeeklySoils_Rng.csv", 
+                       na.strings=c('#DIV/0!', '', 'NA'), header = TRUE)
+
+soilGroups$Date.ti <- as.POSIXct(strptime(soilGroups$Date.ti, 
+                                          "%Y-%m-%d %H:%M", tz="EST")) # csv typos, option 1
+sum(is.na(soilGroups$Date.ti)) == 0
+
+soilGroups$comp.d13C <- ifelse(is.na(soilGroups$comp.d13C.SD), NA, soilGroups$comp.d13C)
+# soilGroups$ngC.Label <- ifelse(soilGroups$ngC.mean < 10, "< 10 ng", "> 10 ng")
+
+soilGroups <- subset(soilGroups, comp.d13C.SD <= 0.70)
+
+#str(soils)
+
+soilGrApp <- merge(soilGroups, timeApps, by = "Date.ti", all = F)
+soilGrApp <- soilGrApp[complete.cases(soilGrApp[ , "timeSinceApp"]),]
+
+soilGrApp$DD13C.comp <- ifelse(is.na(soilGrApp$comp.d13C.SD), NA, soilGrApp$DD13C.comp)
+soilGrApp <- subset(soilGrApp, comp.d13C.SD <= 0.70)
+
+# Propagated SD
+soilGrApp$prop.d13C.SD = round((soilGrApp$comp.d13C.SD^2 + initialDeltaError^2)^0.5, 1) 
+  
+cor.test(soilGroups$comp.d13C, soilGroups$Conc.mug.g.dry.soil)
+
+pearson_r <- cor.test(soilGroups$comp.d13C, soilGroups$Conc.mug.g.dry.soil)[4]
+r_label <- sprintf("Pearson~r == %0.2f", pearson_r)
+p_value <- cor.test(soilGroups$comp.d13C, soilGroups$Conc.mug.g.dry.soil)[3]
+
+if (p_value < 0.0001){
+  p_label <- "(P < 0.001)"
+} else if (p_value < 0.001) {
+  p_label <- "(P < 0.001)"
+} else if (p_value < 0.015) {
+  p_label <- ("P < 0.01")
+} else {
+  p_label <- "Check significance"
+}
+
+soilGrApp$Source <- ifelse(soilGrApp$Transect == "T", "Valley", "Plateau")
+soilGrApp$Source <- as.factor(soilGrApp$Source)
+
+soilGrApp.N <- subset(soilGrApp, soilGrApp$Transect == "N") 
+soilGrApp.T <- subset(soilGrApp, soilGrApp$Transect == "T") 
+soilGrApp.S <- subset(soilGrApp, soilGrApp$Transect == "S") 
+
+soilGrApp.N$timeSinceApp <- soilGrApp.N$timeSinceApp.N
+soilGrApp.T$timeSinceApp <- soilGrApp.T$timeSinceApp.T
+soilGrApp.S$timeSinceApp <- soilGrApp.S$timeSinceApp.S
+
+dropAppDates <- c("timeSinceApp.NoSo", "timeSinceApp.N", "timeSinceApp.T", "timeSinceApp.S")
+soilGrApp.N <- soilGrApp.N[ , !(names(soilGrApp.N) %in% dropAppDates)]
+soilGrApp.T <- soilGrApp.T[ , !(names(soilGrApp.T) %in% dropAppDates)]
+soilGrApp.S <- soilGrApp.S[ , !(names(soilGrApp.S) %in% dropAppDates)]
+
+soilGrApp <- rbind(soilGrApp.N, soilGrApp.T)
+soilGrApp <- rbind(soilGrApp, soilGrApp.S)
+
+# comp.d13C.SD, replaced by: prop.d13C.SD
+
+p <- ggplot(data = soilGrApp, aes(x=Conc.mug.g.dry.soil, y=DD13C.comp))+
+  geom_errorbar(aes(ymin = DD13C.comp - prop.d13C.SD, ymax = DD13C.comp + prop.d13C.SD)) +
+  geom_errorbarh(aes(xmin = Conc.mug.g.dry.soil - Conc.ComSoil.SD, xmax = Conc.mug.g.dry.soil + Conc.ComSoil.SD)) +
+  #stat_smooth(data = subset(soilGrApp, Conc.mug.g.dry.soil < 8), 
+  #            aes(x=Conc.mug.g.dry.soil, y=DD13C.comp), method = "lm", formula = y ~ poly(x, 2), se=F) +
+  # geom_point(aes(group = ID, size = timeSinceApp.NoSo)) + # , colour = Source)) +  # , shape = ngC.Label)) +
+  geom_point(aes(group = Transect, colour = Transect, size = Wnum)) +
+  # theme_bw() +
+  theme_minimal() +
+  theme(legend.position = "top",
+        text = element_text(size=17)) +
+  labs(size="   Days after application", colour="Source" ) + #, shape = "Mass Carbon") +
+  ylab(expression(paste({Delta~delta}^"13","C", ' (\u2030)'))) +
+  xlab(expression(paste("S-met Soil Concentration  ", {({mu}*g / g~dry~wt.)}))) +
+  annotate("text", x = 7.0, y = 4.7, label = as.character(r_label), parse = T, size = 5) +
+  annotate("text", x = 7.0, y = 4.2, label = p_label, parse = T, size = 5) +
+  scale_size_continuous(range = c(1, 5), breaks= c(0, 10, 20, 30, 50), limits = c(0, 50)) + 
+  scale_y_continuous(breaks=c(0, 1, 2, 3 , 4 ,5) ) + 
+  # scale_size_continuous(range = c(1, 5)) +
+  guides(size=guide_legend(nrow=1)) +
+  annotate("text", x = 4, y = -0.3, label= "italic(Dilution)", parse=T, size = 4.5) +
+  geom_segment(aes(x = 6, y = -0.5, xend = 2.5, yend = -0.5),
+                   arrow = arrow(length = unit(1/2, 'picas'), type = "closed")) +
+  annotate("text", 
+           x = 4.0, y = 3.78, 
+           label= "paste(\"(\", italic(Bio), \") \", italic(degradation) )", parse=T, size = 4.5, angle=332.5) +
+  geom_segment(aes(x = 6, y = 2.2, xend = 2.5, yend = 4.5),
+                   arrow = arrow(length = unit(1/2, 'picas'), type = "closed")) +
+  annotate("rect", xmin=0, xmax=8, ymin=0, ymax=propagatedError, alpha=0.2)
+  
+  # geom_rect(aes(xmin=0, xmax=8, ymin=-0.5, ymax=0.5), colour = "grey", alpha = 0.5) + 
+  #geom_hline(yintercept = 0.5, color = "dodgerblue4", linetype = "dotted") +
+  #geom_hline(yintercept = 0, color = "dodgerblue3", linetype = "dotted") +
+  #geom_hline(yintercept = -0.5, color = "dodgerblue3", linetype = "dotted")
+  
+  #scale_color_hue("Group") +
+  #scale_fill_manual(
+  #  "CI horizontal line", values=rep(1,4),
+  #  guide=guide_legend(override.aes = list(colour=c("orange", "darkred"))),
+  #  labels=c("CI of 95%", "CI of 99%")
+  #)
+  #geom_text_repel(data = subset(soilGrApp, (!is.na(ngC.Label) & Wnum > 10) ), aes(label=Wnum),
+  #               arrow = arrow(length = unit(0.005, 'npc'), type = "closed"),
+  #               force = 1, 
+  #               point.padding = unit(1.0, 'lines'), 
+  #               max.iter = 2e3,
+  #               nudge_x = .2)
+p
+
+# 
+# ggsave(p, filename = "images/DDvsConc_soils_2.pdf", device = "pdf", dpi = 300,  scale = 2)
+
+
+# Note: SD are error propagated: prop.d13C.SD
+SAVE = F
+PC = T
+if (SAVE){
+  if (PC){
+    ggsave(p, 
+       filename = "D:/Documents/these_pablo/WriteUp/Alteck_PNAS_LaTeX/images/DDvsConc_soils.pdf", 
+       device = "pdf", dpi = 600,  scale = 1, # )# ,
+       width = 8.7, height = 6)
+  } else {
+    ggsave(p, 
+     filename = "/Users/DayTightChunks/Documents/PhD/Writeups/PNAS/Alteck_PNAS_LaTeX/images/DDvsConc_soils.pdf", 
+      device=cairo_pdf, dpi = 600,  scale = 1, # )# ,
+       width = 8.7, height = 6)
+  }
+}
+```
+
+# Merge with Lab experiment
+
+```{r}
+
+
+# Import raw data
+enrich = read.csv2('Data/EnrichmentExp.csv', sep = ";", dec = ".", header = T) 
+
+# Assign initial concentration
+names(soilGrApp)
+soilGrApp$C.ini = ifelse(soilGrApp$Transect == "N", soilGrApp$iniCo.ug.g.N, 
+                         ifelse(soilGrApp$Transect == "T", soilGrApp$iniCo.ug.g.T,
+                                ifelse(soilGrApp$Transect == "S", soilGrApp$iniCo.ug.g.S, NA)
+  
+))
+field = soilGrApp[, c("Transect", "DD13C.comp", "comp.d13C", "comp.d13C.SD", "Conc.mug.g.dry.soil", "Conc.ComSoil.SD", "C.ini"
+                      )]
+# Change names
+names(field) <- c("Transect", "DD13", "d13", "d13.SD", "C.SM", "C.SD", "C.ini")
+field$Type = "Field"
+
+# Get delta delta
+inital = subset(enrich, Days == 1)
+iniDelta = mean(inital$Delta)
+enrich$DD13 <- enrich$Delta - initialDelta
+enrich$DD13m <- enrich$Delta - iniDelta # Mean of initial samples (considers extraction error)
+
+biotic = subset(enrich, Type == "Biotic" & Temp == 20)
+# biotic = biotic[, c("Type", "DD13m", "SD", "C.SM")] # mean initial
+biotic = biotic[, c("Type", "DD13", "Delta", "SD", "C.SM", "C.SD")]
+names(biotic) = c("Type", "DD13", "d13", "d13.SD", "C.SM", "C.SD")
+biotic$C.ini = c_ini
+biotic$Transect = NA
+
+compare = rbind(field, biotic)
+compare$Transect = as.character(compare$Transect)
+compare$Transect = ifelse(is.na(compare$Transect), "Lab", compare$Transect)
+
+compare$Type = ifelse(compare$Type == "Biotic", "Lab", compare$Type)
+
+mix = ggplot(data = compare, aes(x=C.SM, y=DD13, group = Type, colour = Type, shape = Type))+
+  geom_errorbar(aes(ymin = DD13 - d13.SD, ymax = DD13 + d13.SD)) +
+  geom_errorbarh(aes(xmin = C.SM - C.SD, xmax = C.SM + C.SD)) +
+  geom_point() +
+  theme_minimal() +
+  theme(legend.position = "right",
+        text = element_text(size=14)) +
+  guides(size=guide_legend(ncol=1)) +
+  ylab(expression(paste({Delta~delta}^"13","C", ' (\u2030)'))) +
+  xlab(expression(paste("S-met Soil Conc.", {({mu}*g / g~dry~wt.)}))) +
+  annotate("rect", xmin=min(compare$C.SM), xmax=max(max(compare$C.SM), 8), ymin=0, ymax=propagatedError, alpha=0.2) 
+  
+if (F) {
+  mix + labs(size="Days after application", colour="Source" ) + #, shape = "Mass Carbon") +
+  
+  annotate("text", x = 7.0, y = 4.7, label = as.character(r_label), parse = T, size = 5) +
+  annotate("text", x = 7.0, y = 4.2, label = p_label, parse = T, size = 5) +
+  #scale_size_continuous(range = c(1, 5), breaks= c(0, 10, 20, 30, 50), limits = c(0, 50)) + 
+  #scale_y_continuous(breaks=c(0, 1, 2, 3 , 4 ,5) ) + 
+  # scale_size_continuous(range = c(1, 5)) +
+  
+  annotate("text", x = 4, y = -0.3, label= "italic(Dilution)", parse=T, size = 4.5) +
+  geom_segment(aes(x = 6, y = -0.5, xend = 2.5, yend = -0.5),
+                   arrow = arrow(length = unit(1/2, 'picas'), type = "closed")) +
+  annotate("text", 
+           x = 4.0, y = 3.78, 
+           label= "paste(\"(\", italic(Bio), \") \", italic(degradation) )", parse=T, size = 4.5, angle=332.5) +
+  geom_segment(aes(x = 6, y = 2.2, xend = 2.5, yend = 4.5),
+                   arrow = arrow(length = unit(1/2, 'picas'), type = "closed")) +
+  annotate("rect", xmin=0, xmax=8, ymin=0, ymax=propagatedError, alpha=0.2)
+}  
+
+mix
+  
+# ggsave(mix, filename = "D:/Documents/these_pablo/WriteUp/Images/DDvsConc_soils.png" , width = 8.7, height = 6 )#, units = "cm", scale = 1)
+
+```
+
+# Rayleigh
+
+```{r}
+
+# compare$yRaleigh <- log((1000+initialDelta+compare$DD13)/(1000+initialDelta)) # Elsner 2005
+compare$yRaleigh = ifelse(compare$Type=="Lab", 1000*log( (10^-3*compare$d13+1) / (10^-3*delta_ini+1)),
+                          1000*log( (10^-3*compare$d13+1) / (10^-3*initialDelta+1))
+                          ) # Van Breukelen, 2007
+compare$xRaleigh <- log(compare$C.SM/compare$C.ini)
+
+# Linear models
+biotic.lm <-lm(yRaleigh~xRaleigh, data= subset(compare, Type == "Lab")) 
+field.lm <-lm(yRaleigh~xRaleigh, data= subset(compare, Type == "Field")) 
+
+summary(biotic.lm)
+summary(field.lm)
+
+# Parameters and P-values
+## Lab
+cof_bio <- as.numeric(coef(biotic.lm)[2])
+high = confint(biotic.lm, level = 0.95)[2,1]
+CI_bio = round(-1*(high - cof_bio), 1)
+p_lab = lmp(biotic.lm) # lmp() see file: global.r
+
+## Field
+cof_field <- as.numeric(coef(field.lm)[2])
+high = confint(field.lm, level = 0.95)[2,1]
+CI_field = round(-1*(high - cof_field), 1)
+p_field = lmp(field.lm) # lmp() see file: global.r
+
+# Graph labels
+formula = sprintf('ln~(R["C"["t"]]/R["C"["0"]]) == epsilon~ln~("C"["t"]/"C"["0"])')
+
+
+# Lab
+coflab_label <- sprintf("epsilon == %0.1f", cof_bio)
+CIlab_label = paste("\u00b1", CI_field)
+if (p_lab < 0.0001){
+  plab_label <- "(P < 0.001)"
+} else if (p_lab < 0.001) {
+  plab_label <- "(P < 0.001)"
+} else if (p_lab < 0.015) {
+  plab_label <- ("P < 0.01")
+} else {
+  plab_label <- "Check significance"
+}
+# plab_label <- sprintf("P < %0.4f", p_lab)
+
+# Field
+coffield_label <- sprintf("epsilon == %0.1f", cof_field)
+if (p_field < 0.0001){
+  pfield_label <- "(P < 0.001)"
+} else if (p_field < 0.001) {
+  pfield_label <- "(P < 0.001)"
+} else if (p_field < 0.015) {
+  pfield_label <- ("P < 0.01")
+} else {
+  pfield_label <- "Check significance"
+}
+#pfield_label = sprintf("P < %0.4f", p_field)
+
+
+red = "#F8766D"
+blue = "#00BFC4"
+
+rmix = ggplot(data = subset(compare,  !is.na(yRaleigh) ), aes(x=xRaleigh, y=yRaleigh, group = Type, colour = Type, shape = Type)) +
+  stat_smooth(method = "lm", formula = y ~ x, se=F) + 
+  geom_point() +
+  theme_minimal() +
+  theme(legend.position = "right",
+        text = element_text(size=14)) +
+  guides(size=guide_legend(ncol=1)) +
+  ylab(expression(paste(ln~(R["C"["t"]]/R["C"["0"]])))) +
+  xlab(expression(paste(ln~("C"["t"]/"C"["0"])))) + 
+  annotate("text", x = -2, y = 7.5, label = formula, parse = T, size = 4, colour = "black") +
+  #annotate("text", x = -1, y = 7.0, label = formula, parse = T, size = 4, colour = blue) +
+  annotate("text", x = -2, y = 6.5, label = coflab_label, parse = T, size = 4, colour= blue) +
+  annotate("text", x = -0.8, y = 6.5, label= paste("\u00B1", CI_bio, "\u2030"), size = 4, colour= blue) +
+  annotate("text", x = -1.5, y = 5.8, label= plab_label, size = 4, colour= blue) +
+
+  
+  # annotate("text", x = -4, y = 2.0, label = formula, parse = T, size = 4, colour = red) +
+  annotate("text", x = -4.7, y = 1., label = coffield_label, parse = T, size = 4, colour= red) +
+  annotate("text", x = -3.5, y = 1., label= paste("\u00B1", CI_field, "\u2030"), size = 4, colour= red) +
+  annotate("text", x = -4.2, y = 0.3, label = pfield_label, parse = T, size = 4, colour = red) 
+  
+
+rmix  
+# ggsave(rexp, filename = "D:/Documents/these_pablo/WriteUp/Images/Rayleigh.png" , width = 8.7, height = 6 )#, units = "cm", scale = 1)
+# SFO
+# https://www.epa.gov/pesticide-science-and-assessing-pesticide-risks/degradation-kinetics-equations
+```
+
+# Integrate two graphs
+
+```{r}
+mix_noLeg <- mix + theme(legend.position='none')
+rmix_noLeg <- rmix + theme(legend.position='none')
+mix_Leg <- get_legend(mix)
+
+
+mixALL <- ggdraw() +
+  draw_plot(mix_noLeg, x=0, y = 0, width = 0.5, height = 1) + # left
+  draw_plot(rmix_noLeg, x=0.5, y=0, width = 0.5, height = 1) + # right
+  draw_plot(mix_Leg, x=0.1, y=0.6, width = 0.50, height = 0.15)
+ 
+mixALL 
+
+
+SAVE = F
+PC = T
+if (SAVE){
+  if (PC){
+    ggsave(mixALL, 
+       filename = "D:/Documents/these_pablo/WriteUp/Images/LabFieldDDConc.pdf", 
+       device = "pdf", dpi = 600,  scale = 1, # )# ,
+       width = 7, height = 3)
+  } else {
+    ggsave(mixALL, 
+     # filename = "/Users/DayTightChunks/Documents/PhD/Writeups/PNAS/Alteck_PNAS_LaTeX/images/LabFieldDDConc.pdf", 
+      device=cairo_pdf, dpi = 600,  scale = 1, # )# ,
+       width = 8.7, height = 3)
+  }
+}
+#ggsave(mixALL, filename = "D:/Documents/these_pablo/WriteUp/Images/FieldVsExp.png" , width = 8.7, height = 6 )#, units = "cm", scale = 1)
+```
+
+
+# Outlet vs. Bulk
+
+```{r}
+
+
+WaterSoils = read.csv2("Data/WaterSoils_R.csv", header = TRUE)
+names(WaterSoils)
+
+WaterSoils$Date.ti <- as.POSIXct(strptime(WaterSoils$Date.ti, 
+                                          "%Y-%m-%d %H:%M", tz="EST")) # csv typos, option 1
+sum(is.na(WaterSoils$Date.ti)) == 0
+
+# Choose and rearrange variables
+# names(WaterSoils)
+wsSmall <- WaterSoils[c("Date.ti", "WeekSubWeek", "ID.N", "Event.y", "Events",
+                     "maxQ", "AveDischarge.m3.h",
+                     "dryHrsIni", "dryHrsMax", "dryHrsAve", "noEventHrsIni", "noEventHrsMax", "noEventHrsAve", # Book 4
+                      "CumRain.mm", "RainInt.mmhr", ## Rainfall is per subsample (See Book 3)
+                      "DD13C.diss", "SD.d13C.x",
+                      "DD13C.filt", "filt.SD.d13C" ,
+                      "DD13C.Talweg", "comp.d13C.SD.Talweg", 
+                      "DD13C.South", "comp.d13C.SD.South", 
+                      "DD13C.North", "comp.d13C.SD.North",
+                      "DD13.Bulk", "BulkCatch.d13.SD")]
+
+names(wsSmall)
+
+keepCorrTest <- c("DD13C.diss", 
+                  "DD13C.Talweg", 
+                  "DD13C.South",
+                  "DD13C.North",
+                  "DD13.Bulk")
+
+wsTest <- wsSmall[ , (names(wsSmall) %in% keepCorrTest)]
+
+names(wsSmall) <- c("Date", "Week", "IDSoil", "Event", "Events",
+                    "Qmax", "Qmean",
+                    "dryHrsIni", "dryHrsMax", "dryHrsAve", "noEventHrsIni", "noEventHrsMax", "noEventHrsAve", # Book 4
+                    "CumRain", "RainInt", ## Rainfall is per subsample (See Book 3)
+                    "diss.measure", "diss.SD",
+                    "filt.measure", "filt.SD",
+                    "Talweg.measure", "Talweg.SD", 
+                    "South.measure", "South.SD", 
+                    "North.measure", "North.SD",
+                    "BulkDD.measure", "BulkDD.SD"
+                    )
+
+wsTest <- wsTest[7:length(wsTest$DD13C.diss) , ]
+wsTest$DD13.Bulk <- na.locf(wsTest$DD13.Bulk)
+wsTest$DD13C.Talweg <- na.locf(wsTest$DD13C.Talweg)
+wsTest$DD13C.South <- na.locf(wsTest$DD13C.South)
+wsTest$DD13C.North <- na.locf(wsTest$DD13C.North)
+
+cor.test(wsTest$DD13.Bulk, wsTest$DD13C.diss, method = "pearson", use = "pairwise.complete.obs")
+cor.test(wsTest$DD13C.Talweg, wsTest$DD13C.diss, method = "pearson", use = "pairwise.complete.obs")
+cor.test(wsTest$DD13C.North, wsTest$DD13C.diss, method = "pearson", use = "pairwise.complete.obs")
+cor.test(wsTest$DD13C.South, wsTest$DD13C.diss, method = "pearson", use = "pairwise.complete.obs")
+
+
+wsSmall$Days = seq.int(nrow(wsSmall))
+
+water.lm <-lm(diss.measure~Days, data= wsSmall) 
+
+ggplot(data = wsSmall, aes(x=Days, y=diss.measure))+
+  geom_point()
+summary(water.lm)
+
+soil.lm <-lm(BulkDD.measure~Days, data= wsSmall) 
+summary(soil.lm)
+
+# Conventional way of melting won't work if we need SDs.
+# ws <- melt(wsSmall, id=c("Date.ti", "timeSinceApp.x", "Events", "Event.x"))
+
+# Need to rename the columns so that I can use separate and spread from the package tidyr
+#names(wsSmall)[-1][seq(2, length(names(wsSmall)) - 1, 2)] <- 
+#  paste0(names(wsSmall)[-1][seq(1, length(names(wsSmall)) - 1, 2)], "-SD")
+#names(wsSmall)[-1][seq(1, length(names(wsSmall)) - 1, 2)] <- 
+#  paste0(names(wsSmall)[-1][seq(1, length(names(wsSmall)) - 1, 2)], "-measure")
+
+wstidier <- wsSmall %>%
+  gather(measure, value, -Date, -IDSoil, -Event, -Events, -Week, 
+         -Qmax, -Qmean, 
+         -CumRain, -RainInt,
+         -dryHrsIni, -dryHrsMax, -dryHrsAve,
+         -noEventHrsMax,
+         -noEventHrsIni, -noEventHrsAve) %>% # Melts data frame
+  separate(measure, into = c("Location", "temporary_var")) %>% # parses the sep = "." into...
+  # Location will be first string of variable name
+  spread(temporary_var, value) 
+
+wstidier$Type <- ifelse(wstidier$Location == "diss", "Dissolved (Outlet)", 
+                  ifelse(wstidier$Location == "filt", "Sediment",
+                        "Top Soil"))
+
+wstidier$Source <- ifelse(wstidier$Location == "diss", "Outlet", 
+                  ifelse(wstidier$Location == "filt", "Outlet",
+                         ifelse(wstidier$Location == "South", "South",
+                               ifelse(wstidier$Location == "Talweg", "Valley",
+                                       ifelse(wstidier$Location == "BulkDD", "Bulk",
+                                       "North"))) ))
+
+wstidier$Source <- as.factor(wstidier$Source)
+wstidier$Type <- as.factor(wstidier$Type)
+wstidier$IDSoil <- as.factor(wstidier$IDSoil)
+wstidier$Event <- as.numeric(wstidier$Event)
+
+
+levels(wstidier$Source)
+levels(wstidier$Type)
+wstidier$Source <- factor(wstidier$Source, levels = c("Bulk", "North", "Valley", "South", "Outlet"))
+wstidier$Type <- factor(wstidier$Type, levels = c("Top Soil", "Dissolved (Outlet)", "Sediment" ))
+wstidier$Location <- as.factor(wstidier$Location)
+
+# Dissolved has been selected, but not soils or filters
+wstidier2 = subset(wstidier, SD <= 0.54 & Date <= as.POSIXct('2016-06-24 14:52:00', tz = "EST"))  
+
+# Propagating error
+wstidier2$SD = round((wstidier2$SD^2 + initialDeltaError^2)^(1/2), 1)
+
+mindate = min(wstidier2$Date)
+maxdate = max(wstidier2$Date)
+pd <- position_dodge(width = 0.5)
+limits_DdC <- aes(ymin=measure-SD, ymax=measure+SD, colour = Source)
+
+lightblue = "#619CFF"
+
+wsall <- ggplot(data = wstidier2, aes(x = Date, y = measure, group = Source, shape = Source, colour = Source) )+ 
+  geom_errorbar(data=subset(wstidier2, Source == 'Bulk'), limits_DdC, size=0.2) +
+  geom_errorbar(data=subset(wstidier2, Source == 'Outlet'), limits_DdC) +
+  geom_point(data=subset(wstidier2, Source == 'Bulk')) +
+  geom_point(data=subset(wstidier2, Source == 'Outlet'), aes(size = Qmean)) +
+  #theme_minimal()+
+  theme_bw()+
+  scale_x_datetime(breaks = date_breaks("2 weeks"), labels = date_format("%b %d")) +
+  theme(text = element_text(size=17),
+        legend.position="top"
+        #axis.title.x = element_blank()
+        # axis.text.x=element_text(angle = 45, hjust = 1)
+        ) +
+  xlab("Date") + 
+  scale_y_continuous(
+    breaks=c(0, 1, 2, 3 , 4 ,5), 
+    expression(paste({Delta~delta}^"13","C", ' (\u2030)')),
+    sec.axis = sec_axis(trans = ~ (1-((1000 + d13Co + .)/(1000+d13Co))^(1000/epsilon_lab))*100 , 
+                        name = "Degradation (%)", 
+                        #name = element_blank(), 
+                        breaks=c(20, 40, 60, 70, 80, 85, 90, 95) )# breaks=seq(20, 120, 15))
+  )  + 
+  scale_color_manual(name= "Source", values = c(red, lightblue),
+                     breaks=c("Bulk", "Outlet"),
+                     labels=c("Bulk Soils", "Outlet")
+                     ) +
+  scale_shape_manual(values = c(17, 16)) + 
+  scale_size_continuous(range = c(1, 6), breaks= c(0, 50, 100, 150, 200, 300), limits = c(0, 300))+
+  annotate("rect", xmin=mindate, xmax=maxdate, ymin=0, ymax=propagatedError, alpha=0.2) +
+  guides(col = guide_legend(order = 1,
+                            nrow = 2, 
+                            keyheight = 1.5,
+                            title.position = "top"
+                            ), 
+         shape=guide_legend(title=("Type"), 
+                            order = 2,
+                            nrow=2, 
+                            title.position = "top", 
+                            keyheight = 1.5, 
+                            title.vjust = NULL, label.vjust = NULL
+                            ), 
+         size = guide_legend(order = 3, 
+                             #title=expression("Mean Discharge"), 
+                             title=expression("Mean Discharge (" ~m^3 / h~")" ), 
+                             nrow=2, 
+                             title.position = "top"
+                             # title.vjust = .26
+                             #keyheight = 0,
+                             #label.vjust = 0
+                              )) +
+  # Applications
+  annotate("text", x = as.POSIXct('2016-03-28 08:04:00'), y = 0, 
+           label = as.character(expression(paste( "+"))), parse = T, size = 7.0) +
+  annotate("text", x = as.POSIXct('2016-04-05 00:04:00'), y = 0, 
+           label = as.character(expression(paste( "+"))), parse = T, size = 7.0) +
+  annotate("text", x = as.POSIXct('2016-04-13 08:04:00'), y = 0, 
+           label = as.character(expression(paste( "+"))), parse = T, size = 7.0) +
+  annotate("text", x = as.POSIXct('2016-05-25 08:04:00'), y = 0, 
+           label = as.character(expression(paste( "+"))), parse = T, size = 7) +
+  # Title applics
+  annotate("text", x = as.POSIXct('2016-04-05 08:04:00'), y = 4, 
+           label = as.character(expression(paste( "+"))), parse = T, size = 7.0) +
+   annotate("text", x = as.POSIXct('2016-04-12 08:04:00'), y = 4, 
+           label = as.character(expression(paste(" Applications"))), parse = T, size = 5.0) 
+
+
+
+MODEL = T
+if (MODEL){
+ wsall =  wsall + 
+    # Water
+ stat_smooth(data=subset(wstidier2,
+                          (Source == "Outlet" 
+                           # & Event > 1 
+                           & Type == "Dissolved (Outlet)")), 
+              method = "lm", formula = y ~ x, se = F, aes(colour = 'Outlet'), alpha = 0.9, size=0.2) +
+  # Bulk
+  stat_smooth(data=subset(wstidier2,
+                          (Source == "Bulk" )), #| Source == "South" )), 
+              method = "lm", formula = y ~ x, se = F, aes(colour = 'Bulk'), alpha = 0.2, size=0.2)
+}
+
+wsall
+```
+
+
+# Extract Unified Legend 
+
+```{r}
+wstidier3 = wstidier2
+wstidier3$Source = as.character(wstidier3$Source)
+wstidier3$Source = ifelse(wstidier3$Source == "Bulk", "Bulk Soils", wstidier3$Source)
+ws <- ggplot(data = wstidier3, aes(x = Date, y = measure, group = Source, shape = Source, colour = Source) )+ 
+  geom_point(data=subset(wstidier3, Source == 'Bulk Soils')) +
+  geom_point(data=subset(wstidier3, Source == 'Outlet'), aes(size = Qmean)) +
+  geom_errorbar(data=subset(wstidier3, Source == 'Bulk Soils'), limits_DdC, size=0.2) +
+  geom_errorbar(data=subset(wstidier3, Source == 'Outlet'), limits_DdC) +
+  theme_minimal() +
+  scale_color_manual(name= "Source", values = c(red, lightblue),
+                     breaks=c("Bulk Soils", "Outlet"),
+                     labels=c("Bulk Soils", "Outlet")
+                     ) +
+  scale_shape_manual(values = c(17, 16)) + 
+  theme(text = element_text(size=17),
+        legend.position="bottom"
+        # axis.title.x = element_blank()
+        # axis.text.x=element_text(angle = 45, hjust = 1)
+        ) +
+  guides(size = guide_legend(order = 3, 
+                             #title=expression("Mean Discharge"), 
+                             title=expression(paste("Q"['mean'], " (" ~m^3 / h~")" )) 
+                             #nrow=2, 
+                             #title.position = "left"
+                             # title.vjust = .26
+                             #keyheight = 0,
+                             #label.vjust = 0
+                              )
+         )
+
+ws
+  
+```
+
+## Graph and legend together
+
+```{r}
+wsall_noLeg <- wsall + theme(legend.position='none')
+ws_Leg <- get_legend(ws)
+
+wsfin <- ggdraw() +
+  draw_plot(wsall_noLeg, x=0, y = .1, width = 1, height = 0.9) + 
+  draw_plot(ws_Leg, x=0.0, y=0, width = 1, height = 0.1)
+ 
+wsfin 
+
+
+SAVE = T
+PC = T
+if (SAVE){
+  if (PC){
+    ggsave(wsfin, 
+       filename = "D:/Documents/these_pablo/WriteUp/Images/CatchOutlet.pdf", 
+       device = "pdf", dpi = 600,  scale = 1, # )# ,
+        width = 11.4, height = 6.4)
+  } else {
+    ggsave(wsfin, 
+     # filename = "/Users/DayTightChunks/Documents/PhD/Writeups/PNAS/Alteck_PNAS_LaTeX/images/LabFieldDDConc.pdf", 
+      device=cairo_pdf, dpi = 600,  scale = 1, # )# ,
+        width = 11.4, height = 6.4)
+  }
+}
+```
+
+
+# Color pallette
+
+```{r}
+library(scales) 
+## Color palette
+show_col(hue_pal()(12))
+```
+
