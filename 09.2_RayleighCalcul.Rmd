@@ -417,6 +417,7 @@ Note here that $A_T$ refers to the representative catchment area (subcatchment) 
 
 ```{r}
 
+
 soils$Mdeg.g.N <- soils$CumAppMass.g.N.OT*soils$Belsner.N/100
 soils$Mdeg.g.T <- soils$CumAppMass.g.T.OT*soils$Belsner.T/100
 soils$Mdeg.g.S <- soils$CumAppMass.g.S.OT*soils$Belsner.S/100

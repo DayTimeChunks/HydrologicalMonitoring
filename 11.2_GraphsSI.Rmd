@@ -113,7 +113,7 @@ hy = ggplot(data = ch,
             fill = "gray50",
             color = "forestgreen") +
   theme(# axis.text.x=element_text(angle = 45, hjust = 1) 
-        axis.text.x=element_blank(),
+        # axis.text.x=element_blank(),
         axis.title.x=element_blank()
         #legend.position="top"
         )+
@@ -152,15 +152,15 @@ out_dates = ggplot(data = ch,
   scale_y_continuous( breaks = c(28, 24, 20, 16, 12, 8, 4, 0), limits = c(0, 28) ) +
   
   # Smooth linear models
-  geom_smooth(data=subset(ch[2203:43539, ]), method = "lm", formula = y ~ poly(x, 2), se = F) +
-  geom_smooth(data=subset(ch[43539:nrow(ch)-1000, ]), method = "lm", formula = y ~ poly(x, 2), se= F) +
+  geom_smooth(data=subset(ch[2203:43539, ]), method = "lm", formula = y ~ x, se = F,  linetype="dashed") +
+  geom_smooth(data=subset(ch[43539:nrow(ch)-1000, ]), method = "lm", formula = y ~ x, se= F,  linetype="dashed") +
   
   scale_x_datetime(limits = lims, breaks = date_breaks("2 weeks"), labels = date_format("%b %d")) +
   guides(col = guide_legend(nrow = 2, title.position = "top"))
   
 out = out_dates +   
   theme(# axis.text.x=element_text(angle = 45, hjust = 1) ,
-        axis.text.x=element_blank(),
+        # axis.text.x=element_blank(),
         axis.title.x=element_blank(),
         legend.position="right"
         )
@@ -227,7 +227,7 @@ co = ggplot(weeklySoil[4:48, ],
 
   ylab(expression(atop("Conc. S-met ", paste({({mu}*g / g.soil.dry)} )))) +
   # facet_wrap(~Transect, nrow = 3) +
-  xlab("Date") +
+  # xlab("Date") +
   # theme() +
   # scale_x_datetime(breaks = date_breaks("1 weeks"), labels = date_format("%b %d")) +
   
@@ -238,13 +238,15 @@ co = ggplot(weeklySoil[4:48, ],
   # Text
   # W0 Application
   # annotate("text", x = as.POSIXct('2016-03-25 08:04:00'), y = 4, label = lb1a2, parse = T, size = 3.0) +
-  geom_segment(aes(x = as.POSIXct('2016-04-14 08:04:00'), y = 0.5, xend = as.POSIXct('2016-03-26 01:04:00'), yend = -0), color = "black",
+  geom_segment(aes(x = as.POSIXct('2016-04-14 08:04:00'), 
+                   y = 0.5, 
+                   xend = as.POSIXct('2016-03-26 01:04:00'), yend = -0), color = "black",
                arrow = arrow(length = unit(0.2, "cm"))) +
 
   # W1 Application
-  geom_segment(aes(x = as.POSIXct('2016-04-14 08:04:00'), y = 0.5, 
-                   xend = as.POSIXct('2016-04-05 08:04:00'), yend = 0), color = "black", 
-               arrow = arrow(length = unit(0.2, "cm"))) +
+  #geom_segment(aes(x = as.POSIXct('2016-04-14 08:04:00'), y = 0.5, 
+  #                 xend = as.POSIXct('2016-04-05 08:04:00'), yend = 0), color = "black", 
+  #             arrow = arrow(length = unit(0.2, "cm"))) +
   # W2 Application
   annotate("text", x = as.POSIXct('2016-04-15 08:04:00'), y = 1, label = lb1a2, parse = T, size = 3.0) +
   geom_segment(aes(x = as.POSIXct('2016-04-14 08:04:00'), y = 0.5, 
@@ -281,6 +283,65 @@ co
 # ggsave(co, filename = "CompositeConc.png", width = 7, height = 5, units = "in", scale = 1)
 
 ```
+
+## Draw D\*/B\* factors
+
+```{r}
+moltenSoil = read.csv2("Data/moltenDB_R.csv", header = TRUE, sep = ",", dec = ".")
+moltenSoil$Date = as.POSIXct(moltenSoil$Date, "%Y-%m-%d %H:%M", tz = "EST")
+
+moltenSoil$DB_max = ifelse(moltenSoil$DB_max < 0, NA, moltenSoil$DB_max) 
+moltenSoil$DB_max = ifelse(moltenSoil$DB_max > 1, NA, moltenSoil$DB_max) 
+mSoils = melt(moltenSoil, id=c("Date", "Transect"))
+
+mSoils$Transect = as.character(mSoils$Transect)
+mSoils$Transect = ifelse(mSoils$Transect == "N", "North", 
+                             ifelse(mSoils$Transect == "T", "Valley",
+                                    ifelse(mSoils$Transect == "S", "South", NA)
+                             )
+)
+mSoils$Transect <- factor(mSoils$Transect, levels = c("North", "Valley", "South"))
+levels( mSoils$Transect)
+
+DBLeg = ggplot(data = mSoils , aes(x=Date, y=value, shape=variable))+
+        geom_point(data=subset(mSoils, variable == 'DB_lab')) +
+        geom_point(data=subset(mSoils, variable == 'DB_max')) +
+        theme_minimal() +
+        guides(shape=guide_legend(title=("D*/B*"), 
+                                  order = 2,
+                                  nrow=2, 
+                                  title.position = "top" #, 
+                                  # keyheight = 1.5, 
+                                  # title.vjust = NULL, label.vjust = NULL
+                                  )) +
+        ylab(expression(atop("D*/B*"))) +
+        # facet_wrap(~Transect, nrow = 3) +
+        xlab("Date") +
+        scale_x_datetime(limits = lims, breaks = date_breaks("2 weeks"), labels = date_format("%b %d"))
+
+db_leg = get_legend(DBLeg)
+
+DB = ggplot(data = mSoils , aes(x=Date, y=value, colour=Transect, shape=variable))+
+        geom_line(data=subset(mSoils, variable == 'DB_lab')) +
+        geom_point(data=subset(mSoils, variable == 'DB_lab')) +
+        geom_point(data=subset(mSoils, variable == 'DB_max')) +
+        theme_minimal() +
+        guides(shape=guide_legend(title=("D*/B* Scenario"), 
+                                  order = 2,
+                                  nrow=2, 
+                                  title.position = "top" #, 
+                                  # keyheight = 1.5, 
+                                  # title.vjust = NULL, label.vjust = NULL
+                                  )) +
+        ylab(expression(atop("D*/B*"))) +
+        # facet_wrap(~Transect, nrow = 3) +
+        xlab("Date") +
+        scale_x_datetime(limits = lims, breaks = date_breaks("2 weeks"), labels = date_format("%b %d"))
+
+DB
+```
+
+
 
 ## Merge hyetograph, outlet and soil concentrations
 
@@ -489,8 +550,10 @@ if (SAVE){
 ```{r}
 
 out_dates_noLeg = out_dates  + theme(legend.position = 'none')
+
 sources_noLeg = sources + theme(legend.position = 'none')
 so_leg = get_legend(sources) 
+
 grid2 = plot_grid(
       hy_noLeg, 
       out_dates_noLeg,
@@ -520,11 +583,14 @@ co_noLeg = co +  theme(legend.position = 'none')
 out_leg <- get_legend(out)
 co_leg <- get_legend(co)
 
+db_noLeg = DB + theme(legend.position = 'none')
+
 grid3 = plot_grid(
       hy_noLeg, 
       out_noLeg,
       co_noLeg,
-      sources_noLeg,
+      db_noLeg,
+      # sources_noLeg,
       ncol = 1,
       align = 'v')
 
@@ -532,7 +598,7 @@ ml3 = ggdraw() +
   draw_plot(grid3, x=0.02, y = 0.0, width = 0.95, height = .95) +
   draw_plot(out_leg, x=(0.54 ), y = 0.56, width = .8, height = 0.1) +
   draw_plot(co_leg, x=(0.54 ), y = 0.32, width = .8, height = 0.1) +
-  draw_plot(so_leg, x=(0.54) , y = 0.08, width = .8, height = 0.1) +
+  draw_plot(db_leg, x=(0.54) , y = 0.08, width = .8, height = 0.1) +
   
   draw_label("A", x= 0.94, y = .93, size = 12, fontface = "bold") +
   draw_label("B", x= 0.94, y = .69, size = 12, fontface = "bold") +
@@ -544,7 +610,7 @@ ml3
 
 ```{r}
 SAVE = F
-PC = T
+PC = F
 if (SAVE){
   if (PC){
       ggsave(ml3, 

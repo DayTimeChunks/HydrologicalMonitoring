@@ -1,7 +1,7 @@
 ---
 title: "Open Rayleigh - Revised"
 author: "PAZ"
-date: "13 février 2018"
+date: "13 f?vrier 2018"
 output: pdf_document
 ---
 
@@ -139,16 +139,31 @@ names(soils)
 soils$Date = as.POSIXct(soils$Date.Soil, "%d/%m/%Y %H:%M", tz = "EST")
 soils$Transect = as.character(soils$Transect)
 soils = soils[, c( "Date", "Transect" , "Conc.mug.g.dry.soil", "comp.d13C" , "DD13C.comp")]
+soils = soils[complete.cases(soils$comp.d13C),]
 
+# Remove July observation
+soils = subset(soils, Date < as.POSIXct("2016-07-04 14:42:00", tz="EST"))
 ```
+
+
+## Rayleigh (closed system, Elsner's notation)
+
+$$ ln (\frac{1000 + \delta ^{13}C_0 + \Delta\delta^{13}C }{1000 + \delta^{13} C_0 }) = (\alpha - 1) \cdot ln f = \frac{\epsilon}{1000} \cdot ln f $$
+
+```{r}
+soils$Blab  <- (1- ((1000 + d13Co + soils$DD13C.comp)/(1000+ d13Co))^(1000/epsilon_lab) )*100
+soils$Bmax  <- (1- ((1000 + d13Co + soils$DD13C.comp)/(1000+ d13Co))^(1000/epsilon_streit) )*100
+```
+
+
 
 # Separate into transects
 
 ## Initial soil concentrations based on total mass applied (Open Rayleigh requirements)
 
-Open system Rayleigh calculations require estimation of cumulative initial concentration ($C_{Tr_0}(t)$) after any number of plot applications $a$ taking place in a composite sample (i.e. Transect ($Tr$)) and given by:
+Open system Rayleigh calculations require estimation of cumulative initial concentration ($C_{Tr,t_0}$) after any number of plot applications $a$ taking place in a composite sample along a transect ($Tr$) and given by:
 
-$$ C_{Tr_{0}}(t) = \frac{\sum^A_{a=1}M_a(t)}{A_{Tr} \cdot D \cdot \rho_b } $$
+$$ C_{Tr,t_0} = \frac{\sum^A_{a=1}M_{Tr,a_t} }{A_{Tr} \cdot D \cdot \rho_{b_0}} $$
 
 where, $M_a(t)$ is the total mass applied on transect $Tr$ due to application $a$ at time $t$, the total plot area associated to the transect ($A_{Tr}$) (i.e. this is proportional to sampling points along transect, and not extrapolated to areas that the transect did not cross). 
 
@@ -163,6 +178,10 @@ n = north1 %>%
   summarize(totMass = sum(appMass),
             totArea = sum(m2))
 n = n[order(n$Date),] 
+ntot = n
+ntot = ntot[, c("Date", "totMass")]
+names(ntot) = c("Date", "North")
+
 n$cumMass = cumsum(n$totMass)
 n$cumConc = ((n$cumMass/(nArea*depth1))*(1/rho1))*10^6 # ug s-met/g soil
 n = n[, c("Date", "cumConc")]
@@ -173,7 +192,7 @@ northSoils = merge(northSoils, n, by = "Date", all = T)
 northSoils$cumConc = na.locf(northSoils$cumConc)
 northSoils = northSoils[complete.cases(northSoils$Conc.mug.g.dry.soil),]
 
-northSoils = northSoils[2:nrow(northSoils) , ]
+#northSoils = northSoils[2:nrow(northSoils) , ]
 
 ```
 
@@ -182,14 +201,18 @@ northSoils = northSoils[2:nrow(northSoils) , ]
 ```{r}
 # Inputs
 talweg1 = subset(farm1, Transect == "T")
-nArea = sum(talweg1$m2)
+tArea = sum(talweg1$m2)
 t = talweg1 %>%
   group_by(Date) %>%
   summarize(totMass = sum(appMass),
             totArea = sum(m2))
-t = t[order(t$Date),] 
+t = t[order(t$Date),]
+ttot = t
+ttot = ttot[, c("Date", "totMass")]
+names(ttot) = c("Date", "Valley")
+
 t$cumMass = cumsum(t$totMass)
-t$cumConc = ((t$cumMass/(nArea*depth1))*(1/rho1))*10^6 # ug s-met/g soil
+t$cumConc = ((t$cumMass/(tArea*depth1))*(1/rho1))*10^6 # ug s-met/g soil
 t = t[, c("Date", "cumConc")]
 
 # Measured & Inputs (merged)
@@ -197,7 +220,7 @@ talwegSoils = subset(soils, Transect == "T")
 talwegSoils = merge(talwegSoils, t, by = "Date", all = T) 
 talwegSoils$cumConc = na.locf(talwegSoils$cumConc)
 talwegSoils = talwegSoils[complete.cases(talwegSoils$Conc.mug.g.dry.soil),]
-talwegSoils = talwegSoils[2:nrow(talwegSoils) , ]
+#talwegSoils = talwegSoils[2:nrow(talwegSoils) , ]
 ```
 
 # South
@@ -205,14 +228,18 @@ talwegSoils = talwegSoils[2:nrow(talwegSoils) , ]
 ```{r}
 # Inputs
 south1 = subset(farm1, Transect == "S")
-nArea = sum(south1$m2)
+sArea = sum(south1$m2)
 s = south1 %>%
   group_by(Date) %>%
   summarize(totMass = sum(appMass),
             totArea = sum(m2))
 s = s[order(s$Date),] 
+stot = s
+stot = stot[, c("Date", "totMass")]
+names(stot) = c("Date", "South")
+
 s$cumMass = cumsum(s$totMass)
-s$cumConc = ((s$cumMass/(nArea*depth1))*(1/rho1))*10^6 # ug s-met/g soil
+s$cumConc = ((s$cumMass/(sArea*depth1))*(1/rho1))*10^6 # ug s-met/g soil
 s = s[, c("Date", "cumConc")]
 
 # Measured & Inputs (merged)
@@ -220,8 +247,33 @@ southSoils = subset(soils, Transect == "S")
 southSoils = merge(southSoils, s, by = "Date", all = TRUE) 
 southSoils$cumConc = na.locf(southSoils$cumConc)
 southSoils = southSoils[complete.cases(southSoils$Conc.mug.g.dry.soil),]
-southSoils = southSoils[2:nrow(southSoils) , ]
+#southSoils = southSoils[2:nrow(southSoils) , ]
 ```
+
+# Table Summary for Applied Mass
+
+```{r}
+totTable = merge(ntot, ttot, by = "Date")
+totTable = merge(totTable, stot, by = "Date", all = T)
+
+totTable$Date = as.character(totTable$Date)
+totTable$South = ifelse(is.na(totTable$South), 0, totTable$South)
+Date = c("Total")
+North = sum(totTable$North)
+Valley = sum(totTable$Valley)
+South = sum(totTable$South)
+df = data.frame(Date, North, Valley, South) 
+
+totTable = rbind(totTable, df)
+
+toKg = function(x) x/10^3
+totTable = data.frame(totTable[1], lapply(totTable[2:ncol(totTable)], toKg))
+
+write.csv(totTable, "Data/TotTable_R.csv", row.names = T)
+
+totTable
+```
+
 
 # Accounting for dilution
 
@@ -236,7 +288,7 @@ talwegSoils$ftot = talwegSoils$Conc.mug.g.dry.soil/talwegSoils$cumConc
 southSoils$ftot = southSoils$Conc.mug.g.dry.soil/southSoils$cumConc
 ```
 
-Rearanging, 
+Rearranging, 
 
 $$f_{degradation} = f_{total} \cdot F$$
 
@@ -261,11 +313,11 @@ southSoils$Fdil =
   exp(southSoils$Delta/epsilon_true -log(southSoils$ftot) ) 
 
 # (B) Streitwieser Semiclassical Limits
-northSoils$Fdil_mx = 
+northSoils$Fdil_max = 
   exp( northSoils$Delta/epsilon_streit -log(northSoils$ftot) ) 
-talwegSoils$Fdil_mx = 
+talwegSoils$Fdil_max = 
   exp(talwegSoils$Delta/epsilon_streit -log(talwegSoils$ftot) ) 
-southSoils$Fdil_mx = 
+southSoils$Fdil_max = 
   exp(southSoils$Delta/epsilon_streit -log(southSoils$ftot) ) 
 ```
 
@@ -303,45 +355,79 @@ southSoils$Bstar = 1 - southSoils$Dstar # log(southSoils$fdeg)/log(southSoils$ft
 southSoils$DB = southSoils$Dstar/southSoils$Bstar
 
 # (B) Streitwieser Semiclassical Limits
-northSoils$Dstar_mx = log(1/northSoils$Fdil_mx)/log(northSoils$ftot)
-northSoils$Bstar_mx = 1 - northSoils$Dstar_mx # log(northSoils$fdeg)/log(northSoils$ftot)
-northSoils$DB_mx = northSoils$Dstar_mx/northSoils$Bstar_mx
+northSoils$Dstar_max = log(1/northSoils$Fdil_max)/log(northSoils$ftot)
+northSoils$Bstar_max = 1 - northSoils$Dstar_max # log(northSoils$fdeg)/log(northSoils$ftot)
+northSoils$DB_max = northSoils$Dstar_max/northSoils$Bstar_max
 
-talwegSoils$Dstar_mx = log(1/talwegSoils$Fdil_mx)/log(talwegSoils$ftot)
-talwegSoils$Bstar_mx = 1 - talwegSoils$Dstar_mx  # log(talwegSoils$fdeg)/log(talwegSoils$ftot)
-talwegSoils$DB_mx = talwegSoils$Dstar/talwegSoils$Bstar
+talwegSoils$Dstar_max = log(1/talwegSoils$Fdil_max)/log(talwegSoils$ftot)
+talwegSoils$Bstar_max = 1 - talwegSoils$Dstar_max  # log(talwegSoils$fdeg)/log(talwegSoils$ftot)
+talwegSoils$DB_max = talwegSoils$Dstar_max/talwegSoils$Bstar_max
 
-southSoils$Dstar_mx = log(1/southSoils$Fdil_mx)/log(southSoils$ftot)
-southSoils$Bstar_mx = 1 - southSoils$Dstar_mx # log(southSoils$fdeg)/log(southSoils$ftot)
-southSoils$DB_mx = southSoils$Dstar_mx/southSoils$Bstar_mx
+southSoils$Dstar_max = log(1/southSoils$Fdil_max)/log(southSoils$ftot)
+southSoils$Bstar_max = 1 - southSoils$Dstar_max # log(southSoils$fdeg)/log(southSoils$ftot)
+southSoils$DB_max = southSoils$Dstar_max/southSoils$Bstar_max
 ```
 
 
+# Renaming Tables
 
-## Rayleigh (closed system, Elsner's notation)
+```{r}
 
-$$ ln (\frac{1000 + \delta ^{13}C_0 + \Delta\delta^{13}C }{1000 + \delta^{13} C_0 }) = (\alpha - 1) \cdot ln f = \frac{\epsilon}{1000} \cdot ln f $$
+#names(northSoils)
+northSoils = northSoils[, c("Date",  "Conc.mug.g.dry.soil", "comp.d13C",  "ftot", 
+                            "Blab", "Bmax", "Bstar", "Bstar_max",  "DB" , "DB_max")]
+
+names(northSoils) = c("Date",  "C_t", "delta13C_t",  "f_totC_tC_0", 
+                            "B_lab", "B_max", "Bstar_lab", "Bstar_max",  "DB_lab" , "DB_max")
+
+talwegSoils = talwegSoils[, c("Date",  "Conc.mug.g.dry.soil", "comp.d13C",  "ftot", 
+                            "Blab", "Bmax", "Bstar", "Bstar_max",  "DB" , "DB_max")]
+
+names(talwegSoils) = c("Date",  "C_t", "delta13C_t",  "f_totC_tC_0", 
+                            "B_lab", "B_max", "Bstar_lab", "Bstar_max",  "DB_lab" , "DB_max")
+
+southSoils = southSoils[, c("Date",  "Conc.mug.g.dry.soil", "comp.d13C",  "ftot", 
+                            "Blab", "Bmax", "Bstar", "Bstar_max",  "DB" , "DB_max")]
+
+names(southSoils) = c("Date",  "C_t", "delta13C_t",  "f_totC_tC_0", 
+                            "B_lab", "B_max", "Bstar_lab", "Bstar_max",  "DB_lab" , "DB_max")
+
+```
 
 
 # Plotting
 
 ```{r}
 
-if (FALSE){
-ggplot(data = northSoils , aes(x=Date))+
-  geom_point(aes(y = Dstar, colour = "D*N")) +
-  theme_bw() 
+mN = northSoils[, c("Date", "DB_lab", "DB_max")]
+mN$Transect = "N"
+mT = talwegSoils[, c("Date", "DB_lab", "DB_max")]
+mT$Transect = "T"
+mS = southSoils[, c("Date", "DB_lab", "DB_max")]
+mS$Transect = "S"
 
-ggplot(data = talwegSoils , aes(x=Date))+
-  geom_point(aes(y = Dstar, colour = "D*T")) +
-  theme_bw() 
+mSoils = rbind(mN, mT, mS)
+write.csv(mSoils, "Data/moltenDB_R.csv", row.names = F)
+mSoils = melt(mSoils, id=c("Date", "Transect"))
 
-ggplot(data = southSoils , aes(x=Date))+
-  geom_point(aes(y = Dstar, colour = "D*S")) +
+if (TRUE){
+ggplot(data = mSoils , aes(x=Date, y=value, colour=Transect, shape=variable))+
+    geom_line(data=subset(mSoils, variable == 'DB_lab')) +
+    geom_point() +
   theme_bw() 
 }
 
-if (TRUE){
+if (F){
+  ggplot(data = talwegSoils , aes(x=Date))+
+  geom_point(aes(y = DB_lab, colour = "DBlab")) +
+  geom_point(aes(y = DB_max, colour = "DBmax")) +
+  theme_bw() 
+
+ggplot(data = southSoils , aes(x=Date))+
+  geom_point(aes(y = DB_lab, colour = "DBlab")) +
+  geom_point(aes(y = DB_max, colour = "DBmax")) +
+  theme_bw() 
+
   ggplot(data = northSoils , aes(x=Date))+
   geom_point(aes(y = Bstar, colour = "B*N")) +
   theme_bw() 
@@ -355,10 +441,142 @@ if (TRUE){
     theme_bw() 
 }
 
-
-
-
-
-  
 ```
+
+# Saving tables
+
+```{r}
+deleteLast = F
+if (deleteLast){
+  northSoils = northSoils[1:nrow(northSoils)-1,]
+  talwegSoils = talwegSoils[1:nrow(talwegSoils)-1,]
+  southSoils = southSoils[1:nrow(southSoils)-1,]  
+}
+
+
+
+
+Date = "Median"
+B_lab = median(northSoils$B_lab [northSoils$DB_lab >0])
+B_max = median(northSoils$B_max [northSoils$DB_max >0])
+Bstar_lab = median(northSoils$Bstar_lab [northSoils$DB_lab >0])
+Bstar_max = median(northSoils$Bstar_max [northSoils$DB_max >0])
+DB_lab = median(northSoils$DB_lab [northSoils$DB_lab >0])
+DB_max = median(northSoils$DB_max [northSoils$DB_max >0])
+dfn = data.frame(Date, B_lab, B_max, Bstar_lab, Bstar_max, DB_lab, DB_max)
+
+Date = "Median"
+B_lab = median(talwegSoils$B_lab [talwegSoils$DB_lab >0])
+B_max = median(talwegSoils$B_max [talwegSoils$DB_max >0])
+Bstar_lab = median(talwegSoils$Bstar_lab [talwegSoils$DB_lab >0])
+Bstar_max = median(talwegSoils$Bstar_max [talwegSoils$DB_max >0])
+DB_lab = median(talwegSoils$DB_lab [talwegSoils$DB_lab > 0])
+DB_max = median(talwegSoils$DB_max  [talwegSoils$DB_lab > 0])
+dft = data.frame(Date, B_lab, B_max, Bstar_lab, Bstar_max, DB_lab, DB_max)
+
+Date = "Median"
+B_lab = median(southSoils$B_lab [southSoils$DB_lab >0])
+B_max = median(southSoils$B_max [southSoils$DB_max >0])
+Bstar_lab = median(southSoils$Bstar_lab [southSoils$DB_lab >0])
+Bstar_max = median(southSoils$Bstar_max [southSoils$DB_max >0])
+DB_lab = median(southSoils$DB_lab [southSoils$DB_lab > 0])
+DB_max = median(southSoils$DB_max [southSoils$DB_max > 0])
+dfs = data.frame(Date, B_lab, B_max, Bstar_lab, Bstar_max, DB_lab, DB_max)
+
+Date = "Median Early"
+B_lab = median(northSoils$B_lab [northSoils$DB_lab > 0 & northSoils$Date < as.POSIXct("2016-05-31 12:00:00", tz="EST")])
+B_max = median(northSoils$B_max [northSoils$DB_max > 0 & northSoils$Date < as.POSIXct("2016-05-31 12:00:00", tz="EST")])
+Bstar_lab = median(northSoils$Bstar_lab [northSoils$DB_lab > 0 & northSoils$Date < as.POSIXct("2016-05-31 12:00:00", tz="EST")])
+Bstar_max = median(northSoils$Bstar_max [northSoils$DB_max > 0 & northSoils$Date < as.POSIXct("2016-05-31 12:00:00", tz="EST")])
+DB_lab = median(northSoils$DB_lab [northSoils$DB_lab > 0 & northSoils$Date < as.POSIXct("2016-05-31 12:00:00", tz="EST")])
+DB_max = median(northSoils$DB_max [northSoils$DB_max > 0 & northSoils$Date < as.POSIXct("2016-05-31 12:00:00", tz="EST")])
+dfen = data.frame(Date, B_lab, B_max, Bstar_lab, Bstar_max, DB_lab, DB_max)
+
+Date = "Median Early"
+B_lab = median(talwegSoils$B_lab [talwegSoils$DB_lab > 0 & talwegSoils$Date < as.POSIXct("2016-05-31 12:00:00", tz="EST")])
+B_max = median(talwegSoils$B_max [talwegSoils$DB_max > 0 & talwegSoils$Date < as.POSIXct("2016-05-31 12:00:00", tz="EST")])
+Bstar_lab = median(talwegSoils$Bstar_lab [talwegSoils$DB_lab > 0 & talwegSoils$Date < as.POSIXct("2016-05-31 12:00:00", tz="EST")])
+Bstar_max = median(talwegSoils$Bstar_max [talwegSoils$DB_max > 0 & talwegSoils$Date < as.POSIXct("2016-05-31 12:00:00", tz="EST")])
+DB_lab = median(talwegSoils$DB_lab [talwegSoils$DB_lab > 0 & talwegSoils$Date < as.POSIXct("2016-05-31 12:00:00", tz="EST")])
+DB_max = median(talwegSoils$DB_max [talwegSoils$DB_max > 0 & talwegSoils$Date < as.POSIXct("2016-05-31 12:00:00", tz="EST")])
+dfet = data.frame(Date, B_lab, B_max, Bstar_lab, Bstar_max, DB_lab, DB_max)
+
+Date = "Median Early"
+B_lab = median(southSoils$B_lab [southSoils$DB_lab > 0 & southSoils$Date < as.POSIXct("2016-05-31 12:00:00", tz="EST")])
+B_max = median(southSoils$B_max [southSoils$DB_max > 0 & southSoils$Date < as.POSIXct("2016-05-31 12:00:00", tz="EST")])
+Bstar_lab = median(southSoils$Bstar_lab [southSoils$DB_lab > 0 & southSoils$Date < as.POSIXct("2016-05-31 12:00:00", tz="EST")])
+Bstar_max = median(southSoils$Bstar_max [southSoils$DB_max > 0 & southSoils$Date < as.POSIXct("2016-05-31 12:00:00", tz="EST")])
+DB_lab = median(southSoils$DB_lab [southSoils$DB_lab > 0 & southSoils$Date < as.POSIXct("2016-05-31 12:00:00", tz="EST")])
+DB_max = median(southSoils$DB_max [southSoils$DB_max > 0 & southSoils$Date < as.POSIXct("2016-05-31 12:00:00", tz="EST")])
+dfes = data.frame(Date, B_lab, B_max, Bstar_lab, Bstar_max, DB_lab, DB_max)
+
+Date = "Median Late"
+B_lab = median(northSoils$B_lab [northSoils$DB_lab > 0 & northSoils$Date >= as.POSIXct("2016-05-31 12:00:00", tz="EST")])
+B_max = median(northSoils$B_max [northSoils$DB_max > 0 & northSoils$Date >= as.POSIXct("2016-05-31 12:00:00", tz="EST")])
+Bstar_lab = median(northSoils$Bstar_lab [northSoils$DB_lab > 0 & northSoils$Date >= as.POSIXct("2016-05-31 12:00:00", tz="EST")])
+Bstar_max = median(northSoils$Bstar_max [northSoils$DB_max > 0 & northSoils$Date >= as.POSIXct("2016-05-31 12:00:00", tz="EST")])
+DB_lab = median(northSoils$DB_lab [northSoils$DB_lab > 0 & northSoils$Date >= as.POSIXct("2016-05-31 12:00:00", tz="EST")])
+DB_max = median(northSoils$DB_max [northSoils$DB_max > 0 & northSoils$Date >= as.POSIXct("2016-05-31 12:00:00", tz="EST")])
+dfln = data.frame(Date, B_lab, B_max, Bstar_lab, Bstar_max, DB_lab, DB_max)
+
+Date = "Median Late"
+B_lab = median(talwegSoils$B_lab [talwegSoils$DB_lab > 0 & talwegSoils$Date >= as.POSIXct("2016-05-31 12:00:00", tz="EST")])
+B_max = median(talwegSoils$B_max [talwegSoils$DB_max > 0 & talwegSoils$Date >= as.POSIXct("2016-05-31 12:00:00", tz="EST")])
+Bstar_lab = median(talwegSoils$Bstar_lab [talwegSoils$DB_lab > 0 & talwegSoils$Date >= as.POSIXct("2016-05-31 12:00:00", tz="EST")])
+Bstar_max = median(talwegSoils$Bstar_max [talwegSoils$DB_max > 0 & talwegSoils$Date >= as.POSIXct("2016-05-31 12:00:00", tz="EST")])
+DB_lab = median(talwegSoils$DB_lab [talwegSoils$DB_lab > 0 & talwegSoils$Date >= as.POSIXct("2016-05-31 12:00:00", tz="EST")])
+DB_max = median(talwegSoils$DB_max [talwegSoils$DB_max > 0 & talwegSoils$Date >= as.POSIXct("2016-05-31 12:00:00", tz="EST")])
+dflt = data.frame(Date, B_lab, B_max, Bstar_lab, Bstar_max, DB_lab, DB_max)
+
+Date = "Median Late"
+B_lab = median(southSoils$B_lab [southSoils$DB_lab > 0 & southSoils$Date >= as.POSIXct("2016-05-31 12:00:00", tz="EST")])
+B_max = median(southSoils$B_max [southSoils$DB_max > 0 & southSoils$Date >= as.POSIXct("2016-05-31 12:00:00", tz="EST")])
+Bstar_lab = median(southSoils$Bstar_lab [southSoils$DB_lab > 0 & southSoils$Date >= as.POSIXct("2016-05-31 12:00:00", tz="EST")])
+Bstar_max = median(southSoils$Bstar_max [southSoils$DB_max > 0 & southSoils$Date >= as.POSIXct("2016-05-31 12:00:00", tz="EST")])
+DB_lab = median(southSoils$DB_lab [southSoils$DB_lab > 0 & southSoils$Date >= as.POSIXct("2016-05-31 12:00:00", tz="EST")])
+DB_max = median(southSoils$DB_max [southSoils$DB_max > 0 & southSoils$Date >= as.POSIXct("2016-05-31 12:00:00", tz="EST")])
+dfls = data.frame(Date, B_lab, B_max, Bstar_lab, Bstar_max, DB_lab, DB_max)
+
+northSoils$Date = as.character(northSoils$Date)
+talwegSoils$Date = as.character(talwegSoils$Date)
+southSoils$Date = as.character(southSoils$Date)
+
+northSoils = bind_rows(northSoils, dfen)
+talwegSoils = bind_rows(talwegSoils, dfet)
+southSoils = bind_rows(southSoils, dfes)
+
+northSoils = bind_rows(northSoils, dfln)
+talwegSoils = bind_rows(talwegSoils, dflt)
+southSoils = bind_rows(southSoils, dfls)
+
+northSoils = bind_rows(northSoils, dfn)
+talwegSoils = bind_rows(talwegSoils, dft)
+southSoils = bind_rows(southSoils, dfs)
+
+write.csv(northSoils, "Data/northSoils_R.csv", row.names = T)
+write.csv(talwegSoils, "Data/talwegSoils_R.csv", row.names = T)
+write.csv(southSoils, "Data/southSoils_R.csv", row.names = T)
+```
+
+# Mass remaining & losses
+
+```{r}
+northSoils$MremPrct = (northSoils$C_t*rho1*depth1*nArea/(totTable$North[4]*10^9))*100
+talwegSoils$MremPrct = (talwegSoils$C_t*rho1*depth1*tArea/(totTable$Valley[4]*10^9))*100
+southSoils$MremPrct = (southSoils$C_t*rho1*depth1*sArea/(totTable$South[4]*10^9))*100
+
+northSoils$LossPrc = (100-northSoils$B_lab)-northSoils$MremPrct
+talwegSoils$LossPrc = ifelse(talwegSoils$B_lab>=1, (100-talwegSoils$B_max)-talwegSoils$MremPrct, 
+                             (100-talwegSoils$B_lab)-talwegSoils$MremPrct)
+southSoils$LossPrc = ifelse(southSoils$B_lab>=1, (100-southSoils$B_max)-southSoils$MremPrct,
+                            (100-southSoils$B_lab)-southSoils$MremPrct)
+
+northSoils$Mloss = (northSoils$LossPrc/100)*totTable$North[4] # Kg
+talwegSoils$Mloss = (talwegSoils$LossPrc/100)*totTable$Valley[4] # Kg
+southSoils$Mloss = (southSoils$LossPrc/100)*totTable$South[4] # Kg
+
+totApplied = totTable$North[4] + totTable$Valley[4] + totTable$South[4] 
+4.1/totApplied *100
+```
+
 

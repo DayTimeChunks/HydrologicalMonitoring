@@ -1,7 +1,7 @@
 ---
 title: "Graphs Rebuttal"
 author: "PAZ"
-date: "5 février 2018"
+date: "5 f?vrier 2018"
 output: pdf_document
 ---
 
@@ -16,6 +16,12 @@ Sys.setlocale("LC_ALL", "English")
 ```{r, warning=FALSE}
 
 library(ggplot2)
+library(cowplot) # get_legend()
+library(zoo) # na.locf
+library(dplyr) # %>%
+library(tidyr) # gather()
+library(scales) # date_breaks()
+
 ```
 
 
@@ -314,7 +320,7 @@ formula = sprintf('ln~(R["C"["t"]]/R["C"["0"]]) == epsilon~ln~("C"["t"]/"C"["0"]
 
 
 # Lab
-coflab_label <- sprintf("epsilon == %0.1f", cof_bio)
+coflab_label <- sprintf("epsilon[lab] == %0.1f", cof_bio)
 CIlab_label = paste("\u00b1", CI_field)
 if (p_lab < 0.0001){
   plab_label <- "(P < 0.001)"
@@ -328,7 +334,7 @@ if (p_lab < 0.0001){
 # plab_label <- sprintf("P < %0.4f", p_lab)
 
 # Field
-coffield_label <- sprintf("epsilon == %0.1f", cof_field)
+coffield_label <- sprintf("epsilon[field] == %0.1f", cof_field)
 if (p_field < 0.0001){
   pfield_label <- "(P < 0.001)"
 } else if (p_field < 0.001) {
@@ -389,7 +395,7 @@ mixALL
 
 
 SAVE = F
-PC = T
+PC = F
 if (SAVE){
   if (PC){
     ggsave(mixALL, 
@@ -398,7 +404,7 @@ if (SAVE){
        width = 7, height = 3)
   } else {
     ggsave(mixALL, 
-     # filename = "/Users/DayTightChunks/Documents/PhD/Writeups/PNAS/Alteck_PNAS_LaTeX/images/LabFieldDDConc.pdf", 
+      filename = "/Users/DayTightChunks/Documents/PhD/Writeups/Journals/WaterResearch/images/LabFieldDDConc.pdf", 
       device=cairo_pdf, dpi = 600,  scale = 1, # )# ,
        width = 8.7, height = 3)
   }
@@ -410,7 +416,6 @@ if (SAVE){
 # Outlet vs. Bulk
 
 ```{r}
-
 
 WaterSoils = read.csv2("Data/WaterSoils_R.csv", header = TRUE)
 names(WaterSoils)
@@ -533,6 +538,7 @@ limits_DdC <- aes(ymin=measure-SD, ymax=measure+SD, colour = Source)
 
 lightblue = "#619CFF"
 
+wstidier2 = subset(wstidier2, Source == "Outlet" | Source == "Bulk")
 wsall <- ggplot(data = wstidier2, aes(x = Date, y = measure, group = Source, shape = Source, colour = Source) )+ 
   geom_errorbar(data=subset(wstidier2, Source == 'Bulk'), limits_DdC, size=0.2) +
   geom_errorbar(data=subset(wstidier2, Source == 'Outlet'), limits_DdC) +
@@ -560,7 +566,7 @@ wsall <- ggplot(data = wstidier2, aes(x = Date, y = measure, group = Source, sha
                      labels=c("Bulk Soils", "Outlet")
                      ) +
   scale_shape_manual(values = c(17, 16)) + 
-  scale_size_continuous(range = c(1, 6), breaks= c(0, 50, 100, 150, 200, 300), limits = c(0, 300))+
+  scale_size_continuous(range = c(1, 6), breaks= c(0, 25, 50, 100, 150, 200), limits = c(0, 300))+
   annotate("rect", xmin=mindate, xmax=maxdate, ymin=0, ymax=propagatedError, alpha=0.2) +
   guides(col = guide_legend(order = 1,
                             nrow = 2, 
@@ -582,21 +588,51 @@ wsall <- ggplot(data = wstidier2, aes(x = Date, y = measure, group = Source, sha
                              # title.vjust = .26
                              #keyheight = 0,
                              #label.vjust = 0
-                              )) +
-  # Applications
-  annotate("text", x = as.POSIXct('2016-03-28 08:04:00'), y = 0, 
-           label = as.character(expression(paste( "+"))), parse = T, size = 7.0) +
-  annotate("text", x = as.POSIXct('2016-04-05 00:04:00'), y = 0, 
-           label = as.character(expression(paste( "+"))), parse = T, size = 7.0) +
-  annotate("text", x = as.POSIXct('2016-04-13 08:04:00'), y = 0, 
-           label = as.character(expression(paste( "+"))), parse = T, size = 7.0) +
-  annotate("text", x = as.POSIXct('2016-05-25 08:04:00'), y = 0, 
-           label = as.character(expression(paste( "+"))), parse = T, size = 7) +
-  # Title applics
-  annotate("text", x = as.POSIXct('2016-04-05 08:04:00'), y = 4, 
-           label = as.character(expression(paste( "+"))), parse = T, size = 7.0) +
-   annotate("text", x = as.POSIXct('2016-04-12 08:04:00'), y = 4, 
-           label = as.character(expression(paste(" Applications"))), parse = T, size = 5.0) 
+                              ))
+
+APPS = T
+if (APPS){
+  wsall = wsall +
+    # Title Applications
+    annotate("text", x = as.POSIXct('2016-04-04 08:04:00'), y = 4, 
+             label = as.character(expression(paste("Applications"))), parse = T, size = 5.0)  +
+    annotate("text", x = as.POSIXct('2016-04-12 00:04:00'), y = 3.95, 
+             label = as.character(expression(paste( "*"))), parse = T, size = 8.0) +
+    # 1st app
+    annotate("text", x = as.POSIXct('2016-03-26 01:04:00'), y = 3.5, 
+             label = as.character(expression(paste( "*"))), parse = T, size = 8.0) +
+    geom_segment(aes(x = as.POSIXct('2016-03-26 01:04:00'), 
+                     y = 3.3, 
+                     xend = as.POSIXct('2016-03-26 01:04:00'), yend = 2.8), color = "black",
+                 arrow = arrow(length = unit(0.2, "cm"))) +
+    # 2nd App
+    annotate("text", x = as.POSIXct('2016-04-13 08:04:00'), y = 3.5, 
+           label = as.character(expression(paste( "*"))), parse = T, size = 8.0) +
+    geom_segment(aes(x = as.POSIXct('2016-04-13 08:04:00'), 
+                     y = 3.3, 
+                     xend = as.POSIXct('2016-04-13 08:04:00'), yend = 2.8), color = "black", 
+                 arrow = arrow(length = unit(0.2, "cm"))) +
+    # 3rd App
+    annotate("text", x = as.POSIXct('2016-05-25 08:04:00'), y = 3.5, 
+           label = as.character(expression(paste( "*"))), parse = T, size = 8.0) +
+    geom_segment(aes(x = as.POSIXct('2016-05-25 08:04:00'), 
+                     y = 3.3, 
+                     xend = as.POSIXct('2016-05-25 08:04:00'), yend = 2.8), color = "black", 
+                 arrow = arrow(length = unit(0.2, "cm"))) +
+    
+    # Higher Qmean
+    annotate("text", x = as.POSIXct('2016-05-15 08:04:00'), y = .5, 
+           label = as.character(expression(paste( "Higher ", "Q"['mean']))), parse = T, size = 5.0) +
+    geom_segment(aes(x = as.POSIXct('2016-05-12 08:04:00'), 
+                     y = 0.2, 
+                     xend = maxdate, yend = 0.2), color = "black", 
+                 arrow = arrow(length = unit(0.2, "cm")))
+  
+    
+  
+}
+
+  
 
 
 
@@ -608,11 +644,11 @@ if (MODEL){
                           (Source == "Outlet" 
                            # & Event > 1 
                            & Type == "Dissolved (Outlet)")), 
-              method = "lm", formula = y ~ x, se = F, aes(colour = 'Outlet'), alpha = 0.9, size=0.2) +
+              method = "lm", formula = y ~ x, se = F, aes(colour = 'Outlet'), alpha = 0.9, size=0.2, linetype="dashed") +
   # Bulk
   stat_smooth(data=subset(wstidier2,
                           (Source == "Bulk" )), #| Source == "South" )), 
-              method = "lm", formula = y ~ x, se = F, aes(colour = 'Bulk'), alpha = 0.2, size=0.2)
+              method = "lm", formula = y ~ x, se = F, aes(colour = 'Bulk'), alpha = 0.2, size=0.2, linetype="dashed")
 }
 
 wsall
@@ -635,6 +671,7 @@ ws <- ggplot(data = wstidier3, aes(x = Date, y = measure, group = Source, shape 
                      breaks=c("Bulk Soils", "Outlet"),
                      labels=c("Bulk Soils", "Outlet")
                      ) +
+  scale_size_continuous(range = c(1, 6), breaks= c(0, 25, 50, 100, 150, 200), limits = c(0, 300))+
   scale_shape_manual(values = c(17, 16)) + 
   theme(text = element_text(size=17),
         legend.position="bottom"
@@ -643,8 +680,8 @@ ws <- ggplot(data = wstidier3, aes(x = Date, y = measure, group = Source, shape 
         ) +
   guides(size = guide_legend(order = 3, 
                              #title=expression("Mean Discharge"), 
-                             title=expression(paste("Q"['mean'], " (" ~m^3 / h~")" )) 
-                             #nrow=2, 
+                             title=expression(paste("Q"['mean'], " (" ~m^3 / h~")" )), 
+                             nrow=1
                              #title.position = "left"
                              # title.vjust = .26
                              #keyheight = 0,
@@ -670,7 +707,7 @@ wsfin
 
 
 SAVE = T
-PC = T
+PC = F
 if (SAVE){
   if (PC){
     ggsave(wsfin, 
@@ -679,7 +716,7 @@ if (SAVE){
         width = 11.4, height = 6.4)
   } else {
     ggsave(wsfin, 
-     # filename = "/Users/DayTightChunks/Documents/PhD/Writeups/PNAS/Alteck_PNAS_LaTeX/images/LabFieldDDConc.pdf", 
+     filename = "/Users/DayTightChunks/Documents/PhD/Writeups/Journals/WaterResearch/images/CatchOutlet.pdf", 
       device=cairo_pdf, dpi = 600,  scale = 1, # )# ,
         width = 11.4, height = 6.4)
   }
