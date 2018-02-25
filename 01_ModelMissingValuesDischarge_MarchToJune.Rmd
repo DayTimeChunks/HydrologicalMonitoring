@@ -93,9 +93,9 @@ The **Zoo** package is one of the few packages (i.e. also **forecast**) where in
 Missing values (NAs) are replaced by linear interpolation using the na.approx function.
 
 ```{r}
-
-hydroAlteck2016_na$Qapprox = na.approx(hydroAlteck2016_na$Qna)
-head(hydroAlteck2016_na)
+hydroAlteck2016_na$Qna[nrow(hydroAlteck2016_na)] = 0
+  hydroAlteck2016_na$Qapprox = na.approx(hydroAlteck2016_na$Qna)
+  head(hydroAlteck2016_na)
 
 interpol <- ggplot(hydroAlteck2016_na, aes(Date)) + 
   theme_bw() +
@@ -110,6 +110,7 @@ interpol <- ggplot(hydroAlteck2016_na, aes(Date)) +
   #                  , ylim = c(0, 100)
   #                  )  
 interpol
+
 
                 
 ```
@@ -265,7 +266,21 @@ filt <- KalmanRun(hydroAlteck2016_na$Qinter, struct1$model)
 #plot(unlist(filt))
 ```
 
-Stuck trying to filter the data base donthe model...
+Stuck trying to filter the data based on the model... skipping now.
+
+# Variable to Use
+```{r}
+altp <- ggplot(hydroAlteck2016, aes(x=Date, y=Q.HW1))
+altp <- altp + geom_line(colour = "blue") +
+  theme_bw() +
+  scale_x_datetime(breaks = date_breaks("weeks"), labels = date_format("%d/%m")) +
+  theme(axis.text.x=element_text(angle = 45, hjust = 0.75)) +
+  xlab("") +
+  ylab(expression(paste("Q ",({m}^"3"/h)))) +
+  scale_y_continuous(trans=log_trans(), breaks=c(1,10,100,1000))
+
+altp
+```
 
 
 

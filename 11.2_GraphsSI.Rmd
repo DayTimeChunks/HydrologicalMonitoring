@@ -84,6 +84,7 @@ Convert rainfall data [$mm$] to the same units as discharge [$m^3/h$]
 
 ```{r}
 ch$Rain.mm = ifelse(is.na(ch$Rain.mm), 0, ch$Rain.mm)
+# ch$Rain.mm = round(ch$Rain.mm, 0)
 ch$Q.HW1 = ifelse(is.na(ch$Q.HW1), 0, ch$Q.HW1)
 
 # Catchment area
@@ -96,7 +97,7 @@ sum(is.na(ch$Q.HW1))
 maxRange <- 1*(max(ch$precip_m3) + max(ch$Q.HW1)) - 800
 
 # Create a function to backtransform the axis labels for precipitation
-precip_labels <- function(x) {round( ((x / area) * 10^3), digits = 2) } # X will be precip_m3 -> convert to mm
+precip_labels <- function(x) {round( ((x / area) * 10^3), digits = 0) } # X will be precip_m3 -> convert to mm
 
 lims <- as.POSIXct(strptime(c("2016-03-25 00:04:00","2016-07-12 01:00:00"), format = "%Y-%m-%d %H:%M"))    
 
@@ -206,6 +207,10 @@ pd <- position_dodge(0.5) # move them .05 to the left and right
 # xlims = xlim(as.POSIXct('2016-03-25 00:04:00', tz = 'EST'), as.POSIXct('2016-07-12 01:00:00', tz = 'EST') )
 
 tags = FALSE
+lila = "#C77CFF"
+#blue = "#00BFC4"
+blue = "#619CFF"
+green = "#00BA38"
 
 co = ggplot(weeklySoil[4:48, ], 
            aes(x=Date.ti, y=Conc.mug.g.dry.soil, colour=Transect, group = Transect)) + 
@@ -258,7 +263,14 @@ co = ggplot(weeklySoil[4:48, ],
                    xend = as.POSIXct('2016-05-26 08:04:00'), yend = 0), color = "black", 
                arrow = arrow(length = unit(0.2, "cm"))) +
   guides(col = guide_legend(nrow = 3, title.position = "top")) +
-  scale_x_datetime(limits = lims, breaks = date_breaks("2 weeks"), labels = date_format("%b %d"))
+  scale_x_datetime(limits = lims, breaks = date_breaks("2 weeks"), labels = date_format("%b %d")) +
+  scale_color_manual(name= "Transect", 
+                     values = c(lila, green, blue),
+                     breaks=c("North" , "Valley" ,"South"),
+                     labels=c("North" , "Valley" ,"South")
+                    )
+
+
 
 if (tags){
   co + geom_text_repel(aes(label=as.factor(Wnum)),
@@ -291,7 +303,7 @@ moltenSoil = read.csv2("Data/moltenDB_R.csv", header = TRUE, sep = ",", dec = ".
 moltenSoil$Date = as.POSIXct(moltenSoil$Date, "%Y-%m-%d %H:%M", tz = "EST")
 
 moltenSoil$DB_max = ifelse(moltenSoil$DB_max < 0, NA, moltenSoil$DB_max) 
-moltenSoil$DB_max = ifelse(moltenSoil$DB_max > 1, NA, moltenSoil$DB_max) 
+moltenSoil$DB_max = ifelse(moltenSoil$DB_max > 2, NA, moltenSoil$DB_max) 
 mSoils = melt(moltenSoil, id=c("Date", "Transect"))
 
 mSoils$Transect = as.character(mSoils$Transect)
@@ -317,7 +329,12 @@ DBLeg = ggplot(data = mSoils , aes(x=Date, y=value, shape=variable))+
         ylab(expression(atop("D*/B*"))) +
         # facet_wrap(~Transect, nrow = 3) +
         xlab("Date") +
-        scale_x_datetime(limits = lims, breaks = date_breaks("2 weeks"), labels = date_format("%b %d"))
+        scale_x_datetime(limits = lims, breaks = date_breaks("2 weeks"), labels = date_format("%b %d")) +
+  scale_color_manual(name= "Transect", 
+                     values = c(lila, green, blue),
+                     breaks=c("North" , "Valley" ,"South"),
+                     labels=c("North" , "Valley" ,"South")
+                    )
 
 db_leg = get_legend(DBLeg)
 
@@ -336,10 +353,178 @@ DB = ggplot(data = mSoils , aes(x=Date, y=value, colour=Transect, shape=variable
         ylab(expression(atop("D*/B*"))) +
         # facet_wrap(~Transect, nrow = 3) +
         xlab("Date") +
-        scale_x_datetime(limits = lims, breaks = date_breaks("2 weeks"), labels = date_format("%b %d"))
+        scale_x_datetime(limits = lims, breaks = date_breaks("2 weeks"), labels = date_format("%b %d"))+
+  scale_color_manual(name= "Transect", 
+                     values = c(lila, green, blue),
+                     breaks=c("North" , "Valley" ,"South"),
+                     labels=c("North" , "Valley" ,"South")
+                    )
+  
 
 DB
 ```
+
+
+## All four graphs together
+
+```{r}
+
+hy_noLeg <- hy + theme(legend.position = 'none')
+out_noLeg = out +  theme(legend.position = 'none')
+co_noLeg = co +  theme(legend.position = 'none')
+
+out_leg <- get_legend(out)
+co_leg <- get_legend(co)
+
+db_noLeg = DB + theme(legend.position = 'none')
+
+grid3 = plot_grid(
+      hy_noLeg, 
+      out_noLeg,
+      co_noLeg,
+      db_noLeg,
+      # sources_noLeg,
+      ncol = 1,
+      align = 'v')
+
+ml3 = ggdraw() +
+  draw_plot(grid3, x=0.02, y = 0.0, width = 0.95, height = .95) +
+  draw_plot(out_leg, x=(0.54 ), y = 0.56, width = .8, height = 0.1) +
+  draw_plot(co_leg, x=(0.54 ), y = 0.32, width = .8, height = 0.1) +
+  draw_plot(db_leg, x=(0.54) , y = 0.08, width = .8, height = 0.1) +
+  
+  draw_label("A", x= 0.94, y = .93, size = 12, fontface = "bold") +
+  draw_label("B", x= 0.94, y = .69, size = 12, fontface = "bold") +
+  draw_label("C", x= 0.94, y = .47, size = 12, fontface = "bold") +
+  draw_label("D", x= 0.94, y = .23, size = 12, fontface = "bold")
+ml3
+```
+
+## Save
+
+```{r}
+SAVE = T
+PC = T
+if (SAVE){
+  if (PC){
+      ggsave(ml3, 
+           filename = "D:/Documents/these_pablo/WriteUp/Images/multilevel4.pdf", 
+           device = "pdf", dpi = 600,  scale = 1, # )# ,
+           width = 7, height = 10)
+    } else {
+      ggsave(ml3, 
+         filename = "/Users/DayTightChunks/Documents/PhD/Writeups/Journals/WaterResearch/images/multilevel4.pdf", 
+         device=cairo_pdf, dpi = 600,  scale = 1, # )# ,
+         width = 7, height = 10)
+    }
+  }
+```
+
+
+
+
+# Sources (Box Plot)
+
+```{r}
+# Water and soils transposed data
+WaterSoils <- read.csv2("Data/WaterSoils_R.csv")
+WaterSoils$Date.ti = as.POSIXct(strptime(WaterSoils$Date.ti,
+                                 "%Y-%m-%d %H:%M", tz="EST") )
+sum(is.na(WaterSoils$Date.ti))
+# View(WaterSoils)
+# Concnetrations to plot as box plot
+keepDDtest <- c(
+  "Date.ti",
+  "diss.d13C.x", # "DD13C.diss",
+  "comp.d13C.North", "comp.d13C.Talweg", "comp.d13C.South" #,
+  #"DD13C.North", "DD13C.Talweg", "DD13C.South"
+)
+
+ws <- WaterSoils[, colnames(WaterSoils) %in% keepDDtest]
+ws <- melt(ws, id="Date.ti")
+
+ws$Source <- ifelse(ws$variable == "diss.d13C.x" , "Outlet",
+                    ifelse(ws$variable == "comp.d13C.South", "South",
+                           ifelse(ws$variable == "comp.d13C.Talweg", "Valley", 
+                                  ifelse(ws$variable == "comp.d13C.North", "North", NA 
+                    ))))
+
+ws$Season = ifelse(ws$Date.ti > as.POSIXct('2016-05-25 00:06:00', tz = 'EST'), "Late", "Early")
+
+ws$Group4 <- ifelse(ws$variable == "diss.d13C.x" & # Outlet
+                                   ws$Date.ti > as.POSIXct('2016-05-25 00:06:00', tz = 'EST'), "Outlet(Late)",
+                                 ifelse(ws$variable == "diss.d13C.x" & 
+                                   ws$Date.ti <= as.POSIXct('2016-05-25 00:06:00', tz = 'EST'), "Outlet(Early)",
+                                 # South
+                                 ifelse(ws$variable == "comp.d13C.South" & 
+                                   ws$Date.ti < as.POSIXct('2016-05-25 00:06:00', tz = 'EST'), "South(Early)",
+                                   ifelse(ws$variable == "comp.d13C.South" & 
+                                     ws$Date.ti > as.POSIXct('2016-05-25 00:06:00', tz = 'EST'), "South(Late)",
+                                # Valley
+                                     ifelse(ws$variable == "comp.d13C.Talweg" & 
+                                   ws$Date.ti < as.POSIXct('2016-05-25 00:06:00', tz = 'EST'), "Valley(Early)",
+                                   ifelse(ws$variable == "comp.d13C.Talweg" & 
+                                     ws$Date.ti > as.POSIXct('2016-05-25 00:06:00', tz = 'EST'), "Valley(Late)",
+                                 # North
+                                     ifelse(ws$variable == "comp.d13C.North" & 
+                                   ws$Date.ti < as.POSIXct('2016-05-25 00:06:00', tz = 'EST'), "North(Early)",
+                                   ifelse(ws$variable == "comp.d13C.North" & 
+                                     ws$Date.ti > as.POSIXct('2016-05-25 00:06:00', tz = 'EST'), "North(Late)", NA
+                                  ))))))))
+
+ws$Source = factor(ws$Source, levels = c( "Outlet",  "Valley", "North", "South"))
+levels(ws$Source)
+ws$Source = as.factor(ws$Source)
+
+sources <- ggplot(ws, aes(Source, value)) + 
+  geom_boxplot(aes(colour=Season)) + 
+  theme_minimal() +
+  
+  # guides(col = guide_legend(nrow = 2)) +
+  #theme(axis.text.x=element_text(angle = 45, hjust = 1) ,
+        #axis.text.x=element_blank(),
+        #axis.title.x=element_blank(),
+        # legend.position="bottom"
+  #      )+
+  # ylab(expression(paste('S-met ', {delta}^"13","C", ' (\u2030)'))) 
+  ylab(expression(atop(paste({delta}^"13","C", '  S-met '), paste({' (\u2030)'} )))) 
+
+sources_big = sources + theme(text = element_text(size=17))
+
+sources_big
+  
+late = subset(ws, Date.ti > as.POSIXct('2016-05-25 00:06:00', tz = 'EST'))
+early = subset(ws, Date.ti <= as.POSIXct('2016-05-25 00:06:00', tz = 'EST'))
+  
+# Non-parameteric
+# Reject Ho that pop. means are the same if low p-value
+earlyGr4 <- kruskal.test(value ~ as.factor(Group4), data = early) 
+earlyGr4 # result is high p value, thus cannot reject that pop. are the same (therefore, no difference)
+
+lateGr4 <- kruskal.test(value ~ as.factor(Group4), data = late)
+lateGr4 # Low p-value, therefore reject Ho that groups are the same.
+
+SAVE = T
+PC = T
+if (SAVE){
+  if (PC){
+      ggsave(sources_big, 
+           filename = "D:/Documents/these_pablo/WriteUp/Images/boxplot.pdf", 
+           device = "pdf", dpi = 600,  scale = 1, # )# ,
+           width = 8.7, height = 4)
+    } else {
+      ggsave(sources_big, 
+         filename = "/Users/DayTightChunks/Documents/PhD/Writeups/Journals/WaterResearch/images/boxplot.pdf", 
+         device=cairo_pdf, dpi = 600,  scale = 1, # )# ,
+         width = 8.7, height = 4)
+    }
+}
+
+```
+
+
+
+
 
 
 
@@ -377,7 +562,7 @@ ml
 
 
 SAVE = F
-PC = F
+PC = T
 if (SAVE){
   if (PC){
       ggsave(ml, 
@@ -447,104 +632,6 @@ embeds <-
 ```
 
 
-# Sources (Plot with map)
-
-```{r}
-# Water and soils transposed data
-WaterSoils <- read.csv2("Data/WaterSoils_R.csv")
-WaterSoils$Date.ti = as.POSIXct(strptime(WaterSoils$Date.ti,
-                                 "%Y-%m-%d %H:%M", tz="EST") )
-sum(is.na(WaterSoils$Date.ti))
-# View(WaterSoils)
-# Concnetrations to plot as box plot
-keepDDtest <- c(
-  "Date.ti",
-  "diss.d13C.x", # "DD13C.diss",
-  "comp.d13C.North", "comp.d13C.Talweg", "comp.d13C.South" #,
-  #"DD13C.North", "DD13C.Talweg", "DD13C.South"
-)
-
-ws <- WaterSoils[, colnames(WaterSoils) %in% keepDDtest]
-ws <- melt(ws, id="Date.ti")
-
-ws$Source <- ifelse(ws$variable == "diss.d13C.x" , "Outlet",
-                    ifelse(ws$variable == "comp.d13C.South", "South",
-                           ifelse(ws$variable == "comp.d13C.Talweg", "Valley", 
-                                  ifelse(ws$variable == "comp.d13C.North", "North", NA 
-                    ))))
-
-ws$Season = ifelse(ws$Date.ti > as.POSIXct('2016-05-25 00:06:00', tz = 'EST'), "Late", "Early")
-
-ws$Group4 <- ifelse(ws$variable == "diss.d13C.x" & # Outlet
-                                   ws$Date.ti > as.POSIXct('2016-05-25 00:06:00', tz = 'EST'), "Outlet(Late)",
-                                 ifelse(ws$variable == "diss.d13C.x" & 
-                                   ws$Date.ti <= as.POSIXct('2016-05-25 00:06:00', tz = 'EST'), "Outlet(Early)",
-                                 # South
-                                 ifelse(ws$variable == "comp.d13C.South" & 
-                                   ws$Date.ti < as.POSIXct('2016-05-25 00:06:00', tz = 'EST'), "South(Early)",
-                                   ifelse(ws$variable == "comp.d13C.South" & 
-                                     ws$Date.ti > as.POSIXct('2016-05-25 00:06:00', tz = 'EST'), "South(Late)",
-                                # Valley
-                                     ifelse(ws$variable == "comp.d13C.Talweg" & 
-                                   ws$Date.ti < as.POSIXct('2016-05-25 00:06:00', tz = 'EST'), "Valley(Early)",
-                                   ifelse(ws$variable == "comp.d13C.Talweg" & 
-                                     ws$Date.ti > as.POSIXct('2016-05-25 00:06:00', tz = 'EST'), "Valley(Late)",
-                                 # North
-                                     ifelse(ws$variable == "comp.d13C.North" & 
-                                   ws$Date.ti < as.POSIXct('2016-05-25 00:06:00', tz = 'EST'), "North(Early)",
-                                   ifelse(ws$variable == "comp.d13C.North" & 
-                                     ws$Date.ti > as.POSIXct('2016-05-25 00:06:00', tz = 'EST'), "North(Late)", NA
-                                  ))))))))
-
-ws$Source = factor(ws$Source, levels = c( "Outlet",  "Valley", "North", "South"))
-levels(ws$Source)
-ws$Source = as.factor(ws$Source)
-
-sources <- ggplot(ws, aes(Source, value)) + 
-  geom_boxplot(aes(colour=Season)) + 
-  theme_minimal() +
-  
-  # guides(col = guide_legend(nrow = 2)) +
-  #theme(axis.text.x=element_text(angle = 45, hjust = 1) ,
-        #axis.text.x=element_blank(),
-        #axis.title.x=element_blank(),
-        # legend.position="bottom"
-  #      )+
-  # ylab(expression(paste('S-met ', {delta}^"13","C", ' (\u2030)'))) 
-  ylab(expression(atop(paste({delta}^"13","C", '  S-met '), paste({' (\u2030)'} )))) 
-
-sources_big = sources + theme(text = element_text(size=17))
-
-sources
-  
-late = subset(ws, Date.ti > as.POSIXct('2016-05-25 00:06:00', tz = 'EST'))
-early = subset(ws, Date.ti <= as.POSIXct('2016-05-25 00:06:00', tz = 'EST'))
-  
-# Non-parameteric
-# Reject Ho that pop. means are the same if low p-value
-earlyGr4 <- kruskal.test(value ~ as.factor(Group4), data = early) 
-earlyGr4 # result is high p value, thus cannot reject that pop. are the same (therefore, no difference)
-
-lateGr4 <- kruskal.test(value ~ as.factor(Group4), data = late)
-lateGr4 # Low p-value, therefore reject Ho that groups are the same.
-
-SAVE = F
-PC = F
-if (SAVE){
-  if (PC){
-      ggsave(sources, 
-           filename = "D:/Documents/these_pablo/WriteUp/WaterResearch/images/boxplot.pdf", 
-           device = "pdf", dpi = 600,  scale = 1, # )# ,
-           width = 8.7, height = 4)
-    } else {
-      ggsave(sources, 
-         filename = "/Users/DayTightChunks/Documents/PhD/Writeups/Journals/WaterResearch/images/boxplot.pdf", 
-         device=cairo_pdf, dpi = 600,  scale = 1, # )# ,
-         width = 8.7, height = 4)
-    }
-}
-
-```
 ## Grid with sources
 
 ```{r}
@@ -570,60 +657,6 @@ ml2 = ggdraw() +
   draw_label("B", x= 0.94, y = .62, size = 12, fontface = "bold") +
   draw_label("C", x= 0.94, y = .31, size = 12, fontface = "bold")
 ml2
-```
-
-## All four graphs together
-
-```{r}
-
-hy_noLeg <- hy + theme(legend.position = 'none')
-out_noLeg = out +  theme(legend.position = 'none')
-co_noLeg = co +  theme(legend.position = 'none')
-
-out_leg <- get_legend(out)
-co_leg <- get_legend(co)
-
-db_noLeg = DB + theme(legend.position = 'none')
-
-grid3 = plot_grid(
-      hy_noLeg, 
-      out_noLeg,
-      co_noLeg,
-      db_noLeg,
-      # sources_noLeg,
-      ncol = 1,
-      align = 'v')
-
-ml3 = ggdraw() +
-  draw_plot(grid3, x=0.02, y = 0.0, width = 0.95, height = .95) +
-  draw_plot(out_leg, x=(0.54 ), y = 0.56, width = .8, height = 0.1) +
-  draw_plot(co_leg, x=(0.54 ), y = 0.32, width = .8, height = 0.1) +
-  draw_plot(db_leg, x=(0.54) , y = 0.08, width = .8, height = 0.1) +
-  
-  draw_label("A", x= 0.94, y = .93, size = 12, fontface = "bold") +
-  draw_label("B", x= 0.94, y = .69, size = 12, fontface = "bold") +
-  draw_label("C", x= 0.94, y = .47, size = 12, fontface = "bold") +
-  draw_label("D", x= 0.94, y = .23, size = 12, fontface = "bold")
-ml3
-```
-## Save
-
-```{r}
-SAVE = F
-PC = F
-if (SAVE){
-  if (PC){
-      ggsave(ml3, 
-           filename = "D:/Documents/these_pablo/WriteUp/WaterResearch/images/multilevel4.pdf", 
-           device = "pdf", dpi = 600,  scale = 1, # )# ,
-           width = 7, height = 10)
-    } else {
-      ggsave(ml3, 
-         filename = "/Users/DayTightChunks/Documents/PhD/Writeups/Journals/WaterResearch/images/multilevel4.pdf", 
-         device=cairo_pdf, dpi = 600,  scale = 1, # )# ,
-         width = 7, height = 10)
-    }
-  }
 ```
 
 
@@ -714,3 +747,11 @@ if (SAVE){
 
 ```
 
+
+# Color pallette
+
+```{r}
+library(scales) 
+## Color palette
+show_col(hue_pal()(12))
+```

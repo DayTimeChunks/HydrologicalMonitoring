@@ -61,6 +61,8 @@ dischargeAlteck = dischargeAlteck[,c(3,1:2)]
 colnames(dischargeAlteck) <- c("Date", "DateCheck", "Q.m3Hrs")
 head(dischargeAlteck)
 
+dischargeAlteck = subset(dischargeAlteck, Date < as.POSIXct("2016-10-01 00:00:00", tz="EST"))
+
 ```
 
 
@@ -174,11 +176,11 @@ head(dischargeAlteck)
 ```
 
 
-
 ## Save files
 
 ```{r}
 
+# min(dischargeAlteck$Qna, na.rm = T)
 head(dischargeAlteck)
 write.csv2(dischargeAlteck, "Data/hydroAlteck2016_NAs_R.csv", row.names = FALSE)
 

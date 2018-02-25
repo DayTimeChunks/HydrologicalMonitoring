@@ -332,6 +332,7 @@ if (p_lab < 0.0001){
   plab_label <- "Check significance"
 }
 # plab_label <- sprintf("P < %0.4f", p_lab)
+# rlab_label <- paste("R^2 ==", round(summary(biotic.lm)$r.squared,1)) 
 
 # Field
 coffield_label <- sprintf("epsilon[field] == %0.1f", cof_field)
@@ -362,14 +363,14 @@ rmix = ggplot(data = subset(compare,  !is.na(yRaleigh) ), aes(x=xRaleigh, y=yRal
   annotate("text", x = -2, y = 7.5, label = formula, parse = T, size = 4, colour = "black") +
   #annotate("text", x = -1, y = 7.0, label = formula, parse = T, size = 4, colour = blue) +
   annotate("text", x = -2, y = 6.5, label = coflab_label, parse = T, size = 4, colour= blue) +
-  annotate("text", x = -0.8, y = 6.5, label= paste("\u00B1", CI_bio, "\u2030"), size = 4, colour= blue) +
+  annotate("text", x = -0.71, y = 6.6, label= paste("\u00B1", CI_bio, "\u2030"), size = 4, colour= blue) +
   annotate("text", x = -1.5, y = 5.8, label= plab_label, size = 4, colour= blue) +
 
   
   # annotate("text", x = -4, y = 2.0, label = formula, parse = T, size = 4, colour = red) +
-  annotate("text", x = -4.7, y = 1., label = coffield_label, parse = T, size = 4, colour= red) +
-  annotate("text", x = -3.5, y = 1., label= paste("\u00B1", CI_field, "\u2030"), size = 4, colour= red) +
-  annotate("text", x = -4.2, y = 0.3, label = pfield_label, parse = T, size = 4, colour = red) 
+  annotate("text", x = -4.55, y = 1., label = coffield_label, parse = T, size = 4, colour= red) +
+  annotate("text", x = -3.25, y = 1.1, label= paste("\u00B1", CI_field, "\u2030"), size = 4, colour= red) +
+  annotate("text", x = -4.15, y = 0.3, label = pfield_label, parse = T, size = 4, colour = red) 
   
 
 rmix  
@@ -395,7 +396,7 @@ mixALL
 
 
 SAVE = F
-PC = F
+PC = T
 if (SAVE){
   if (PC){
     ggsave(mixALL, 
@@ -537,6 +538,7 @@ pd <- position_dodge(width = 0.5)
 limits_DdC <- aes(ymin=measure-SD, ymax=measure+SD, colour = Source)
 
 lightblue = "#619CFF"
+lims <- as.POSIXct(strptime(c("2016-03-25 00:04:00","2016-06-28 01:00:00"), format = "%Y-%m-%d %H:%M"))   
 
 wstidier2 = subset(wstidier2, Source == "Outlet" | Source == "Bulk")
 wsall <- ggplot(data = wstidier2, aes(x = Date, y = measure, group = Source, shape = Source, colour = Source) )+ 
@@ -546,7 +548,7 @@ wsall <- ggplot(data = wstidier2, aes(x = Date, y = measure, group = Source, sha
   geom_point(data=subset(wstidier2, Source == 'Outlet'), aes(size = Qmean)) +
   #theme_minimal()+
   theme_bw()+
-  scale_x_datetime(breaks = date_breaks("2 weeks"), labels = date_format("%b %d")) +
+  scale_x_datetime(limits = lims, breaks = date_breaks("2 weeks"), labels = date_format("%b %d")) +
   theme(text = element_text(size=17),
         legend.position="top"
         #axis.title.x = element_blank()
@@ -603,22 +605,22 @@ if (APPS){
              label = as.character(expression(paste( "*"))), parse = T, size = 8.0) +
     geom_segment(aes(x = as.POSIXct('2016-03-26 01:04:00'), 
                      y = 3.3, 
-                     xend = as.POSIXct('2016-03-26 01:04:00'), yend = 2.8), color = "black",
-                 arrow = arrow(length = unit(0.2, "cm"))) +
+                     xend = as.POSIXct('2016-03-26 01:04:00'), yend = 2.6), color = "black",
+                 arrow = arrow(length = unit(0.3, "cm"))) +
     # 2nd App
     annotate("text", x = as.POSIXct('2016-04-13 08:04:00'), y = 3.5, 
            label = as.character(expression(paste( "*"))), parse = T, size = 8.0) +
     geom_segment(aes(x = as.POSIXct('2016-04-13 08:04:00'), 
                      y = 3.3, 
-                     xend = as.POSIXct('2016-04-13 08:04:00'), yend = 2.8), color = "black", 
-                 arrow = arrow(length = unit(0.2, "cm"))) +
+                     xend = as.POSIXct('2016-04-13 08:04:00'), yend = 2.6), color = "black", 
+                 arrow = arrow(length = unit(0.3, "cm"))) +
     # 3rd App
     annotate("text", x = as.POSIXct('2016-05-25 08:04:00'), y = 3.5, 
            label = as.character(expression(paste( "*"))), parse = T, size = 8.0) +
     geom_segment(aes(x = as.POSIXct('2016-05-25 08:04:00'), 
                      y = 3.3, 
-                     xend = as.POSIXct('2016-05-25 08:04:00'), yend = 2.8), color = "black", 
-                 arrow = arrow(length = unit(0.2, "cm"))) +
+                     xend = as.POSIXct('2016-05-25 08:04:00'), yend = 2.6), color = "black", 
+                 arrow = arrow(length = unit(0.3, "cm"))) +
     
     # Higher Qmean
     annotate("text", x = as.POSIXct('2016-05-15 08:04:00'), y = .5, 
@@ -626,7 +628,7 @@ if (APPS){
     geom_segment(aes(x = as.POSIXct('2016-05-12 08:04:00'), 
                      y = 0.2, 
                      xend = maxdate, yend = 0.2), color = "black", 
-                 arrow = arrow(length = unit(0.2, "cm")))
+                 arrow = arrow(length = unit(0.3, "cm")))
   
     
   
@@ -706,8 +708,8 @@ wsfin <- ggdraw() +
 wsfin 
 
 
-SAVE = T
-PC = F
+SAVE = F
+PC = T
 if (SAVE){
   if (PC){
     ggsave(wsfin, 
