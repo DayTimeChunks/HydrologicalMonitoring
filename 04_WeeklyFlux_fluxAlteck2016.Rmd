@@ -230,6 +230,12 @@ grpAlteck$SubWeeks[grpAlteck$Date >= as.POSIXct('2016-06-28 08:55:00' , tz="EST"
 grpAlteck$SubWeeks[grpAlteck$Date >= as.POSIXct('2016-07-04 14:41:00', tz="EST") & 
                            grpAlteck$Date <= as.POSIXct('2016-07-12 10:20:00', tz="EST")] = as.character('W15-1')
 
+grpAlteck$SubWeeks[grpAlteck$Date >= as.POSIXct('2016-09-08 00:00:00', tz="EST") & 
+                           grpAlteck$Date <= as.POSIXct('2016-09-08 23:59:00', tz="EST")] = as.character('W16-1')
+
+grpAlteck$SubWeeks[grpAlteck$Date >= as.POSIXct('2016-09-30 00:00:00', tz="EST") & 
+                           grpAlteck$Date <= as.POSIXct('2016-09-30 23:59:00', tz="EST")] = as.character('W17-1')
+
 head(grpAlteck)
 sum(is.na(grpAlteck$Q.m3Hrs))
 sum(is.na(grpAlteck$SubWeeks))

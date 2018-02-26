@@ -117,7 +117,7 @@ Mcorn = 2.0 * 1/10^4
 # Applications - Initial survey
 
 1. Compute the cummulative mass applied for each transect in separate tables 
-2. Compute D* and B* and evaluate required conditions
+2. Compute D\* and B\* and evaluate required conditions
 3. Determine whether $\varepsilon$ or the initial mass applied needs to be revised for each transect.
 
 ```{r}
