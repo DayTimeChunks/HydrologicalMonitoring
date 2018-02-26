@@ -239,6 +239,8 @@ out.CoIs$ti <- as.POSIXct(out.CoIs$ti, "%Y-%m-%d %H:%M", tz = "EST")
 class(out.CoIs$tf)
 sum(is.na(out.CoIs$tf))
 
+write.csv(out.CoIs, "Data/MarkerResponse_R05.csv", row.names = F)
+
 # Temprarily remove Weeks 16 & 17 (need to get discharge data)
 # No discharge data yet avaialble to multiply against...
 out.CoIs <- out.CoIs[!is.na(out.CoIs$tf), ]
@@ -279,6 +281,12 @@ out.CoIs[1, c("ExpMES.Kg")] <- out.CoIs[2, c("ExpMES.Kg")]
 
 # Assign linear approximation of trailing and leading observed values
 out.CoIs <- out.CoIs[with(out.CoIs , order(ti)), ]
+
+val = out.CoIs$Volume.m3[nrow(out.CoIs)]
+if (is.na(val)){
+  out.CoIs = out.CoIs[1:nrow(out.CoIs)-1, ]  
+}
+
 
 out.CoIs$Conc.mug.L <- na.approx(out.CoIs$Conc.mug.L)
 out.CoIs$Conc.SD <- na.approx(out.CoIs$Conc.SD)
@@ -403,6 +411,8 @@ out.CoIs$CumOutMELsm.g = cumsum(out.CoIs$MELsm.g)
 
 
 ## Application dates and masses
+
+- **IMPORTANT: This is reviewed and final in Open Rayleigh - Revised (Book 09.3)**
 
 Add the application dates and merge the total mass to the nearest discharge event
 
