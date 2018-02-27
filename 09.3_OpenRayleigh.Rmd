@@ -76,6 +76,8 @@ epsilon_streit = -1.9
 ```{r}
 
 farm = read.csv2("Data/FarmerPlots.csv", header = TRUE, dec = ".")
+# farm = read.csv2("Data/FarmerPlotsB.csv", header = TRUE, dec = ".") # Speich Late (May App)
+
 farm$Farmer = as.character(farm$Farmer)
 farm$onTrans = as.character(farm$onTrans)
 farm$Crop = as.character(farm$Crop)
@@ -123,10 +125,12 @@ Mcorn = 2.0 * 1/10^4
 ```{r}
 farm1 = farm
 farm1$appMass = ifelse(farm$Farmer == "Schmitt", farm$m2*Dcorn*DG, 
-                      ifelse(farm$Crop == "Corn", farm$m2*Mcorn*MG,
+                      ifelse(farm$Crop == "Corn", farm$m2*Mcorn*MG, # All else with Corn but not Schimdt with MG
                              ifelse(farm$Farmer == "Friess", farm$m2*Mbeet.Friess*MG, 
                                     ifelse(farm$Farmer == "Mathis", farm$m2*Mbeet.Mathis*MG,
                                            farm$m2*Mbeet*MG)))) # [g S-met]
+
+write.csv(farm1, "Data/farm_apps_R.csv", row.names = T)
 ```
 
 
