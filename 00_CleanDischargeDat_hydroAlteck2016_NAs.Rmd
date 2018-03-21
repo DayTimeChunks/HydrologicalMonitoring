@@ -50,9 +50,12 @@ getwd()
 
 dischargeAlteck = read.csv2("Data/Alteck2016Debit.csv", header = FALSE)
 
+
 dischargeAlteck$Date = as.POSIXct(strptime(dischargeAlteck$V1, 
                                            "%d/%m/%Y %H:%M", 
                                            tz="EST"))
+
+
 sum(is.na(dischargeAlteck$Date))
 
 dischargeAlteck <- dischargeAlteck[!duplicated(dischargeAlteck$V1),]
