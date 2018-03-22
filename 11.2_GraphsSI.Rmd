@@ -49,6 +49,9 @@ library("plotKML")
 ```{r}
 # Discharge and 2 min rainfall 
 hydro = read.csv2("Data/groupAlteck2016_R.csv")
+
+# hydro2 = read.csv2("Data/groupAlteck2016_Rshiny.csv")
+
 hydro$Date = as.POSIXct(strptime(hydro$DateCheck.S,
                                  "%d/%m/%Y %H:%M", tz="EST") )
 # names(hydro)
@@ -132,6 +135,66 @@ hy = ggplot(data = ch,
 hy
 ```
 
+# Hyetograph Daily
+
+```{r}
+lims <- as.POSIXct(strptime(c("2016-03-25 00:04:00","2016-07-12 01:00:00"), format = "%Y-%m-%d %H:%M"))   
+# Create a function to backtransform the axis labels for precipitation
+precip_labels <- function(x) {round( ((x / area) * 10^3), digits = 0) } # X will be precip_m3 -> convert to mm
+
+q = hydro[ , c("Date", "DateCheck", "Q.HW1", "DayMoYr", "Vol2min", "Rain.mm")]
+
+q$Q.mm = q$Vol2min*10**3/(47*10**4)
+
+qmDay <- q %>%
+  group_by(DayMoYr) %>%
+  dplyr::summarize(Q.mm = sum(Q.mm),
+                   Rain.mm = sum(Rain.mm)
+  )
+qmDay$DayMoYr = as.character(qmDay$DayMoYr)
+qmDay$Date = as.POSIXct(strptime(qmDay$DayMoYr,
+                                 "%Y-%m-%d", tz="EST") )
+qmDay$Date = qmDay$Date + 12*60*60
+qmDay$DayMoYr = NULL
+
+day = merge(q, qmDay, by = "Date", all = T)
+
+d = day[, c("Date", "Q.mm.y", "Rain.mm.y")]
+
+ggplot(data= d) +
+  geom_line(data = d[!is.na(d$Q.mm.y),], aes(x = Date, y = Q.mm.y))+
+  scale_x_datetime(limits = lims, breaks = date_breaks("2 weeks"), labels = date_format("%b %d"))
+
+# Calculate the range needed to avoid having your hyetograph and hydrograph overlap 
+maxRange <- 1*(max(d$Rain.mm.y, na.rm = T) + max(d$Q.mm.y, na.rm = T)) # - 800
+
+hy <- ggplot(data = d[!is.na(d$Q.mm.y),], aes(x = Date)) +
+  theme_minimal() + 
+  # Use geom_tile to create the inverted hyetograph. geom_tile has a bug that displays a warning message for height and width, you can ignore it.
+  geom_tile(aes(y = -1*(Rain.mm.y/2-maxRange), # y = the center point of each bar, as geom_tile uses variable as center point
+                height = Rain.mm.y,
+                width = 1
+                ),
+            fill = "gray50",
+            color = "forestgreen") +
+   theme(# axis.text.x=element_text(angle = 45, hjust = 1) 
+        # axis.text.x=element_blank(),
+        axis.title.x=element_blank()
+        #legend.position="top"
+        )+
+  scale_x_datetime(limits = lims, breaks = date_breaks("2 weeks"), labels = date_format("%b %d")) +
+  geom_line(aes(y = Q.mm.y),
+            color = "blue") +
+  # Create a second axis with sec_axis() and format the labels to display the original precipitation units.
+  # ylab(expression(atop("Conc. S-met ", paste({({mu}*g / L)} )))) +
+  scale_y_continuous(name = expression(atop("Discharge", paste("(mm/d)"))),
+                     sec.axis = sec_axis(trans = ~-1*(.-maxRange), # Equivalent to: y2 = -1*(y1 - maxRange) 
+                                         name = expression(atop("Precipitation", paste("(mm/d)"))) # ,
+                     )
+                                         # labels = precip_labels) # x here is = precip_cuft
+                     )
+hy
+```
 
 
 # Concentrations
@@ -398,6 +461,8 @@ ml3 = ggdraw() +
   draw_label("C", x= 0.94, y = .47, size = 12, fontface = "bold") +
   draw_label("D", x= 0.94, y = .23, size = 12, fontface = "bold")
 ml3
+
+
 ```
 
 ## Save
@@ -411,6 +476,7 @@ if (SAVE){
            filename = "D:/Documents/these_pablo/WriteUp/Images/multilevel4.pdf", 
            device = "pdf", dpi = 600,  scale = 1, # )# ,
            width = 7, height = 10)
+      ggsave(ml3, filename = "D:/Documents/these_pablo/WriteUp/Images/multilevel4.png", width = 7, height = 10, units = "in", scale = 1)
     } else {
       ggsave(ml3, 
          filename = "/Users/DayTightChunks/Documents/PhD/Writeups/Journals/WaterResearch/images/multilevel4.pdf", 
